@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import { Icon, LazyColumn } from '@expo/ui/jetpack-compose';
 import { padding } from '@expo/ui/jetpack-compose/modifiers';
-import { Array, Result } from 'effect';
+import { Array, Match, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 import { useRouter } from 'expo-router';
@@ -143,37 +143,46 @@ export default function ServerLibraryScreen() {
   const params = useRouteParams(LibraryParams);
   const router = useRouter();
   return Result.match(params, {
-    onFailure: () => (
-      <AndroidAccountsSheet>
-        <LazyColumn
-          contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
-          <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
-            Invalid Link
-          </Text>
-          <SegmentedList>
-            <SegmentedListItem index={0} count={2} enabled={false}>
-              <SegmentedListItem.HeadlineContent>
-                <Text>This link is invalid.</Text>
-              </SegmentedListItem.HeadlineContent>
-            </SegmentedListItem>
-            <SegmentedListItem
-              index={1}
-              count={2}
-              onClick={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace('/');
-                }
-              }}>
-              <SegmentedListItem.HeadlineContent>
-                <Text>Back</Text>
-              </SegmentedListItem.HeadlineContent>
-            </SegmentedListItem>
-          </SegmentedList>
-        </LazyColumn>
-      </AndroidAccountsSheet>
-    ),
+    onFailure: (error) =>
+      Match.value(error).pipe(
+        Match.tagsExhaustive({
+          SchemaError: () => (
+            <AndroidAccountsSheet>
+              <LazyColumn
+                contentPadding={{
+                  start: Spacing.three,
+                  end: Spacing.three,
+                  bottom: Spacing.three,
+                }}>
+                <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+                  Invalid Link
+                </Text>
+                <SegmentedList>
+                  <SegmentedListItem index={0} count={2} enabled={false}>
+                    <SegmentedListItem.HeadlineContent>
+                      <Text>This link is invalid.</Text>
+                    </SegmentedListItem.HeadlineContent>
+                  </SegmentedListItem>
+                  <SegmentedListItem
+                    index={1}
+                    count={2}
+                    onClick={() => {
+                      if (router.canGoBack()) {
+                        router.back();
+                      } else {
+                        router.replace('/');
+                      }
+                    }}>
+                    <SegmentedListItem.HeadlineContent>
+                      <Text>Back</Text>
+                    </SegmentedListItem.HeadlineContent>
+                  </SegmentedListItem>
+                </SegmentedList>
+              </LazyColumn>
+            </AndroidAccountsSheet>
+          ),
+        })
+      ),
     onSuccess: ({ id }) => <LibraryDetails key={id} id={id} />,
   });
 }

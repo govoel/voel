@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Button, Host, List, Section } from '@expo/ui/swift-ui';
 import { disabled, frame, headerProminence } from '@expo/ui/swift-ui/modifiers';
-import { Array, Result } from 'effect';
+import { Array, Match, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 import { Stack, useRouter } from 'expo-router';
@@ -132,28 +132,33 @@ export default function ServerLibraryScreen() {
   const params = useRouteParams(LibraryParams);
   const router = useRouter();
   return Result.match(params, {
-    onFailure: () => (
-      <>
-        <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
-        <Host style={{ flex: 1 }}>
-          <List modifiers={[frame({ maxHeight: Infinity })]}>
-            <Section>
-              <Text>This link is invalid.</Text>
-              <Button
-                onPress={() => {
-                  if (router.canGoBack()) {
-                    router.back();
-                  } else {
-                    router.replace('/');
-                  }
-                }}>
-                <Text>Back</Text>
-              </Button>
-            </Section>
-          </List>
-        </Host>
-      </>
-    ),
+    onFailure: (error) =>
+      Match.value(error).pipe(
+        Match.tagsExhaustive({
+          SchemaError: () => (
+            <>
+              <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
+              <Host style={{ flex: 1 }}>
+                <List modifiers={[frame({ maxHeight: Infinity })]}>
+                  <Section>
+                    <Text>This link is invalid.</Text>
+                    <Button
+                      onPress={() => {
+                        if (router.canGoBack()) {
+                          router.back();
+                        } else {
+                          router.replace('/');
+                        }
+                      }}>
+                      <Text>Back</Text>
+                    </Button>
+                  </Section>
+                </List>
+              </Host>
+            </>
+          ),
+        })
+      ),
     onSuccess: ({ id }) => <LibraryDetails key={id} id={id} />,
   });
 }

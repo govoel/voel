@@ -5,13 +5,18 @@ import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
 import { Library, LibraryNotFoundError } from '@repo/spec-api/domains/library/schema.ts';
+import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import {
   deleteLibrary,
+  libraryFailureMessage,
+  libraryStorageDetails,
+  libraryStorageErrors,
   listLibrariesAtom,
   serverLibraryAtom,
+  storageProviderLabel,
 } from '#src/domains/library/management.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -59,6 +64,9 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         yield* Atom.mount(query);
         const empty = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(empty).toBeInstanceOf(Cause.NoSuchElementError);
+        expect(libraryFailureMessage({ error: empty })).toBe(
+          'Unable to load libraries. Try again.'
+        );
 
         const created = yield* client.library.create({ payload: createInput('Only library') });
         yield* Atom.refresh(query);
@@ -106,6 +114,36 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           name: target.name,
           storagePluginHealth: { status: 'healthy' },
         });
+        expect(storageProviderLabel(loaded)).toBe('Local folders');
+        expect(libraryStorageDetails({ library: loaded })).toEqual([
+          { label: 'Provider', value: 'Local folders' },
+          { label: 'Plugin status', value: 'Built successfully' },
+        ]);
+        expect(libraryStorageErrors({ library: loaded })).toEqual([]);
+        const custom = {
+          ...loaded,
+          storagePluginId: Library.json.fields.storagePluginId.make('npm:test'),
+          storagePluginHealth: { status: 'unknown' as const },
+        };
+        expect(storageProviderLabel(custom)).toBe('Custom plugin');
+        expect(libraryStorageDetails({ library: custom })).toEqual([
+          { label: 'Provider', value: 'Custom plugin' },
+          { label: 'Plugin ID', value: 'npm:test' },
+          { label: 'Plugin status', value: 'Not checked' },
+        ]);
+        expect(libraryStorageErrors({ library: custom })).toEqual([]);
+        const failure = PluginLoadError.make({ message: 'Plugin unavailable' });
+        expect(
+          libraryStorageErrors({
+            library: {
+              ...custom,
+              storagePluginHealth: {
+                status: 'unhealthy',
+                errors: [failure, failure, PluginLoadError.make({ message: '' })],
+              },
+            },
+          })
+        ).toEqual(['Plugin unavailable', 'Unable to construct the storage plugin.']);
         yield* deleteLibrary({ account: account.key, id: target.id });
         yield* deleteLibrary({ account: account.key, id: target.id });
         const changed = yield* Atom.toStreamResult(query).pipe(
@@ -117,6 +155,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(Array.some(refreshed.items, (item) => item.id === target.id)).toBe(false);
         const deleted = yield* Atom.getResult(detail, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(deleted).toBeInstanceOf(LibraryNotFoundError);
+        expect(libraryFailureMessage({ error: deleted })).toBe('This library no longer exists.');
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )
@@ -160,6 +199,9 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const [, user] = yield* signInTestServerUsers(manager, server);
         const denied = yield* Atom.getResult(listLibrariesAtom(user.key)).pipe(Effect.flip);
         expect(denied).toBeInstanceOf(ForbiddenError);
+        expect(libraryFailureMessage({ error: denied })).toBe(
+          'Only server administrators can manage libraries.'
+        );
         const detailDenied = yield* Atom.getResult(
           serverLibraryAtom({
             account: user.key,

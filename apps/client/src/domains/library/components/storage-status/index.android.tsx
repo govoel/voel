@@ -10,18 +10,12 @@ import { storageStatusLabel } from '#src/domains/library/management.ts';
 
 export const StorageStatus = (({ status }) => {
   const colors = useMaterialColors();
-  return (
-    <Icon
-      source={Match.value(status).pipe(
-        Match.literalsExhaustive({
-          healthy: () => Check,
-          unknown: () => Help,
-          unhealthy: () => Warning,
-        })
-      )}
-      size={20}
-      tint={status === 'unhealthy' ? colors.error : colors.onSurfaceVariant}
-      contentDescription={storageStatusLabel({ status })}
-    />
+  const appearance = Match.value(status).pipe(
+    Match.literalsExhaustive({
+      healthy: () => ({ source: Check, tint: colors.onSurfaceVariant }),
+      unknown: () => ({ source: Help, tint: colors.onSurfaceVariant }),
+      unhealthy: () => ({ source: Warning, tint: colors.error }),
+    })
   );
+  return <Icon {...appearance} size={20} contentDescription={storageStatusLabel({ status })} />;
 }) satisfies StorageStatusComponent;

@@ -103,14 +103,22 @@ export default function ServerLibrariesScreen() {
                     message="No libraries yet. Create a library to get started."
                   />
                 )),
-                Match.orElse((failure) => (
-                  <ListState
-                    kind="error"
-                    message={libraryFailureMessage({ error: failure })}
-                    onRetry={refresh}
-                    retrying={libraries.waiting}
-                  />
-                ))
+                Match.tag(
+                  'UnauthorizedError',
+                  'ForbiddenError',
+                  'SchemaError',
+                  'HttpClientError',
+                  'BetterAuthClientInitializationError',
+                  (failure) => (
+                    <ListState
+                      kind="error"
+                      message={libraryFailureMessage({ error: failure })}
+                      onRetry={refresh}
+                      retrying={libraries.waiting}
+                    />
+                  )
+                ),
+                Match.exhaustive
               ),
             onDefect: () => (
               <ListState

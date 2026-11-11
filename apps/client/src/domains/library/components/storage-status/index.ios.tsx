@@ -5,20 +5,27 @@ import { Match } from 'effect';
 import type { StorageStatusComponent } from '#src/domains/library/components/storage-status';
 import { storageStatusLabel } from '#src/domains/library/management.ts';
 
-export const StorageStatus = (({ status }) => (
-  <Icon
-    name={Match.value(status).pipe(
-      Match.literalsExhaustive({
-        healthy: () => 'checkmark' as const,
-        unknown: () => 'questionmark.circle' as const,
-        unhealthy: () => 'exclamationmark.triangle' as const,
-      })
-    )}
-    modifiers={[
-      accessibilityLabel(storageStatusLabel({ status })),
-      foregroundStyle(
-        status === 'unhealthy' ? 'orange' : { type: 'hierarchical', style: 'secondary' }
-      ),
-    ]}
-  />
-)) satisfies StorageStatusComponent;
+export const StorageStatus = (({ status }) => {
+  const appearance = Match.value(status).pipe(
+    Match.literalsExhaustive({
+      healthy: () => ({
+        name: 'checkmark' as const,
+        style: { type: 'hierarchical' as const, style: 'secondary' as const },
+      }),
+      unknown: () => ({
+        name: 'questionmark.circle' as const,
+        style: { type: 'hierarchical' as const, style: 'secondary' as const },
+      }),
+      unhealthy: () => ({ name: 'exclamationmark.triangle' as const, style: 'orange' as const }),
+    })
+  );
+  return (
+    <Icon
+      name={appearance.name}
+      modifiers={[
+        accessibilityLabel(storageStatusLabel({ status })),
+        foregroundStyle(appearance.style),
+      ]}
+    />
+  );
+}) satisfies StorageStatusComponent;

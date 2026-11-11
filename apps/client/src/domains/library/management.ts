@@ -2,6 +2,7 @@ import { Array, Effect, Match, Option, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import type { Library, StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
+import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
 import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
@@ -65,15 +66,15 @@ export const libraryFailureMessage = ({
     | Effect.Error<ReturnType<typeof deleteLibrary>>;
 }) =>
   Match.value(error).pipe(
-    Match.tags({
+    Match.tagsExhaustive({
       UnauthorizedError: () => 'Your session has expired. Sign in again.',
       ForbiddenError: () => 'Only server administrators can manage libraries.',
       LibraryNotFoundError: () => 'This library no longer exists.',
       SchemaError: () => 'The server returned an invalid library response.',
       HttpClientError: () => 'Unable to reach the server. Check your connection and try again.',
       BetterAuthClientInitializationError: (failure) => authFailureMessage({ error: failure }),
-    }),
-    Match.orElse(() => 'Unable to load libraries. Try again.')
+      NoSuchElementError: () => 'Unable to load libraries. Try again.',
+    })
   );
 
 export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Type, 'type'>) =>
@@ -87,7 +88,11 @@ export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Type, 'type'>)
 export const storageProviderLabel = ({
   storagePluginId,
 }: Pick<typeof Library.json.Type, 'storagePluginId'>) =>
-  storagePluginId === 'builtin:local' ? 'Local folders' : 'Custom plugin';
+  Match.value(storagePluginId).pipe(
+    Match.when('builtin:local', () => 'Local folders'),
+    Match.when(NpmPluginId.is, () => 'Custom plugin'),
+    Match.exhaustive
+  );
 
 export const storageStatusLabel = ({
   status,
@@ -117,9 +122,11 @@ export const libraryStorageDetails = ({
   readonly library: Atom.Success<ReturnType<typeof serverLibraryAtom>>;
 }) => [
   { label: 'Provider', value: storageProviderLabel(library) },
-  ...(library.storagePluginId === 'builtin:local'
-    ? []
-    : [{ label: 'Plugin ID', value: library.storagePluginId }]),
+  ...Match.value(library.storagePluginId).pipe(
+    Match.when('builtin:local', () => []),
+    Match.when(NpmPluginId.is, (value) => [{ label: 'Plugin ID', value }]),
+    Match.exhaustive
+  ),
   { label: 'Plugin status', value: storageStatusLabel(library.storagePluginHealth) },
 ];
 
@@ -128,11 +135,12 @@ export const libraryStorageErrors = ({
 }: {
   readonly library: Atom.Success<ReturnType<typeof serverLibraryAtom>>;
 }) =>
-  library.storagePluginHealth.status === 'unhealthy'
-    ? Array.dedupe(
-        Array.map(
-          library.storagePluginHealth.errors,
-          (error) => error.message || 'Unable to construct the storage plugin.'
-        )
+  Match.value(library.storagePluginHealth).pipe(
+    Match.discriminator('status')('healthy', 'unknown', () => []),
+    Match.discriminator('status')('unhealthy', ({ errors }) =>
+      Array.dedupe(
+        Array.map(errors, (error) => error.message || 'Unable to construct the storage plugin.')
       )
-    : [];
+    ),
+    Match.exhaustive
+  );
