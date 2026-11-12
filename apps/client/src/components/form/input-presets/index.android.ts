@@ -6,6 +6,7 @@ import type {
 } from '#src/components/form/input-presets/index.ts';
 
 export const textInputPresets = {
+  text: { keyboardType: 'text', capitalization: 'none', autoCorrectEnabled: false },
   name: { capitalization: 'words', keyboardType: 'text' },
   username: { keyboardType: 'ascii', capitalization: 'none', autoCorrectEnabled: false },
   email: { keyboardType: 'email', capitalization: 'none', autoCorrectEnabled: false },

@@ -10,7 +10,11 @@ export type TextFieldComponent = ComponentType<{
   placeholder: string;
   platformProps?:
     | { ios: Omit<SwiftTextFieldProps, 'placeholder'> }
-    | { android: Omit<ComposeTextFieldProps, 'visualTransformation'> };
+    | {
+        android: Omit<ComposeTextFieldProps, 'visualTransformation'> & {
+          variant?: 'filled' | 'outlined';
+        };
+      };
 }>;
 
 export declare const TextField: TextFieldComponent;

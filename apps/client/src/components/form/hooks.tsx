@@ -13,7 +13,7 @@ import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
 import { useContext, useMemo, useRef } from 'react';
-import type { ComponentProps, ComponentType, Context } from 'react';
+import type { ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
@@ -184,28 +184,6 @@ type EffectSchemaInternalFormOptions<
       } & EffectSchemaSubmissionOptions<void, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices>)
   );
 
-// TanStack exposes AppField as a component whose props are inferred through any-based
-// React component helpers. Preserve that inference while only removing validator props.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AppFieldWithoutValidators<TAppField extends ComponentType<any>> = ComponentType<
-  Omit<ComponentProps<TAppField>, 'validators'>
->;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FormWithoutFieldValidators<TForm extends { readonly AppField: ComponentType<any> }> = Omit<
-  TForm,
-  'AppField'
-> & {
-  readonly AppField: AppFieldWithoutValidators<TForm['AppField']>;
-};
-
-const withoutFieldValidators = <
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  TForm extends { readonly AppField: ComponentType<any> },
->(
-  form: TForm
-): FormWithoutFieldValidators<TForm> => form;
-
 export const createEffectSchemaFormHook = <
   TServices,
   // TanStack's createFormHook preserves each component's actual props through an any-based
@@ -252,23 +230,21 @@ export const createEffectSchemaFormHook = <
       TSubmitMeta,
       TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
     >
-  ): FormWithoutFieldValidators<
-    AppFieldExtendedReactFormApi<
-      TEncoded,
-      undefined,
-      undefined,
-      StandardSchemaV1<TEncoded, unknown> | undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      TSubmitMeta,
-      TFieldComponents,
-      TFormComponents
-    >
+  ): AppFieldExtendedReactFormApi<
+    TEncoded,
+    undefined,
+    undefined,
+    StandardSchemaV1<TEncoded, unknown> | undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    TSubmitMeta,
+    TFieldComponents,
+    TFormComponents
   >;
   function useAppForm<TType, TEncoded, TSuccess, TFailure, TEncodingServices, TSubmitMeta>(
     options: EffectSchemaInternalFormOptions<
@@ -370,7 +346,7 @@ export const createEffectSchemaFormHook = <
       };
     }, [form, setSubmissionError]);
 
-    return withoutFieldValidators(Object.assign(form, { reset }));
+    return Object.assign(form, { reset });
   }
 
   return { ...formHook, useAppForm };

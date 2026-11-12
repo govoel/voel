@@ -89,6 +89,7 @@ vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove: () =>
 vi.mock('expo-router', () => ({
   Stack: { Screen: { Title: ({ children }: PropsWithChildren) => <Text>{children}</Text> } },
   useRouter: () => navigation,
+  useFocusEffect: useEffect,
   Redirect: ({ href }: { readonly href: Href }) => {
     useEffect(() => {
       navigation.replace(href);
