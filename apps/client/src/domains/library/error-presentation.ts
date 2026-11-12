@@ -1,13 +1,11 @@
-import { Match, flow } from 'effect';
+import { Match } from 'effect';
 import type { Effect } from 'effect';
 import type { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api';
-import type { Atom } from 'effect/reactivity';
 
 import type { Api } from '@repo/spec-api';
 
 import type { ApiClient } from '#src/api-client.ts';
 import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
-import type { listLibrariesAtom } from '#src/domains/library/management.ts';
 import { clientFailureMessage } from '#src/errors.ts';
 
 // Every endpoint in the library API contributes, including endpoints the UI
@@ -17,9 +15,8 @@ type LibraryError =
   | Effect.Error<ReturnType<typeof ApiClient.make>>
   | Parameters<typeof clientFailureMessage>[0]['error'];
 
-export const libraryFailureMessage = flow(
-  ({ error }: { readonly error: LibraryError }) => error,
-  Match.type<LibraryError>().pipe(
+export const libraryFailureMessage = ({ error }: { readonly error: LibraryError }) =>
+  Match.value(error).pipe(
     Match.tagsExhaustive({
       UnauthorizedError: () => 'Your session has expired. Sign in again.',
       ForbiddenError: () => 'Only server administrators can manage libraries.',
@@ -36,27 +33,4 @@ export const libraryFailureMessage = flow(
       HttpClientError: (failure) => clientFailureMessage({ error: failure }),
       BetterAuthClientInitializationError: (failure) => accountFailureMessage({ error: failure }),
     })
-  )
-);
-
-// Atom.pull exhaustion has meaning only for this operation, not authentication.
-export const libraryListFailure = ({
-  error,
-}: {
-  readonly error: Atom.Failure<ReturnType<typeof listLibrariesAtom>>;
-}) =>
-  Match.value(error).pipe(
-    Match.tag('NoSuchElementError', () => ({
-      kind: 'empty' as const,
-      message: 'No libraries yet. Create a library to get started.',
-    })),
-    Match.tag(
-      'UnauthorizedError',
-      'ForbiddenError',
-      'SchemaError',
-      'HttpClientError',
-      'BetterAuthClientInitializationError',
-      (failure) => ({ kind: 'error' as const, message: libraryFailureMessage({ error: failure }) })
-    ),
-    Match.exhaustive
   );

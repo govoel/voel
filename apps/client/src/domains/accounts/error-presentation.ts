@@ -1,4 +1,4 @@
-import { Match, flow } from 'effect';
+import { Match } from 'effect';
 import type { Effect } from 'effect';
 
 import type { AuthError } from '@repo/auth-api/shared.ts';
@@ -21,26 +21,22 @@ type AccountError =
     >
   | Effect.Error<ReturnType<typeof AuthClient.make>>;
 
-const authReasonMessage = Match.type<AuthError['reason']>().pipe(
-  Match.tagsExhaustive({
-    BetterAuthApiError: ({ message }) => message || 'The server rejected this request.',
-    AuthTransportError: () => connectionFailureMessage,
-    InvalidAuthInputError: () => 'Check the details and try again.',
-    InvalidAuthResponseError: () => invalidResponseMessage,
-  })
-);
-
-export const accountFailureMessage = flow(
-  ({ error }: { readonly error: AccountError }) => error,
-  Match.type<AccountError>().pipe(
+export const accountFailureMessage = ({ error }: { readonly error: AccountError }) =>
+  Match.value(error).pipe(
+    Match.tag('AuthError', 'AccountSignInError', 'AccountSignUpError', ({ reason }) =>
+      Match.value(reason).pipe(
+        Match.tagsExhaustive({
+          BetterAuthApiError: ({ message }) => message || 'The server rejected this request.',
+          AuthTransportError: () => connectionFailureMessage,
+          InvalidAuthInputError: () => 'Check the details and try again.',
+          InvalidAuthResponseError: () => invalidResponseMessage,
+        })
+      )
+    ),
     Match.tagsExhaustive({
       AccountDatabaseError: () => 'Unable to read or save the account. Try again.',
       AccountCredentialsError: () => 'Unable to securely read or save credentials. Try again.',
       AccountNotFoundError: () => 'The account is no longer available.',
       BetterAuthClientInitializationError: () => 'Unable to initialize authentication. Try again.',
-      AuthError: ({ reason }) => authReasonMessage(reason),
-      AccountSignInError: ({ reason }) => authReasonMessage(reason),
-      AccountSignUpError: ({ reason }) => authReasonMessage(reason),
     })
-  )
-);
+  );

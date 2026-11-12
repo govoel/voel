@@ -19,7 +19,7 @@ import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
-import { libraryListFailure } from '#src/domains/library/error-presentation.ts';
+import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   listLibrariesAtom,
   mediaTypeLabel,
@@ -102,18 +102,29 @@ export default function ServerLibrariesScreen() {
                 </>
               ),
               onError: (error) =>
-                Match.value(libraryListFailure({ error })).pipe(
-                  Match.discriminatorsExhaustive('kind')({
-                    empty: ({ message }) => <ListState kind="empty" message={message} />,
-                    error: ({ message }) => (
+                Match.value(error).pipe(
+                  Match.tag('NoSuchElementError', () => (
+                    <ListState
+                      kind="empty"
+                      message="No libraries yet. Create a library to get started."
+                    />
+                  )),
+                  Match.tag(
+                    'UnauthorizedError',
+                    'ForbiddenError',
+                    'SchemaError',
+                    'HttpClientError',
+                    'BetterAuthClientInitializationError',
+                    (failure) => (
                       <ListState
                         kind="error"
-                        message={message}
+                        message={libraryFailureMessage({ error: failure })}
                         onRetry={refresh}
                         retrying={libraries.waiting}
                       />
-                    ),
-                  })
+                    )
+                  ),
+                  Match.exhaustive
                 ),
               onDefect: () => (
                 <ListState
