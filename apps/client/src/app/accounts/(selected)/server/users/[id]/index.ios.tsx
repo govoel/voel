@@ -25,9 +25,9 @@ import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Sheet } from '#src/components/sheet';
 import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const UserList = ({ children }: PropsWithChildren) => (
@@ -137,7 +137,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
       <Section title="Active Sessions">
         <ListState
           kind="error"
-          message={authFailureMessage({ error })}
+          message={accountFailureMessage({ error })}
           onRetry={refresh}
           retrying={state.waiting}
         />
@@ -171,7 +171,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
         {sessions.length > 0 ? (
           <Section>
             <MutationConfirmation
-              onFailure={authFailureMessage}
+              onFailure={accountFailureMessage}
               trigger={({ open, busy }) => (
                 <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
                   <Text>Sign out all devices</Text>
@@ -233,7 +233,7 @@ const LoadedUser = ({
               </Button>
 
               <MutationConfirmation
-                onFailure={authFailureMessage}
+                onFailure={accountFailureMessage}
                 trigger={({ open, busy }) => (
                   <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
                     <Text>Delete user</Text>
@@ -315,7 +315,7 @@ export default function ServerUserScreen() {
               <Section>
                 <ListState
                   kind="error"
-                  message={authFailureMessage({ error })}
+                  message={accountFailureMessage({ error })}
                   onRetry={refresh}
                   retrying={state.waiting}
                 />

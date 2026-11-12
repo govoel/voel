@@ -19,8 +19,8 @@ import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
+import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
-  libraryFailureMessage,
   listLibrariesAtom,
   mediaTypeLabel,
   storageProviderLabel,

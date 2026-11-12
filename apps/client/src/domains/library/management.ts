@@ -6,7 +6,6 @@ import { StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { swr } from '#src/runtime/swr.ts';
@@ -57,26 +56,6 @@ export const deleteLibrary = Effect.fnUntraced(
   },
   Reactivity.mutation(['library'])
 );
-
-export const libraryFailureMessage = ({
-  error,
-}: {
-  readonly error:
-    | Atom.Failure<ReturnType<typeof listLibrariesAtom>>
-    | Atom.Failure<ReturnType<typeof serverLibraryAtom>>
-    | Effect.Error<ReturnType<typeof deleteLibrary>>;
-}) =>
-  Match.value(error).pipe(
-    Match.tagsExhaustive({
-      UnauthorizedError: () => 'Your session has expired. Sign in again.',
-      ForbiddenError: () => 'Only server administrators can manage libraries.',
-      LibraryNotFoundError: () => 'This library no longer exists.',
-      SchemaError: () => 'The server returned an invalid library response.',
-      HttpClientError: () => 'Unable to reach the server. Check your connection and try again.',
-      BetterAuthClientInitializationError: (failure) => authFailureMessage({ error: failure }),
-      NoSuchElementError: () => 'Unable to load libraries. Try again.',
-    })
-  );
 
 export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Type, 'type'>) =>
   Match.value(type).pipe(

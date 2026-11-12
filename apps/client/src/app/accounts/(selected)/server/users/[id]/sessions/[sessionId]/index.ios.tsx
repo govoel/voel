@@ -15,8 +15,8 @@ import { serverUserSessionAtom } from '#src/app/accounts/(selected)/server/users
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const SessionContent = ({
@@ -41,7 +41,7 @@ const SessionContent = ({
       <Section>
         <ListState
           kind="error"
-          message={authFailureMessage({ error })}
+          message={accountFailureMessage({ error })}
           onRetry={refresh}
           retrying={state.waiting}
         />
@@ -73,7 +73,7 @@ const SessionContent = ({
             {session.isOtherUser ? (
               <Section>
                 <MutationConfirmation
-                  onFailure={authFailureMessage}
+                  onFailure={accountFailureMessage}
                   trigger={({ open, busy }) => (
                     <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
                       <Text>Sign out</Text>

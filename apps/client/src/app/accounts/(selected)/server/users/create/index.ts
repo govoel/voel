@@ -6,7 +6,7 @@ import { AuthCreateUserInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
@@ -63,7 +63,7 @@ export const useCreateUserForm = ({
       confirmPassword: '',
       role: 'under18',
     },
-    onFailure: authFailureMessage,
+    onFailure: accountFailureMessage,
     onSuccess: async ({ result }) => onSuccess({ userId: result.user.id }),
   });
 };

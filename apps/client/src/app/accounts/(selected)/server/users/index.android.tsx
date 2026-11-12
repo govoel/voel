@@ -15,7 +15,7 @@ import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 export default function ServerUsersScreen() {
@@ -90,7 +90,7 @@ export default function ServerUsersScreen() {
                 message={Match.value(error).pipe(
                   Match.tag('NoSuchElementError', () => 'Unable to load users.'),
                   Match.tag('AuthError', 'BetterAuthClientInitializationError', (failure) =>
-                    authFailureMessage({ error: failure })
+                    accountFailureMessage({ error: failure })
                   ),
                   Match.exhaustive
                 )}

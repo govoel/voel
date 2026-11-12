@@ -3,14 +3,15 @@ import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
+import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
 import { Library, LibraryNotFoundError } from '@repo/spec-api/domains/library/schema.ts';
 import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   deleteLibrary,
-  libraryFailureMessage,
   libraryStorageDetails,
   libraryStorageErrors,
   listLibrariesAtom,
@@ -197,16 +198,14 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
   );
 
   iit.effect(
-    'explains why non-admins cannot manage libraries',
+    'rejects non-admin access to library lists',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [, user] = yield* signInTestServerUsers(manager, server);
         const denied = yield* Atom.getResult(listLibrariesAtom(user.key)).pipe(Effect.flip);
-        expect(libraryFailureMessage({ error: denied })).toBe(
-          'Only server administrators can manage libraries.'
-        );
+        expect(denied).toBeInstanceOf(ForbiddenError);
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )

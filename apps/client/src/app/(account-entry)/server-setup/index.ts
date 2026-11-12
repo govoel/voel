@@ -1,8 +1,9 @@
-import { Effect, Match, Redacted, Schema, SchemaGetter } from 'effect';
+import { Effect, Redacted, Schema, SchemaGetter } from 'effect';
 
 import { AuthSignUpInput } from '@repo/auth-api/shared.ts';
 
 import { useAppForm } from '#src/components/form';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { ServerUrl } from '#src/domains/accounts/schema.ts';
 
@@ -24,27 +25,7 @@ export const useSetupServerForm = ({ onSuccess }: { readonly onSuccess: () => Pr
     onSubmit: ({ value }) =>
       AccountManager.pipe(Effect.flatMap((manager) => manager.setupServerWithAccount(value))),
     defaultValues: { serverUrl: '', name: '', email: '', username: '', password: '' },
-    onFailure: ({ error }) =>
-      Match.value(error).pipe(
-        Match.tagsExhaustive({
-          BetterAuthClientInitializationError: () =>
-            'Unexpected error during account setup. Try again.',
-          AccountSignUpError: (signUpError) =>
-            Match.value(signUpError.reason).pipe(
-              Match.tagsExhaustive({
-                BetterAuthApiError: ({ message }) =>
-                  message || 'Failed to create the account. Check the server and try again.',
-                AuthTransportError: () =>
-                  'Unable to reach the server. Check your connection and try again.',
-                InvalidAuthInputError: () => 'Check the account details and try again.',
-                InvalidAuthResponseError: () =>
-                  'The server returned an invalid authentication response. Try again.',
-              })
-            ),
-          AccountDatabaseError: () => 'A database error occurred. Try again.',
-          AccountCredentialsError: () => 'Unable to securely save credentials. Try again.',
-        })
-      ),
+    onFailure: accountFailureMessage,
     onSuccess: async ({ formApi }) => {
       formApi.reset();
       await onSuccess();

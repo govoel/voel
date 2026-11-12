@@ -10,7 +10,7 @@ import { listUsersAtom } from '#src/app/accounts/(selected)/server/users/index.t
 import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { Text } from '#src/components/text';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 export default function ServerUsersScreen() {
@@ -82,7 +82,7 @@ export default function ServerUsersScreen() {
                   message={Match.value(error).pipe(
                     Match.tag('NoSuchElementError', () => 'Unable to load users.'),
                     Match.tag('AuthError', 'BetterAuthClientInitializationError', (failure) =>
-                      authFailureMessage({ error: failure })
+                      accountFailureMessage({ error: failure })
                     ),
                     Match.exhaustive
                   )}

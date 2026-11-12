@@ -19,8 +19,8 @@ import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionDetails } from '#src/domains/accounts/components/management/session-details';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const SessionContent = ({
@@ -41,7 +41,7 @@ const SessionContent = ({
     onError: (error) => (
       <ListState
         kind="error"
-        message={authFailureMessage({ error })}
+        message={accountFailureMessage({ error })}
         onRetry={refresh}
         retrying={state.waiting}
       />
@@ -63,7 +63,7 @@ const SessionContent = ({
             {session.isOtherUser ? (
               <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
                 <MutationConfirmation
-                  onFailure={authFailureMessage}
+                  onFailure={accountFailureMessage}
                   trigger={({ open, busy }) => (
                     <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>
                       <SegmentedListItem.HeadlineContent>

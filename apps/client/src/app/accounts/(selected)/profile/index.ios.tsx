@@ -21,8 +21,8 @@ import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Sheet } from '#src/components/sheet';
 import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { accountAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
@@ -103,7 +103,7 @@ const LoadedProfile = ({
         <OwnSessions />
 
         <MutationConfirmation
-          onFailure={authFailureMessage}
+          onFailure={accountFailureMessage}
           trigger={({ open, busy }) => (
             <Button role="destructive" onPress={open} modifiers={[disabled(busy)]}>
               <Text>Sign out everywhere</Text>
@@ -172,7 +172,8 @@ export default function ProfileScreen() {
                     message={Match.value(error).pipe(
                       Match.tagsExhaustive({
                         NoSuchElementError: () => 'Unable to load your profile.',
-                        AccountDatabaseError: (failure) => authFailureMessage({ error: failure }),
+                        AccountDatabaseError: (failure) =>
+                          accountFailureMessage({ error: failure }),
                       })
                     )}
                     onRetry={refresh}
@@ -269,7 +270,7 @@ const OwnSessions = () => {
         onError: (error) => (
           <ListState
             kind="error"
-            message={authFailureMessage({ error })}
+            message={accountFailureMessage({ error })}
             onRetry={refresh}
             retrying={state.waiting}
           />

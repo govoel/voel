@@ -1,4 +1,4 @@
-import { Effect, Match, Option, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity';
 
 import type { AuthDeviceSession } from '@repo/auth-api/shared.ts';
@@ -7,7 +7,7 @@ import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
 
 import { useAppForm } from '#src/components/form';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { AccountRepository } from '#src/domains/accounts/repository.ts';
 import { Account, AccountKey } from '#src/domains/accounts/schema.ts';
@@ -91,25 +91,7 @@ export const useUserProfileForm = ({
     schema: UserProfileUpdateInput,
     onSubmit: ({ value }) => updateCurrentUser({ account, input: value }),
     defaultValues: profile,
-    onFailure: ({ error }) =>
-      Match.value(error).pipe(
-        Match.tagsExhaustive({
-          BetterAuthClientInitializationError: () =>
-            'Unexpected error during authentication. Try again.',
-          AuthError: (authError) =>
-            Match.value(authError.reason).pipe(
-              Match.tagsExhaustive({
-                BetterAuthApiError: ({ message }) =>
-                  message || 'Unable to update the profile. Try again.',
-                AuthTransportError: () =>
-                  'Unable to reach the server. Check your connection and try again.',
-                InvalidAuthInputError: () => 'Check the profile details and try again.',
-                InvalidAuthResponseError: () =>
-                  'The server returned an invalid authentication response. Try again.',
-              })
-            ),
-        })
-      ),
+    onFailure: accountFailureMessage,
     onSuccess,
   });
 };
@@ -189,7 +171,7 @@ export const useChangePasswordForm = ({ onSuccess }: { onSuccess: () => void | P
     schema: PasswordFormInput,
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
     onSubmit: ({ value }) => changePassword({ account, input: value }),
-    onFailure: authFailureMessage,
+    onFailure: accountFailureMessage,
     onSuccess,
   });
 };

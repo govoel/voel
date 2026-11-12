@@ -1,5 +1,5 @@
 import { useAtom } from '@effect/atom-react';
-import { Array, Cause, Effect, Exit, Match, Option, Struct } from 'effect';
+import { Array, Cause, Effect, Exit, Option, Struct } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
 import { PredefinedStateId } from '@repo/effect-atom-devtools-core';
@@ -22,17 +22,6 @@ export const removeAccount = Effect.fnUntraced(function* ({ key }: { readonly ke
   const accounts = yield* AccountRepository.use((repository) => repository.list);
   return { accountsRemain: accounts.length > 0 };
 });
-
-export const removeAccountFailureMessage = ({
-  error,
-}: {
-  readonly error: Effect.Error<ReturnType<typeof removeAccount>>;
-}) =>
-  Match.value(error).pipe(
-    Match.tagsExhaustive({
-      AccountDatabaseError: () => 'A database error occurred. Try again.',
-    })
-  );
 
 export const accountsWithActiveAccount = accountsAtom.pipe(
   Atom.mapResult((accounts) => {

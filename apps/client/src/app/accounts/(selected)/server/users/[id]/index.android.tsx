@@ -31,9 +31,9 @@ import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { RoleField } from '#src/domains/accounts/components/management/role-field';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const UserList = ({ children }: PropsWithChildren) => (
@@ -169,7 +169,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
         onError: (error) => (
           <ListState
             kind="error"
-            message={authFailureMessage({ error })}
+            message={accountFailureMessage({ error })}
             onRetry={refresh}
             retrying={state.waiting}
           />
@@ -197,7 +197,7 @@ const UserSessions = ({ user }: { user: typeof AuthUser.Type }) => {
             {sessions.length > 0 ? (
               <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
                 <MutationConfirmation
-                  onFailure={authFailureMessage}
+                  onFailure={accountFailureMessage}
                   trigger={({ open, busy }) => (
                     <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>
                       <SegmentedListItem.HeadlineContent>
@@ -281,7 +281,7 @@ const LoadedUser = ({
                 </SegmentedListItem.TrailingContent>
               </SegmentedListItem>
               <MutationConfirmation
-                onFailure={authFailureMessage}
+                onFailure={accountFailureMessage}
                 trigger={({ open, busy }) => (
                   <SegmentedListItem index={3} count={4} onClick={open} enabled={!busy}>
                     <SegmentedListItem.HeadlineContent>
@@ -372,7 +372,7 @@ export default function ServerUserScreen() {
               <Text variant="h4">User Details</Text>
               <ListState
                 kind="error"
-                message={authFailureMessage({ error })}
+                message={accountFailureMessage({ error })}
                 onRetry={refresh}
                 retrying={state.waiting}
               />
