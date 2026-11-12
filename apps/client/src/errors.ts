@@ -1,4 +1,4 @@
-import { Match } from 'effect';
+import { Match, flow } from 'effect';
 import type { Schema } from 'effect';
 import type { HttpClientError } from 'effect/http';
 
@@ -8,12 +8,9 @@ export const invalidResponseMessage = 'The server returned an invalid response. 
 
 // Unknown statuses and malformed responses stop at the HTTP/schema boundary.
 // Never expose response bodies, diagnostic causes, or decoder details as UI copy.
-export const clientFailureMessage = ({
-  error,
-}: {
-  readonly error: HttpClientError.HttpClientError | Schema.SchemaError;
-}) =>
-  Match.value(error).pipe(
+export const clientFailureMessage = flow(
+  ({ error }: { readonly error: HttpClientError.HttpClientError | Schema.SchemaError }) => error,
+  Match.type<HttpClientError.HttpClientError | Schema.SchemaError>().pipe(
     Match.tagsExhaustive({
       SchemaError: () => invalidResponseMessage,
       HttpClientError: ({ reason }) =>
@@ -28,4 +25,5 @@ export const clientFailureMessage = ({
           })
         ),
     })
-  );
+  )
+);

@@ -1,24 +1,25 @@
-import { Match } from 'effect';
-import type { Effect, Schema } from 'effect';
-import type { HttpClientError } from 'effect/http';
+import { Match, flow } from 'effect';
+import type { Effect } from 'effect';
 import type { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api';
 import type { Atom } from 'effect/reactivity';
 
-import type { LibraryApi } from '@repo/spec-api/domains/library/http.ts';
+import type { Api } from '@repo/spec-api';
 
 import type { ApiClient } from '#src/api-client.ts';
 import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import type { listLibrariesAtom } from '#src/domains/library/management.ts';
 import { clientFailureMessage } from '#src/errors.ts';
 
-type LibraryFailure =
-  | HttpApiEndpoint.Errors<HttpApiGroup.Endpoints<typeof LibraryApi>>
+// Every endpoint in the library API contributes, including endpoints the UI
+// does not call yet. Extending its contract makes this presenter non-exhaustive.
+type LibraryError =
+  | HttpApiEndpoint.Errors<HttpApiGroup.Endpoints<typeof Api.groups.library>>
   | Effect.Error<ReturnType<typeof ApiClient.make>>
-  | HttpClientError.HttpClientError
-  | Schema.SchemaError;
+  | Parameters<typeof clientFailureMessage>[0]['error'];
 
-export const libraryFailureMessage = ({ error }: { readonly error: LibraryFailure }) =>
-  Match.value(error).pipe(
+export const libraryFailureMessage = flow(
+  ({ error }: { readonly error: LibraryError }) => error,
+  Match.type<LibraryError>().pipe(
     Match.tagsExhaustive({
       UnauthorizedError: () => 'Your session has expired. Sign in again.',
       ForbiddenError: () => 'Only server administrators can manage libraries.',
@@ -35,7 +36,8 @@ export const libraryFailureMessage = ({ error }: { readonly error: LibraryFailur
       HttpClientError: (failure) => clientFailureMessage({ error: failure }),
       BetterAuthClientInitializationError: (failure) => accountFailureMessage({ error: failure }),
     })
-  );
+  )
+);
 
 // Atom.pull exhaustion has meaning only for this operation, not authentication.
 export const libraryListFailure = ({
