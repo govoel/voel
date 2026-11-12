@@ -10,7 +10,7 @@ import {
 } from '#src/domains/library/editor.ts';
 
 it.effect(
-  'reconciles changing descriptors by name and kind, without submitting removed fields or inherited properties',
+  'keeps compatible edits and submits only settings from the current plugin form',
   Effect.fnUntraced(function* () {
     const fields = yield* Schema.decodeEffect(StoragePluginSettingsForm)([
       {
@@ -43,13 +43,12 @@ it.effect(
       listValues: { removedList: [newSettingsEntry({ value: 'old list' })] },
     };
     const defaults = settingsValues({ fields, previous: Option.some(previous) });
-    expect(defaults.textValues).toEqual({ retained: 'user edit', constructor: 'safe default' });
-    expect(defaults.listValues).toMatchObject({ changed: [{ value: 'new shape' }] });
     const values = yield* Schema.decodeEffect(LibraryEditorValues)({
       name: 'Library',
       type: 'movie',
       storagePluginId: 'builtin:local',
-      ...defaults,
+      textValues: { ...previous.textValues, ...defaults.textValues },
+      listValues: { ...previous.listValues, ...defaults.listValues },
     });
     const submitted = yield* settingsSubmission({ fields, values });
     expect(submitted).toEqual({

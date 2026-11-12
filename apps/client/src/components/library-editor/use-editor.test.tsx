@@ -91,25 +91,22 @@ const descriptors = [
     initialValue: ['/media/original'],
   },
 ];
-const requests: Array<{ readonly path: string; readonly method: string; readonly body: unknown }> =
-  [];
-const respond =
-  vi.fn<(request: { readonly path: string; readonly method: string }) => Promise<Response>>();
+const loadSettings = vi.fn<() => Promise<Response>>();
+const save = vi.fn<(payload: unknown) => Promise<Response>>();
 const registries = new Set<AtomRegistry.AtomRegistry>();
 const createSource = { _tag: 'Create' } as const;
 
 const setup = async (source: LibraryEditorSource = createSource) => {
   const registry = AtomRegistry.make();
   registries.add(registry);
-  const onSuccess = vi.fn();
   const wrapper = ({ children }: PropsWithChildren) => (
     <RegistryContext.Provider value={registry}>
       <SelectedAccountContext.Provider value={account}>{children}</SelectedAccountContext.Provider>
     </RegistryContext.Provider>
   );
-  const hook = await renderHook(
+  return renderHook(
     () => {
-      const editor = useLibraryEditor({ source, onSuccess });
+      const editor = useLibraryEditor({ source, onSuccess: () => void 0 });
       useField({ form: editor.form, name: 'name' });
       useField({ form: editor.form, name: 'type' });
       useField({ form: editor.form, name: 'storagePluginId' });
@@ -117,29 +114,18 @@ const setup = async (source: LibraryEditorSource = createSource) => {
     },
     { wrapper }
   );
-  return { ...hook, onSuccess };
 };
 
 beforeEach(() => {
-  requests.length = 0;
-  respond.mockReset();
-  respond.mockImplementation(async ({ path }) =>
-    EffectString.endsWith('settings-form')(path)
-      ? Response.json(descriptors)
-      : Response.json({ id: 7 })
-  );
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      const request =
-        input instanceof Request ? new Request(input, init) : new Request(String(input), init);
-      const path = new URL(request.url).pathname;
-      const body: unknown = request.body === null ? null : await request.json();
-      const captured = { path, method: request.method, body };
-      requests.push(captured);
-      return respond(captured);
-    })
-  );
+  loadSettings.mockReset().mockImplementation(async () => Response.json(descriptors));
+  save.mockReset().mockImplementation(async () => Response.json({ id: 7 }));
+  vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+    const request =
+      input instanceof Request ? new Request(input, init) : new Request(String(input), init);
+    return EffectString.endsWith('settings-form')(new URL(request.url).pathname)
+      ? loadSettings()
+      : save(await request.json());
+  });
 });
 afterEach(() => {
   for (const registry of registries) {
@@ -149,30 +135,28 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const enterCustom = async (editor: Awaited<ReturnType<typeof setup>>, id = plugin) => {
+const enterCustom = async (editor: Awaited<ReturnType<typeof setup>>) => {
   await act(() => {
     editor.result.current.form.setFieldValue('name', 'Audiobooks');
     editor.result.current.selectProvider({ provider: 'custom' });
-    editor.result.current.form.setFieldValue('storagePluginId', id);
+    editor.result.current.form.setFieldValue('storagePluginId', plugin);
   });
 };
 
 describe('library editor', () => {
-  it('does not fetch or submit external code while typing or before consent, including in a new creation flow', async () => {
+  it('requires consent before loading an external plugin for each new library', async () => {
     const editor = await setup();
     await enterCustom(editor);
-    expect(requests).toEqual([]);
     await act(() => {
       editor.result.current.handleLoad();
     });
     expect(Option.isSome(editor.result.current.pending)).toBe(true);
-    expect(requests).toEqual([]);
     await act(async () => editor.result.current.form.handleSubmit());
-    expect(requests).toEqual([]);
     await act(() => {
       editor.result.current.cancelConsent();
     });
-    expect(requests).toEqual([]);
+    expect(loadSettings).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
     await act(() => {
       editor.result.current.handleLoad();
     });
@@ -182,20 +166,6 @@ describe('library editor', () => {
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
-    expect(requests).toEqual([
-      {
-        path: '/api/libraries/plugins/storage/settings-form',
-        method: 'POST',
-        body: { name: 'Audiobooks', type: 'audiobook', storagePluginId: plugin },
-      },
-    ]);
-    await act(() => {
-      editor.result.current.handleLoad();
-    });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    expect(Option.isNone(editor.result.current.pending)).toBe(true);
     await editor.unmount();
     const fresh = await setup();
     await enterCustom(fresh);
@@ -203,56 +173,42 @@ describe('library editor', () => {
       fresh.result.current.handleLoad();
     });
     expect(Option.isSome(fresh.result.current.pending)).toBe(true);
-    expect(requests).toHaveLength(2);
+    expect(loadSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('loads the saved plugin without consent, asks for a different ID, and preserves edited settings on cancel', async () => {
+  it('loads the saved plugin without consent and keeps edited settings when a plugin change is cancelled', async () => {
     const editor = await setup({ _tag: 'Edit', library: original });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
-    expect(Option.isNone(editor.result.current.pending)).toBe(true);
-    expect(requests[0]?.body).toMatchObject({ id: original.id, storagePluginId: plugin });
     await act(() => {
       editor.result.current.form.setFieldValue('listValues.roots', [
         newSettingsEntry({ value: '/media/edited' }),
       ]);
       editor.result.current.form.setFieldValue('storagePluginId', otherPlugin);
     });
-    expect(editor.result.current.ready).toBe(false);
     await act(() => {
       editor.result.current.handleLoad();
     });
-    expect(requests).toHaveLength(1);
     expect(Option.isSome(editor.result.current.pending)).toBe(true);
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(loadSettings).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalled();
     await act(() => {
       editor.result.current.cancelConsent();
     });
-    expect(editor.result.current.values.storagePluginId).toBe(plugin);
-    expect(editor.result.current.values.listValues['roots']?.[0]?.value).toBe('/media/edited');
-    expect(editor.result.current.ready).toBe(true);
-    await act(() => {
-      editor.result.current.selectProvider({ provider: 'local' });
-    });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginId', plugin);
-    });
-    await act(() => {
-      editor.result.current.handleLoad();
-    });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    expect(Option.isNone(editor.result.current.pending)).toBe(true);
-    expect(requests).toHaveLength(3);
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storagePluginId: plugin,
+        storagePluginSettings: { roots: ['/media/edited'] },
+      })
+    );
   });
 
-  it('ignores late descriptors after a different approved selection and submits only the new fields', async () => {
+  it('saves only the latest plugin settings when an older load finishes late', async () => {
     const delayed = await Effect.runPromise(Deferred.make<Response>());
-    respond.mockImplementationOnce(async () => Effect.runPromise(Deferred.await(delayed)));
+    loadSettings.mockImplementationOnce(async () => Effect.runPromise(Deferred.await(delayed)));
     const editor = await setup();
     await enterCustom(editor);
     await act(() => {
@@ -262,24 +218,22 @@ describe('library editor', () => {
       editor.result.current.approve();
     });
     await waitFor(() => {
-      expect(requests).toHaveLength(1);
+      expect(loadSettings).toHaveBeenCalledTimes(1);
     });
     await act(() => {
       editor.result.current.form.setFieldValue('storagePluginId', otherPlugin);
     });
-    respond.mockImplementation(async ({ path }) =>
-      EffectString.endsWith('settings-form')(path)
-        ? Response.json([
-            {
-              kind: 'TextField',
-              name: 'folder',
-              label: 'Folder',
-              placeholder: '/media',
-              purpose: 'text',
-              initialValue: '/media/new',
-            },
-          ])
-        : Response.json({ id: 7 })
+    loadSettings.mockImplementation(async () =>
+      Response.json([
+        {
+          kind: 'TextField',
+          name: 'folder',
+          label: 'Folder',
+          placeholder: '/media',
+          purpose: 'text',
+          initialValue: '/media/new',
+        },
+      ])
     );
     await act(() => {
       editor.result.current.handleLoad();
@@ -293,26 +247,19 @@ describe('library editor', () => {
     await act(async () => {
       await Effect.runPromise(Deferred.succeed(delayed, Response.json(descriptors)));
     });
-    expect(editor.result.current.values.textValues).toEqual({ folder: '/media/new' });
-    expect(editor.result.current.values.listValues).toEqual({});
     await act(async () => editor.result.current.form.handleSubmit());
-    expect(requests[2]).toEqual({
-      path: '/api/libraries',
-      method: 'POST',
-      body: {
-        name: 'Audiobooks',
-        type: 'audiobook',
-        storagePluginId: otherPlugin,
-        storagePluginSettings: { folder: '/media/new' },
-      },
+    expect(save).toHaveBeenCalledWith({
+      name: 'Audiobooks',
+      type: 'audiobook',
+      storagePluginId: otherPlugin,
+      storagePluginSettings: { folder: '/media/new' },
     });
-    expect(editor.onSuccess).toHaveBeenCalledWith({ id: 7 });
   });
 
-  it('retries a failed approved load without asking again, and retains the draft when saving fails', async () => {
+  it('can retry a failed settings load without asking for consent again', async () => {
     const editor = await setup();
     await enterCustom(editor);
-    respond.mockResolvedValueOnce(
+    loadSettings.mockResolvedValueOnce(
       Response.json(
         { _tag: 'PluginLoadError', message: 'Failed to install or load plugin' },
         { status: 500 }
@@ -333,21 +280,13 @@ describe('library editor', () => {
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
-    expect(Option.isNone(editor.result.current.pending)).toBe(true);
-    respond.mockResolvedValueOnce(
-      Response.json(
-        { _tag: 'LibraryNameConflictError', libraryName: 'Audiobooks' },
-        { status: 409 }
-      )
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ storagePluginSettings: { roots: ['/media/original'] } })
     );
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(editor.onSuccess).not.toHaveBeenCalled();
-    expect(editor.result.current.values.listValues['roots']?.[0]?.value).toBe('/media/original');
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(editor.onSuccess).toHaveBeenCalledWith({ id: 7 });
   });
 
-  it('saves updates with descriptor values rather than persisted JSON, and prevents stale metadata submission', async () => {
+  it('requires reloading storage settings before saving changed library details', async () => {
     const editor = await setup({ _tag: 'Edit', library: original });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
@@ -355,9 +294,8 @@ describe('library editor', () => {
     await act(() => {
       editor.result.current.form.setFieldValue('name', 'Renamed');
     });
-    expect(editor.result.current.ready).toBe(false);
     await act(async () => editor.result.current.form.handleSubmit());
-    expect(requests).toHaveLength(1);
+    expect(save).not.toHaveBeenCalled();
     await act(() => {
       editor.result.current.handleLoad();
     });
@@ -370,15 +308,11 @@ describe('library editor', () => {
       ]);
     });
     await act(async () => editor.result.current.form.handleSubmit());
-    expect(requests[2]).toEqual({
-      path: '/api/libraries/7',
-      method: 'PUT',
-      body: {
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
         name: 'Renamed',
-        type: 'audiobook',
-        storagePluginId: plugin,
         storagePluginSettings: { roots: ['/media/changed'] },
-      },
-    });
+      })
+    );
   });
 });

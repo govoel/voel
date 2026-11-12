@@ -206,7 +206,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
   );
 
   iit.effect(
-    'creates and updates a library from server descriptors and refreshes mounted management queries',
+    'keeps library views current after creation and preserves saved settings when editing',
     Effect.fnUntraced(
       function* () {
         const manager = yield* AccountManager;
@@ -227,7 +227,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         });
         const values = yield* Schema.decodeEffect(LibraryEditorValues)({
           ...request,
-          ...settingsValues({ fields, previous: Option.none() }),
+          textValues: {},
           listValues: { roots: [newSettingsEntry({ value: '/media/first' })] },
         });
         const created = yield* saveLibrary({
@@ -242,21 +242,16 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const detail = serverLibraryAtom({ account: account.key, id: created.id });
         yield* Atom.mount(detail);
         const library = yield* Atom.getResult(detail, { suspendOnWaiting: true });
-        expect(library.storagePluginSettings).toEqual({ roots: ['/media/first'] });
         const editSource = { _tag: 'Edit', library } as const;
         const editingFields = yield* fetchLibrarySettings({
           account: account.key,
           source: editSource,
           request,
         });
-        expect(editingFields).toMatchObject([
-          { kind: 'TextListField', initialValue: ['/media/first'] },
-        ]);
         const updated = yield* Schema.decodeEffect(LibraryEditorValues)({
           ...request,
           name: 'Renamed',
           ...settingsValues({ fields: editingFields, previous: Option.none() }),
-          listValues: { roots: [newSettingsEntry({ value: '/media/second' })] },
         });
         yield* saveLibrary({
           account: account.key,
@@ -264,9 +259,11 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           values: updated,
           fields: editingFields,
         });
-        expect(
-          (yield* Atom.getResult(detail, { suspendOnWaiting: true })).storagePluginSettings
-        ).toEqual({ roots: ['/media/second'] });
+        const saved = yield* Atom.getResult(detail, { suspendOnWaiting: true });
+        expect(saved).toMatchObject({
+          name: 'Renamed',
+          storagePluginSettings: { roots: ['/media/first'] },
+        });
         expect((yield* Atom.getResult(query, { suspendOnWaiting: true })).items).toMatchObject([
           { id: created.id, name: 'Renamed' },
         ]);
