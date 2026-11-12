@@ -47,6 +47,7 @@ it.effect(
       name: 'Library',
       type: 'movie',
       storagePluginId: 'builtin:local',
+      settingsFor: null,
       textValues: { ...previous.textValues, ...defaults.textValues },
       listValues: { ...previous.listValues, ...defaults.listValues },
     });

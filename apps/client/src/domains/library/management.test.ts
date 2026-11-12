@@ -222,11 +222,12 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         });
         const fields = yield* fetchLibrarySettings({
           account: account.key,
-          source: { _tag: 'Create' },
+          id: Option.none(),
           request,
         });
         const values = yield* Schema.decodeEffect(LibraryEditorValues)({
           ...request,
+          settingsFor: null,
           textValues: {},
           listValues: { roots: [newSettingsEntry({ value: '/media/first' })] },
         });
@@ -245,11 +246,12 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const editSource = { _tag: 'Edit', library } as const;
         const editingFields = yield* fetchLibrarySettings({
           account: account.key,
-          source: editSource,
+          id: Option.some(created.id),
           request,
         });
         const updated = yield* Schema.decodeEffect(LibraryEditorValues)({
           ...request,
+          settingsFor: null,
           name: 'Renamed',
           ...settingsValues({ fields: editingFields, previous: Option.none() }),
         });

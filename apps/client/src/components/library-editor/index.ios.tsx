@@ -22,18 +22,19 @@ import {
   tag,
 } from '@expo/ui/swift-ui/modifiers';
 import { Array, Match, Option, Order } from 'effect';
-import { Stack, useRouter } from 'expo-router';
+import { AsyncResult } from 'effect/reactivity';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { useSubmitState } from '#src/components/form/hooks.tsx';
-import { useEditorNavigation } from '#src/components/library-editor/navigation.ts';
-import { useLibraryEditor } from '#src/components/library-editor/use-editor.ts';
-import type { LibraryEditor } from '#src/components/library-editor/use-editor.ts';
+import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import type { LibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
 import { newSettingsEntry } from '#src/domains/library/editor.ts';
 import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
+import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel } from '#src/domains/library/management.ts';
 
 const SubmissionFeedback = () => {
@@ -48,80 +49,75 @@ const SubmissionFeedback = () => {
   });
 };
 
-const StorageFields = ({ editor }: { readonly editor: LibraryEditor }) => {
+const StorageFields = ({ editor }: { readonly editor: LibraryForm }) => {
   const { form } = editor;
-  return Option.match(editor.loaded, {
+  return Option.match(editor.fields, {
     onNone: () => null,
-    onSome: ({ fields }) =>
-      editor.ready
-        ? Array.map(fields, (descriptor) =>
-            Match.value(descriptor).pipe(
-              Match.when({ kind: 'TextField' }, (field) => (
-                <Section key={field.name}>
-                  <form.AppField name={`textValues.${field.name}`}>
-                    {(input) => (
-                      <input.TextField
-                        label={field.label}
-                        placeholder={field.placeholder}
-                        purpose={field.purpose}
-                      />
-                    )}
-                  </form.AppField>
-                </Section>
-              )),
-              Match.when({ kind: 'TextListField' }, (field) => (
-                <Section key={field.name} title={field.label}>
-                  <form.AppField name={`listValues.${field.name}`} mode="array">
-                    {(list) => (
-                      <>
-                        <List.ForEach
-                          data={list.state.value}
-                          keyExtractor={(entry) => String(entry.key)}
-                          recycling={false}
-                          {...(editor.submitting
-                            ? {}
-                            : {
-                                onDelete: (indices: Array<number>) => {
-                                  for (const index of Array.sort(
-                                    indices,
-                                    Order.flip(Order.Number)
-                                  )) {
-                                    list.removeValue(index);
-                                  }
-                                },
-                              })}>
-                          {({ index }) => (
-                            <form.AppField name={`listValues.${field.name}[${index}].value`}>
-                              {(input) => (
-                                <input.TextField
-                                  label={field.label}
-                                  placeholder={field.placeholder}
-                                  purpose={field.purpose}
-                                />
-                              )}
-                            </form.AppField>
+    onSome: (fields) =>
+      Array.map(fields, (descriptor) =>
+        Match.value(descriptor).pipe(
+          Match.when({ kind: 'TextField' }, (field) => (
+            <Section key={field.name}>
+              <form.AppField name={`textValues.${field.name}`}>
+                {(input) => (
+                  <input.TextField
+                    label={field.label}
+                    placeholder={field.placeholder}
+                    purpose={field.purpose}
+                  />
+                )}
+              </form.AppField>
+            </Section>
+          )),
+          Match.when({ kind: 'TextListField' }, (field) => (
+            <Section key={field.name} title={field.label}>
+              <form.AppField name={`listValues.${field.name}`} mode="array">
+                {(list) => (
+                  <>
+                    <List.ForEach
+                      data={list.state.value}
+                      keyExtractor={(entry) => String(entry.key)}
+                      recycling={false}
+                      {...(editor.submitting
+                        ? {}
+                        : {
+                            onDelete: (indices: Array<number>) => {
+                              for (const index of Array.sort(indices, Order.flip(Order.Number))) {
+                                list.removeValue(index);
+                              }
+                            },
+                          })}>
+                      {({ index }) => (
+                        <form.AppField name={`listValues.${field.name}[${index}].value`}>
+                          {(input) => (
+                            <input.TextField
+                              label={field.label}
+                              placeholder={field.placeholder}
+                              purpose={field.purpose}
+                            />
                           )}
-                        </List.ForEach>
-                        <Button
-                          onPress={() => {
-                            list.pushValue(newSettingsEntry({ value: '' }));
-                          }}
-                          modifiers={[disabled(editor.submitting)]}>
-                          <Text>Add entry</Text>
-                        </Button>
-                      </>
-                    )}
-                  </form.AppField>
-                </Section>
-              )),
-              Match.exhaustive
-            )
-          )
-        : null,
+                        </form.AppField>
+                      )}
+                    </List.ForEach>
+                    <Button
+                      onPress={() => {
+                        list.pushValue(newSettingsEntry({ value: '' }));
+                      }}
+                      modifiers={[disabled(editor.submitting)]}>
+                      <Text>Add entry</Text>
+                    </Button>
+                  </>
+                )}
+              </form.AppField>
+            </Section>
+          )),
+          Match.exhaustive
+        )
+      ),
   });
 };
 
-const Storage = ({ editor }: { readonly editor: LibraryEditor }) => {
+const Storage = ({ editor }: { readonly editor: LibraryForm }) => {
   const { form } = editor;
   const provider = editor.values.storagePluginId === 'builtin:local' ? 'local' : 'custom';
   return (
@@ -154,35 +150,32 @@ const Storage = ({ editor }: { readonly editor: LibraryEditor }) => {
           </Button>
         </Section>
       ) : null}
-      {provider === 'local' && !editor.ready && editor.status._tag !== 'Loading' ? (
+      {provider === 'local' && !editor.ready && !editor.settings.waiting ? (
         <Section>
           <Button onPress={editor.handleLoad} modifiers={[disabled(!editor.canLoad)]}>
             <Text>Load settings</Text>
           </Button>
         </Section>
       ) : null}
-      {Match.value(editor.status).pipe(
-        Match.when({ _tag: 'Idle' }, () =>
-          !editor.ready && Option.isSome(editor.loaded) ? (
+      {editor.settings.waiting ? (
+        <Section>
+          <ProgressView />
+        </Section>
+      ) : (
+        AsyncResult.matchWithError(editor.settings, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) => (
             <Section>
-              <Text>Load settings for the current library details before saving.</Text>
+              <Text>{libraryFailureMessage({ error })}</Text>
             </Section>
-          ) : null
-        ),
-        Match.when({ _tag: 'Loading' }, () => (
-          <Section>
-            <ProgressView />
-          </Section>
-        )),
-        Match.when({ _tag: 'Failed' }, ({ message }) => (
-          <Section>
-            <Text>{message}</Text>
-            <Button onPress={editor.handleLoad} modifiers={[disabled(!editor.canLoad)]}>
-              <Text>Try again</Text>
-            </Button>
-          </Section>
-        )),
-        Match.exhaustive
+          ),
+          onDefect: () => (
+            <Section>
+              <Text>Unable to load storage settings. Try again.</Text>
+            </Section>
+          ),
+        })
       )}
       <StorageFields editor={editor} />
       <SubmissionFeedback />
@@ -192,42 +185,43 @@ const Storage = ({ editor }: { readonly editor: LibraryEditor }) => {
 
 export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditorSource }) => {
   const router = useRouter();
-  const editor = useLibraryEditor({
+  const [savedId, setSavedId] = useState<Option.Option<typeof Library.fields.id.Type>>(
+    Option.none()
+  );
+  const editor = useLibraryForm({
     source,
     onSuccess: ({ id }) => {
-      router.dismissTo({ pathname: '/accounts/server/libraries/[id]', params: { id } });
+      setSavedId(Option.some(id));
     },
   });
-  const guard = useEditorNavigation({ editor });
   const { form } = editor;
   const [path, setPath] = useState<Array<string>>([]);
   const external = Option.isSome(editor.pending);
   const title = source._tag === 'Create' ? 'New Library' : 'Edit Library';
-  const message = Option.match(editor.pending, {
-    onNone: () => 'Discard unsaved changes to this library?',
-    onSome: (request) =>
-      `${request.storagePluginId}\n\nLoading settings may download and run this plugin on your server with the server process’s permissions. Only continue if you trust its source.\n\nCode may run even if you don’t save the library.`,
-  });
+  if (Option.isSome(savedId)) {
+    return (
+      <Redirect
+        href={{ pathname: '/accounts/server/libraries/[id]', params: { id: savedId.value } }}
+      />
+    );
+  }
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, gestureEnabled: !editor.submitting }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <Host style={{ flex: 1 }}>
         <form.AppForm>
-          <Alert
-            title={external ? 'Load external plugin?' : 'Discard changes?'}
-            isPresented={external || guard.discarding}>
+          <Alert title="Load external plugin?" isPresented={external}>
             <Alert.Trigger>
               <NavigationStack
                 path={path}
                 onPathChange={(next) => {
-                  if (next.length > 0 && path.length === 0) {
-                    editor.beginStorageEdit();
-                    if (editor.values.storagePluginId === 'builtin:local' && !editor.ready) {
-                      editor.handleLoad();
-                    }
-                  }
-                  if (next.length === 0 && path.length > 0) {
-                    editor.cancelStorageEdit();
+                  if (
+                    next.length > 0 &&
+                    path.length === 0 &&
+                    editor.values.storagePluginId === 'builtin:local' &&
+                    !editor.ready
+                  ) {
+                    editor.handleLoad();
                   }
                   setPath(next);
                 }}>
@@ -276,7 +270,10 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
                   </List>
                   <Toolbar.Content>
                     <ToolbarItem placement="cancellationAction">
-                      <Button onPress={guard.handleClose} modifiers={[disabled(editor.submitting)]}>
+                      <Button
+                        onPress={() => {
+                          router.back();
+                        }}>
                         <Text>Cancel</Text>
                       </Button>
                     </ToolbarItem>
@@ -300,7 +297,6 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
                       <ToolbarItem placement="confirmationAction">
                         <Button
                           onPress={() => {
-                            editor.acceptStorageEdit();
                             setPath([]);
                           }}
                           modifiers={[disabled(!editor.ready || editor.submitting)]}>
@@ -313,21 +309,24 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
               </NavigationStack>
             </Alert.Trigger>
             <Alert.Message>
-              <Text>{message}</Text>
+              <Text>
+                {Option.match(editor.pending, {
+                  onNone: () => '',
+                  onSome: (request) =>
+                    `${request.storagePluginId}\n\nLoading settings may download and run this plugin on your server with the server process’s permissions. Only continue if you trust its source.\n\nCode may run even if you don’t save the library.`,
+                })}
+              </Text>
             </Alert.Message>
             <Alert.Actions>
               <Button
                 role="cancel"
                 onPress={() => {
-                  editor.cancelConsent();
-                  guard.cancelDiscard();
+                  editor.handleCancelConsent();
                 }}>
                 <Text>Cancel</Text>
               </Button>
-              <Button
-                {...(external ? {} : { role: 'destructive' as const })}
-                onPress={external ? editor.approve : guard.discard}>
-                <Text>{external ? 'Load plugin' : 'Discard'}</Text>
+              <Button onPress={editor.handleApprove}>
+                <Text>Load plugin</Text>
               </Button>
             </Alert.Actions>
           </Alert>

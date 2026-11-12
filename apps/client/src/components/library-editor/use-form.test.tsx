@@ -3,14 +3,14 @@ import { useField } from '@tanstack/react-form';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { Deferred, Effect, String as EffectString, Option } from 'effect';
 import type { Layer as EffectLayer } from 'effect';
-import { AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import type { ApiClient as ApiClientService } from '#src/api-client.ts';
-import { useLibraryEditor } from '#src/components/library-editor/use-editor.ts';
+import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
 import { newSettingsEntry } from '#src/domains/library/editor.ts';
@@ -106,7 +106,7 @@ const setup = async (source: LibraryEditorSource = createSource) => {
   );
   return renderHook(
     () => {
-      const editor = useLibraryEditor({ source, onSuccess: () => void 0 });
+      const editor = useLibraryForm({ source, onSuccess: () => void 0 });
       useField({ form: editor.form, name: 'name' });
       useField({ form: editor.form, name: 'type' });
       useField({ form: editor.form, name: 'storagePluginId' });
@@ -153,7 +153,7 @@ describe('library editor', () => {
     expect(Option.isSome(editor.result.current.pending)).toBe(true);
     await act(async () => editor.result.current.form.handleSubmit());
     await act(() => {
-      editor.result.current.cancelConsent();
+      editor.result.current.handleCancelConsent();
     });
     expect(loadSettings).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
@@ -161,7 +161,7 @@ describe('library editor', () => {
       editor.result.current.handleLoad();
     });
     await act(() => {
-      editor.result.current.approve();
+      editor.result.current.handleApprove();
     });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
@@ -195,7 +195,10 @@ describe('library editor', () => {
     expect(loadSettings).toHaveBeenCalledTimes(1);
     expect(save).not.toHaveBeenCalled();
     await act(() => {
-      editor.result.current.cancelConsent();
+      editor.result.current.handleCancelConsent();
+    });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
     });
     await act(async () => editor.result.current.form.handleSubmit());
     expect(save).toHaveBeenCalledWith(
@@ -215,7 +218,7 @@ describe('library editor', () => {
       editor.result.current.handleLoad();
     });
     await act(() => {
-      editor.result.current.approve();
+      editor.result.current.handleApprove();
     });
     await waitFor(() => {
       expect(loadSettings).toHaveBeenCalledTimes(1);
@@ -239,7 +242,7 @@ describe('library editor', () => {
       editor.result.current.handleLoad();
     });
     await act(() => {
-      editor.result.current.approve();
+      editor.result.current.handleApprove();
     });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
@@ -269,10 +272,10 @@ describe('library editor', () => {
       editor.result.current.handleLoad();
     });
     await act(() => {
-      editor.result.current.approve();
+      editor.result.current.handleApprove();
     });
     await waitFor(() => {
-      expect(editor.result.current.status._tag).toBe('Failed');
+      expect(AsyncResult.isFailure(editor.result.current.settings)).toBe(true);
     });
     await act(() => {
       editor.result.current.handleLoad();

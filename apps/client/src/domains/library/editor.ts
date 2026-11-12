@@ -1,13 +1,14 @@
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Effect, Match, Option, Record, Schema } from 'effect';
-import { Reactivity } from 'effect/reactivity';
+import { Atom, Reactivity } from 'effect/reactivity';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
+import { AppRuntime } from '#src/runtime/index.ts';
 
 export class LibraryEditorMetadata extends Schema.Struct({
   name: Library.jsonCreate.fields.name.check(Schema.isPattern(/\S/u)),
@@ -21,6 +22,7 @@ const SettingsEntryId = Schema.Natural.pipe(
 
 export class LibraryEditorValues extends Schema.Struct({
   ...LibraryEditorMetadata.fields,
+  settingsFor: Schema.NullOr(LibraryEditorMetadata),
   textValues: Schema.Record(Schema.String, Schema.String),
   listValues: Schema.Record(
     Schema.String,
@@ -52,8 +54,8 @@ export const sameSettingsRequest = ({
   first,
   second,
 }: {
-  readonly first: typeof LibraryEditorMetadata.Type;
-  readonly second: typeof LibraryEditorMetadata.Type;
+  readonly first: typeof LibraryEditorMetadata.Encoded;
+  readonly second: typeof LibraryEditorMetadata.Encoded;
 }) =>
   first.name === second.name &&
   first.type === second.type &&
@@ -138,21 +140,26 @@ export const settingsSubmission = ({
 
 export const fetchLibrarySettings = Effect.fnUntraced(function* ({
   account,
-  source,
+  id,
   request,
 }: {
   readonly account: AccountKey;
-  readonly source: LibraryEditorSource;
+  readonly id: Option.Option<typeof Library.fields.id.Type>;
   readonly request: typeof LibraryEditorMetadata.Type;
 }) {
   const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
   return yield* client.library.getDraftStoragePluginSettingsForm({
     payload: {
       ...request,
-      id: source._tag === 'Edit' ? Option.some(source.library.id) : Option.none(),
+      id,
     },
   });
 });
+
+export const libraryStorageSettingsAtom = Atom.family(
+  (input: Parameters<typeof fetchLibrarySettings>[0]) =>
+    AppRuntime.atom(fetchLibrarySettings(input)).pipe(Atom.withLabel('libraryStorageSettingsAtom'))
+);
 
 export const saveLibrary = Effect.fnUntraced(
   function* ({
