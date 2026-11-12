@@ -9,8 +9,11 @@ import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import {
-  deleteLibrary,
   libraryFailureMessage,
+  libraryListFailure,
+} from '#src/domains/library/error-presentation.ts';
+import {
+  deleteLibrary,
   libraryStorageDetails,
   libraryStorageErrors,
   listLibrariesAtom,
@@ -62,6 +65,10 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         yield* Atom.mount(query);
         const empty = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(empty).toBeInstanceOf(Cause.NoSuchElementError);
+        expect(libraryListFailure({ error: empty })).toEqual({
+          kind: 'empty',
+          message: 'No libraries yet. Create a library to get started.',
+        });
 
         const created = yield* client.library.create({ payload: createInput('Only library') });
         yield* Atom.refresh(query);
@@ -71,6 +78,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         yield* deleteLibrary({ account: account.key, id: created.id });
         const deleted = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(deleted).toBeInstanceOf(Cause.NoSuchElementError);
+        expect(libraryListFailure({ error: deleted }).kind).toBe('empty');
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )
@@ -204,9 +212,10 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const server = yield* setupTestServerWithUsers({ userCount: 2 });
         const [, user] = yield* signInTestServerUsers(manager, server);
         const denied = yield* Atom.getResult(listLibrariesAtom(user.key)).pipe(Effect.flip);
-        expect(libraryFailureMessage({ error: denied })).toBe(
-          'Only server administrators can manage libraries.'
-        );
+        expect(libraryListFailure({ error: denied })).toEqual({
+          kind: 'error',
+          message: 'Only server administrators can manage libraries.',
+        });
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )

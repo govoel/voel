@@ -18,10 +18,10 @@ import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
+import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   deleteLibrary,
   libraryDetails,
-  libraryFailureMessage,
   libraryStorageDetails,
   libraryStorageErrors,
   serverLibraryAtom,

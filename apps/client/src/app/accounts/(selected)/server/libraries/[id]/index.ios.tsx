@@ -13,10 +13,10 @@ import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
+import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   deleteLibrary,
   libraryDetails,
-  libraryFailureMessage,
   libraryStorageDetails,
   libraryStorageErrors,
   serverLibraryAtom,

@@ -29,8 +29,8 @@ import { useSheetSelection } from '#src/components/sheet/selection.ts';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
 import { SessionList } from '#src/domains/accounts/components/management/session-list';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { accountAtom, useSelectedAccount } from '#src/domains/accounts/scope.ts';
 
 const ProfileList = ({ children }: PropsWithChildren) => (
@@ -146,7 +146,7 @@ const LoadedProfile = ({
 
         <SegmentedList modifiers={[padding(0, Spacing.two, 0, 0)]}>
           <MutationConfirmation
-            onFailure={authFailureMessage}
+            onFailure={accountFailureMessage}
             trigger={({ open, busy }) => (
               <SegmentedListItem index={0} count={1} onClick={open} enabled={!busy}>
                 <SegmentedListItem.HeadlineContent>
@@ -212,7 +212,7 @@ export default function ProfileScreen() {
               message={Match.value(error).pipe(
                 Match.tagsExhaustive({
                   NoSuchElementError: () => 'Unable to load your profile.',
-                  AccountDatabaseError: (failure) => authFailureMessage({ error: failure }),
+                  AccountDatabaseError: (failure) => accountFailureMessage({ error: failure }),
                 })
               )}
               onRetry={refresh}
@@ -315,7 +315,7 @@ const OwnSessions = () => {
         onError: (error) => (
           <ListState
             kind="error"
-            message={authFailureMessage({ error })}
+            message={accountFailureMessage({ error })}
             onRetry={refresh}
             retrying={state.waiting}
           />

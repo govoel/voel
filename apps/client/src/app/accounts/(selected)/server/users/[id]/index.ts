@@ -10,7 +10,7 @@ import {
 
 import { useAppForm } from '#src/components/form';
 import { AuthClientMap } from '#src/domains/accounts/auth-client/index.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { Account } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
@@ -168,7 +168,7 @@ export const useUserPasswordForm = ({
     schema: PasswordInput,
     onSubmit: ({ value }) => setServerUserPassword({ account, input: value }),
     defaultValues: { userId, newPassword: '', confirmPassword: '' },
-    onFailure: authFailureMessage,
+    onFailure: accountFailureMessage,
     onSuccess,
   });
 };
@@ -190,7 +190,7 @@ export const useServerUserProfileForm = ({
       username: user.username,
       email: user.email,
     },
-    onFailure: authFailureMessage,
+    onFailure: accountFailureMessage,
     onSuccess,
   });
 };
@@ -207,7 +207,7 @@ export const useUserRoleForm = ({
     schema: AuthSetRoleInput,
     onSubmit: ({ value }) => setServerUserRole({ account, input: value }),
     defaultValues: { userId: user.id, role: user.role },
-    onFailure: authFailureMessage,
+    onFailure: accountFailureMessage,
     onSuccess,
   });
 };

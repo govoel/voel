@@ -14,11 +14,7 @@ import type { Href } from 'expo-router';
 import { Stack, useRouter } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 
-import {
-  accountsWithActiveAccount,
-  removeAccount,
-  removeAccountFailureMessage,
-} from '#src/app/accounts/index.ts';
+import { accountsWithActiveAccount, removeAccount } from '#src/app/accounts/index.ts';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Sheet } from '#src/components/sheet';
@@ -30,7 +26,7 @@ import {
   accountsSheetAtom,
   accountsSheetIsInvalidSession,
 } from '#src/domains/accounts/components/auto-presenter/model.ts';
-import { authFailureMessage } from '#src/domains/accounts/components/management/auth-failure-message.ts';
+import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 
 const StackNavigationRow = ({ title, href }: { readonly title: string; readonly href: Href }) => {
   const router = useRouter();
@@ -200,7 +196,7 @@ export default function AccountsScreen() {
                                 router.dismissTo('/');
                               }
                             }}
-                            onFailure={removeAccountFailureMessage}
+                            onFailure={accountFailureMessage}
                             title="Remove account from this device?"
                             confirmLabel="Remove"
                             message={`This will sign you out and remove all data associated with @${account.username} on ${account.key.serverUrl} from this device.`}
@@ -260,7 +256,8 @@ export default function AccountsScreen() {
                     message={Match.value(error).pipe(
                       Match.tagsExhaustive({
                         NoSuchElementError: () => 'Unable to load accounts.',
-                        AccountDatabaseError: (failure) => authFailureMessage({ error: failure }),
+                        AccountDatabaseError: (failure) =>
+                          accountFailureMessage({ error: failure }),
                       })
                     )}
                     onRetry={refreshAccounts}
