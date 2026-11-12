@@ -15,15 +15,15 @@ import {
 } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcMessage, RpcSchema, RpcServer } from 'effect/rpc';
 
-import { makeRpcServerProtocol } from '#src/react-native/rpc/protocol.ts';
+import { makeRpcServerProtocol } from '#src/react-native/rpc/protocol.js';
 import {
   RPC_CLIENT_EVENT,
   RPC_SERVER_EVENT,
   RpcBridgeClientMessage,
   RpcBridgeServerMessage,
-} from '#src/shared/rpc-bridge.ts';
-import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
-import { makeRpcClientProtocol } from '#src/ui/rpc/protocol.ts';
+} from '#src/shared/rpc-bridge.js';
+import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.js';
+import { makeRpcClientProtocol } from '#src/ui/rpc/protocol.js';
 
 interface BridgeEvent {
   readonly type: keyof RpcBridgeEventMap;
