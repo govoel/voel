@@ -1,21 +1,21 @@
-import { assert, expect, it } from '@effect/vitest';
+import { expect, it } from '@effect/vitest';
 import {
   StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
-import { Array, Effect, Exit, Fiber, Latch, Layer, Match, Option, RcMap } from 'effect';
+import { Array, Effect, Exit, Fiber, Latch, Layer, Match, Option } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, Statement } from 'effect/sql';
 
-import { Library, LibraryInvalidRootError } from '@repo/spec-api/domains/library/schema.ts';
+import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { ApiConfig } from '#src/config.ts';
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
 import { LibraryRepository } from '#src/domains/library/repository.ts';
 import { LibraryService } from '#src/domains/library/service.ts';
-import { TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
-import { StoragePluginMap, StoragePluginSettingsMap } from '#src/domains/plugins/storage/index.ts';
-import { StoragePluginKey, StoragePluginSettingsKey } from '#src/domains/plugins/storage/schema.ts';
+import { PluginFixture, TestScheduler, pluginLayer } from '#src/domains/library/testing.ts';
+import { StoragePluginMap } from '#src/domains/plugins/storage/index.ts';
+import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 const testLayer = LibraryService.layerNoDeps.pipe(
   Layer.provideMerge([LibraryRepository.layerNoDeps, pluginLayer]),
@@ -27,17 +27,18 @@ const testLayer = LibraryService.layerNoDeps.pipe(
 const mutate = Effect.fnUntraced(function* ({
   id,
   operation,
-}: Pick<Library, 'id'> & { readonly operation: 'rename' | 'settings' | 'delete' }) {
+}: Pick<Library, 'id'> & { readonly operation: 'update' | 'delete' }) {
   const service = yield* LibraryService;
   return yield* Match.value(operation).pipe(
     Match.literalsExhaustive({
-      rename: () =>
-        service.rename({ id, name: Library.fields.name.make('Renamed') }).pipe(Effect.asVoid),
-      settings: () =>
+      update: () =>
         service
-          .setStoragePluginSettings({
+          .update({
             id,
-            input: StoragePluginSettingsInput.make({ root: '/updated' }),
+            name: Library.fields.name.make(`Updated ${id}`),
+            type: Library.fields.type.make('movie'),
+            storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+            storagePluginSettings: StoragePluginSettingsInput.make({ root: '/updated' }),
           })
           .pipe(Effect.asVoid),
       delete: () => service.delete({ id }),
@@ -45,117 +46,88 @@ const mutate = Effect.fnUntraced(function* ({
   );
 });
 
-const cacheKeys = Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
-  const editors = yield* StoragePluginSettingsMap;
-  const stores = yield* StoragePluginMap;
-  const editorKeys = yield* RcMap.keys(editors.rcMap);
-  const storeKeys = yield* RcMap.keys(stores.rcMap);
-  return {
-    editors: Array.filter(editorKeys, (key) => key.library.id === id),
-    stores: Array.filter(storeKeys, (key) => key.library.id === id),
-  };
+const activeStorageFor = Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
+  const fixture = yield* PluginFixture;
+  return Array.filter(
+    Array.fromIterable(fixture.activeStorage),
+    (storage) => storage.library.id === id
+  );
 });
 
 const warmLibrary = Effect.fnUntraced(function* (name: string) {
   const repository = yield* LibraryRepository;
-  const editors = yield* StoragePluginSettingsMap;
   const stores = yield* StoragePluginMap;
-  const library = yield* repository.create({
+  const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
+  const row = yield* repository.create({
     name: Library.fields.name.make(name),
     type: Library.fields.type.make('movie'),
-    storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+    storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+    storagePluginSettings: settings,
   });
-  const settings = StoragePluginSettingsPersisted.make({ prefix: '/initial' });
-  yield* repository.setSettings({ ...library, settings });
-  const row = yield* repository.getById(library);
+  const library = { id: row.id };
+  const metadata = { id: row.id, type: row.type, name: row.name };
   for (const snapshot of [
-    row.settingsKey.library,
-    { ...row.settingsKey.library, name: Library.fields.name.make(`${name} stale`) },
+    metadata,
+    { ...metadata, name: Library.fields.name.make(`${name} stale`) },
   ]) {
-    yield* Effect.scoped(
-      Effect.all([
-        editors.acquire(
-          StoragePluginSettingsKey.make({
-            storagePlugin: row.settingsKey.storagePlugin,
-            library: snapshot,
-          })
-        ),
-        stores.acquire(
-          StoragePluginKey.make({
-            storagePlugin: row.settingsKey.storagePlugin,
-            library: snapshot,
-            settings,
-          })
-        ),
-      ])
-    );
+    yield* stores
+      .acquire(
+        StoragePluginKey.make({
+          storagePluginId: row.storageKey.storagePluginId,
+          library: snapshot,
+          settings,
+        })
+      )
+      .pipe(Effect.scoped);
   }
-  return { library, row, keys: yield* cacheKeys(library) };
+  return { library, row, storage: yield* activeStorageFor(library) };
 });
 
 it.layer(testLayer)('library service without transport', (iit) => {
   iit.effect(
-    'uses repository-decoded identities for acquisition, cache inspection, and invalidation',
+    'saves valid settings without constructing unavailable storage on create or update',
     Effect.fnUntraced(function* () {
-      const repository = yield* LibraryRepository;
       const service = yield* LibraryService;
-      const editors = yield* StoragePluginSettingsMap;
+      const repository = yield* LibraryRepository;
       const stores = yield* StoragePluginMap;
-      const library = yield* repository.create({
-        name: Library.fields.name.make('Decoded plugin identities'),
+      const input = {
+        name: Library.fields.name.make('Unavailable storage'),
         type: Library.fields.type.make('movie'),
-        storagePlugin: Library.fields.storagePlugin.make('npm:test'),
-      });
-      const unconfigured = yield* repository.getById(library);
-      assert.instanceOf(unconfigured.settingsKey, StoragePluginSettingsKey);
-      expect(Option.isNone(unconfigured.storageKey)).toBe(true);
-      expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
+        storagePluginId: Library.fields.storagePluginId.make('npm:test'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: 'unavailable' }),
+      };
+      const library = yield* service.create(input);
+      const created = yield* repository.getById(library);
+      expect(created.storageKey.settings).toEqual({ prefix: 'unavailable' });
 
-      yield* repository.setSettings({
+      const replacement = {
+        ...input,
         ...library,
-        settings: StoragePluginSettingsPersisted.make({ prefix: '/decoded' }),
+        name: Library.fields.name.make('Updated unavailable storage'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:other'),
+      };
+      yield* service.update(replacement);
+      const updated = yield* repository.getById(library);
+      expect(updated).toMatchObject({
+        name: replacement.name,
+        storageKey: {
+          storagePluginId: replacement.storagePluginId,
+          settings: { prefix: 'unavailable' },
+        },
       });
-      const configured = yield* repository.getById(library);
-      const listResult = yield* repository.list({ cursor: Option.none(), limit: 100 });
-      const listed = Option.getOrThrow(
-        Array.findFirst(listResult, (row) => row.settingsKey.library.id === library.id)
-      );
-      const storageKey = Option.getOrThrow(configured.storageKey);
-      const listedStorageKey = Option.getOrThrow(listed.storageKey);
-      assert.instanceOf(storageKey, StoragePluginKey);
-      assert.instanceOf(listedStorageKey, StoragePluginKey);
-      assert.instanceOf(listed.settingsKey, StoragePluginSettingsKey);
-      expect(configured.settingsKey.library).toEqual({
-        ...library,
-        name: 'Decoded plugin identities',
-        type: 'movie',
-      });
-
-      const editor = yield* editors.acquire(unconfigured.settingsKey);
-      const acquireResult = yield* editors.acquire(listed.settingsKey);
-      expect(acquireResult).toBe(editor);
-      const storage = yield* stores.acquire(storageKey);
-      const acquireResult2 = yield* stores.acquire(listedStorageKey);
-      expect(acquireResult2).toBe(storage);
-      const contextEffectOptionResult = yield* editors.contextEffectOption(configured.settingsKey);
-      expect(Option.isSome(contextEffectOptionResult)).toBe(true);
-      const contextEffectOptionResult2 = yield* stores.contextEffectOption(listedStorageKey);
-      expect(Option.isSome(contextEffectOptionResult2)).toBe(true);
       expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'healthy' });
-
-      yield* editors.invalidate(listed.settingsKey);
-      yield* stores.invalidate(listedStorageKey);
-      const contextEffectOptionResult3 = yield* editors.contextEffectOption(
-        unconfigured.settingsKey
-      );
-      expect(Option.isNone(contextEffectOptionResult3)).toBe(true);
-      const contextEffectOptionResult4 = yield* stores.contextEffectOption(storageKey);
-      expect(Option.isNone(contextEffectOptionResult4)).toBe(true);
-      expect((yield* service.get(library)).storagePluginHealth).toEqual({ status: 'unknown' });
-    }, Effect.scoped)
+      const construction = yield* stores
+        .acquire(updated.storageKey)
+        .pipe(Effect.scoped, Effect.flip);
+      expect(construction).toMatchObject({ _tag: 'StoragePluginConstructionError' });
+      expect((yield* service.get(library)).storagePluginHealth).toMatchObject({
+        status: 'unhealthy',
+        errors: [{ _tag: 'StoragePluginConstructionError' }],
+      });
+    })
   );
 
-  iit.effect.each(['rename', 'settings', 'delete'] as const)(
+  iit.effect.each(['update', 'delete'] as const)(
     '%s retires only its library after the outer commit, never on rollback or savepoint release',
     Effect.fnUntraced(function* (operation) {
       const sql = yield* LibraryDatabase;
@@ -163,9 +135,10 @@ it.layer(testLayer)('library service without transport', (iit) => {
       const { drainScheduler } = yield* TestScheduler;
       const target = yield* warmLibrary(`${operation} target`);
       const unrelated = yield* warmLibrary(`${operation} unrelated`);
-      expect(target.keys.editors).toHaveLength(2);
-      expect(target.keys.stores).toHaveLength(2);
+      expect(target.storage).toHaveLength(2);
+      expect(unrelated.storage).toHaveLength(2);
 
+      const retainedStorage = target.storage;
       const change = mutate({ ...target.library, operation });
       yield* sql
         .withTransaction(change.pipe(Effect.andThen(Effect.fail('outer rollback'))))
@@ -173,8 +146,8 @@ it.layer(testLayer)('library service without transport', (iit) => {
       yield* drainScheduler;
       const getByIdResult = yield* repository.getById(target.library);
       expect(getByIdResult).toEqual(target.row);
-      const cacheKeysResult = yield* cacheKeys(target.library);
-      expect(cacheKeysResult).toEqual(target.keys);
+      const afterRollback = yield* activeStorageFor(target.library);
+      expect(afterRollback).toEqual(retainedStorage);
 
       yield* sql.withTransaction(
         Effect.gen(function* () {
@@ -182,29 +155,29 @@ it.layer(testLayer)('library service without transport', (iit) => {
             .withTransaction(change.pipe(Effect.andThen(Effect.fail('savepoint rollback'))))
             .pipe(Effect.flip);
           yield* drainScheduler;
-          const cacheKeysResult2 = yield* cacheKeys(target.library);
-          expect(cacheKeysResult2).toEqual(target.keys);
+          const duringSavepointRollback = yield* activeStorageFor(target.library);
+          expect(duringSavepointRollback).toEqual(retainedStorage);
         })
       );
       yield* drainScheduler;
       const getByIdResult2 = yield* repository.getById(target.library);
       expect(getByIdResult2).toEqual(target.row);
-      const cacheKeysResult3 = yield* cacheKeys(target.library);
-      expect(cacheKeysResult3).toEqual(target.keys);
+      const afterSavepointRollback = yield* activeStorageFor(target.library);
+      expect(afterSavepointRollback).toEqual(retainedStorage);
 
       yield* sql.withTransaction(
         Effect.gen(function* () {
           yield* change;
           yield* drainScheduler;
-          const cacheKeysResult4 = yield* cacheKeys(target.library);
-          expect(cacheKeysResult4).toEqual(target.keys);
+          const beforeCommit = yield* activeStorageFor(target.library);
+          expect(beforeCommit).toEqual(retainedStorage);
         })
       );
       yield* drainScheduler;
-      const cacheKeysResult5 = yield* cacheKeys(target.library);
-      expect(cacheKeysResult5).toEqual({ editors: [], stores: [] });
-      const cacheKeysResult6 = yield* cacheKeys(unrelated.library);
-      expect(cacheKeysResult6).toEqual(unrelated.keys);
+      const afterCommit = yield* activeStorageFor(target.library);
+      expect(afterCommit).toEqual([]);
+      const unrelatedStorage = yield* activeStorageFor(unrelated.library);
+      expect(unrelatedStorage).toEqual(unrelated.storage);
       yield* Match.value(operation).pipe(
         Match.when(
           'delete',
@@ -213,17 +186,14 @@ it.layer(testLayer)('library service without transport', (iit) => {
             expect(error._tag).toBe('LibraryNotFoundError');
           })
         ),
-        Match.whenOr(
-          'rename',
-          'settings',
+        Match.when(
+          'update',
           Effect.fnUntraced(function* () {
             const row = yield* repository.getById(target.library);
-            expect(row.settingsKey.library.name).toBe(
-              operation === 'rename' ? 'Renamed' : target.row.settingsKey.library.name
-            );
-            expect(Option.map(row.storageKey, ({ settings }) => settings)).toEqual(
-              Option.some({ prefix: operation === 'settings' ? '/updated' : '/initial' })
-            );
+            expect(row.name).toBe(`Updated ${target.library.id}`);
+            expect(row.storageKey.settings).toEqual({
+              prefix: '/updated',
+            });
           })
         ),
         Match.exhaustive
@@ -232,7 +202,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
   );
 
   iit.effect.each(['body', 'commit'] as const)(
-    'settings retirement follows the commit outcome when interrupted during the transaction %s',
+    'update retirement follows the commit outcome when interrupted during the transaction %s',
     Effect.fnUntraced(function* (boundary) {
       const backing = yield* LibraryDatabase;
       const { drainScheduler } = yield* TestScheduler;
@@ -270,7 +240,7 @@ it.layer(testLayer)('library service without transport', (iit) => {
         const request = yield* sql
           .withTransaction(
             Effect.gen(function* () {
-              yield* mutate({ ...target.library, operation: 'settings' });
+              yield* mutate({ ...target.library, operation: 'update' });
               if (boundary === 'body') {
                 yield* entered.open;
                 return yield* Effect.never;
@@ -287,16 +257,11 @@ it.layer(testLayer)('library service without transport', (iit) => {
         const requestExit = yield* Fiber.await(request);
         expect(Exit.hasInterrupts(requestExit)).toBe(true);
         yield* drainScheduler;
-        const cacheKeysResult = yield* cacheKeys(target.library);
-        expect(cacheKeysResult).toEqual(
-          boundary === 'commit' ? { editors: [], stores: [] } : target.keys
-        );
-        expect(
-          Option.map(
-            (yield* repository.getById(target.library)).storageKey,
-            ({ settings }) => settings
-          )
-        ).toEqual(Option.some({ prefix: boundary === 'commit' ? '/updated' : '/initial' }));
+        const activeStorage = yield* activeStorageFor(target.library);
+        expect(activeStorage).toEqual(boundary === 'commit' ? [] : target.storage);
+        expect((yield* repository.getById(target.library)).storageKey.settings).toEqual({
+          prefix: boundary === 'commit' ? '/updated' : '/initial',
+        });
       }).pipe(
         Effect.ensuring(release.open),
         Effect.provide(
@@ -311,35 +276,62 @@ it.layer(testLayer)('library service without transport', (iit) => {
   );
 
   iit.effect(
-    'reports a raw empty root as a typed validation error without changing configured roots',
+    'passes submitted metadata and persisted settings to the selected plugin across plugin changes',
     Effect.fnUntraced(function* () {
       const service = yield* LibraryService;
+      const fixture = yield* PluginFixture;
       const library = yield* service.create({
-        name: Library.fields.name.make('Direct root validation'),
+        name: Library.fields.name.make('Local'),
         type: Library.fields.type.make('movie'),
-        storagePlugin: Library.fields.storagePlugin.make('npm:test'),
+        storagePluginId: Library.fields.storagePluginId.make('builtin:local'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
       });
-      yield* service.setStoragePluginSettings({
+      const submissions: Array<Parameters<typeof fixture.controls.beforeDecode>[0]> = [];
+      const { beforeDecode } = fixture.controls;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          fixture.controls.beforeDecode = beforeDecode;
+        })
+      );
+      fixture.controls.beforeDecode = (request) =>
+        Effect.sync(() => {
+          submissions.push(request);
+        });
+      const input = {
         ...library,
-        input: StoragePluginSettingsInput.make({ root: '/configured' }),
+        name: Library.fields.name.make('Remote'),
+        type: Library.fields.type.make('audiobook'),
+        storagePluginId: Library.fields.storagePluginId.make('npm:test@1'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: '/remote' }),
+      };
+      yield* service.update(input);
+      yield* service.update({
+        ...input,
+        storagePluginSettings: StoragePluginSettingsInput.make({ root: '/changed' }),
       });
-      yield* service.setRoots({ ...library, roots: [{ root: '/one' }, { root: '/two' }] });
-      const before = yield* service.get(library);
-      expect(before.storagePluginSettings).toEqual(Option.some({ prefix: '/configured' }));
-      expect(Array.map(before.roots, ({ root }) => root)).toEqual(['/one', '/two']);
-
-      const error = yield* service
-        .setRoots({ ...library, roots: [{ root: '/replacement' }, { root: '' }] })
-        .pipe(Effect.flip);
-      assert.instanceOf(error, LibraryInvalidRootError);
-      expect({ _tag: error._tag, roots: error.roots }).toEqual({
-        _tag: 'LibraryInvalidRootError',
-        roots: [{ root: '', message: 'Expected a value with a length of at least 1' }],
+      yield* service.update({
+        ...input,
+        storagePluginId: Library.fields.storagePluginId.make('npm:test@2'),
       });
-      const after = yield* service.get(library);
-      expect({ settings: after.storagePluginSettings, roots: after.roots }).toEqual({
-        settings: Option.some({ prefix: '/configured' }),
-        roots: before.roots,
+      expect(
+        Array.map(submissions, ({ library: metadata, current }) => ({ library: metadata, current }))
+      ).toEqual([
+        { library: { name: 'Remote', type: 'audiobook' }, current: Option.some({ roots: [] }) },
+        {
+          library: { name: 'Remote', type: 'audiobook' },
+          current: Option.some({ prefix: '/remote' }),
+        },
+        {
+          library: { name: 'Remote', type: 'audiobook' },
+          current: Option.some({ prefix: '/changed' }),
+        },
+      ]);
+      const updated = yield* service.get(library);
+      expect(updated).toMatchObject({
+        name: 'Remote',
+        type: 'audiobook',
+        storagePluginId: 'npm:test@2',
+        storagePluginSettings: { prefix: '/remote' },
       });
     })
   );

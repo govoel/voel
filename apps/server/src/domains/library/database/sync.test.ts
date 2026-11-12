@@ -49,9 +49,19 @@ it.effect(
       const headers = { authorization: `Bearer ${token}` };
       yield* source`
         insert into
-          library (type, name, "storagePlugin")
+          library (
+            type,
+            name,
+            "storagePluginId",
+            "storagePluginSettings"
+          )
         values
-          ('audiobook', 'Audiobooks', 'builtin:local')
+          (
+            'audiobook',
+            'Audiobooks',
+            'builtin:local',
+            '{"roots":[]}'
+          )
       `;
       const replica = yield* TursoSyncClient.make({
         path: `${directory}/replica.db`,
@@ -69,9 +79,19 @@ it.effect(
 
       yield* source`
         insert into
-          library (type, name, "storagePlugin")
+          library (
+            type,
+            name,
+            "storagePluginId",
+            "storagePluginSettings"
+          )
         values
-          ('movie', 'Movies', 'builtin:local')
+          (
+            'movie',
+            'Movies',
+            'builtin:local',
+            '{"roots":[]}'
+          )
       `;
       const pull = yield* replica.pull;
       expect(pull).toBe(true);
@@ -111,8 +131,11 @@ it.effect(
       expect(unknownOptions.status).toBe(404);
 
       yield* source`
-        insert into "libraryRoot" ("libraryId", root)
-        select id, '/audiobooks' from library where name = 'Audiobooks'
+        update library
+        set
+          "storagePluginSettings" = '{"roots":["/audiobooks"]}'
+        where
+          name = 'Audiobooks'
       `;
       yield* source`
         insert into
@@ -128,11 +151,12 @@ it.effect(
       expect(pull2).toBe(true);
       const rows4 = yield* replica`
         select
-          root
+          "storagePluginSettings"
         from
-          "libraryRoot"
+          library
+        where name = 'Audiobooks'
       `;
-      expect(rows4).toEqual([{ root: '/audiobooks' }]);
+      expect(rows4).toEqual([{ storagePluginSettings: '{"roots":["/audiobooks"]}' }]);
       const rows5 = yield* replica`
         select
           l.name, f.location, m."matchFailureReason", m."customOrder"
@@ -171,13 +195,6 @@ it.effect(
           library
       `;
       expect(rows6).toEqual([{ name: 'Movies' }]);
-      const rows7 = yield* replica`
-        select
-          id
-        from
-          "libraryRoot"
-      `;
-      expect(rows7).toEqual([]);
       const rows8 = yield* replica`
         select
           l.name, f.location, m."matchFailureReason", m."customOrder"

@@ -61,11 +61,11 @@ it.effect(
 
       yield* Effect.gen(function* () {
         const modules = yield* PluginModuleMap;
-        const plugin = NpmPluginId.make('npm:@fixture/plugin@^1');
-        const [first, second] = yield* Effect.all([modules.get(plugin), modules.get(plugin)], {
+        const pluginId = NpmPluginId.make('npm:@fixture/plugin@^1');
+        const [first, second] = yield* Effect.all([modules.get(pluginId), modules.get(pluginId)], {
           concurrency: 'unbounded',
         });
-        for (const module of [first, second, yield* modules.get(plugin).pipe(Effect.scoped)]) {
+        for (const module of [first, second, yield* modules.get(pluginId).pipe(Effect.scoped)]) {
           expect(module).toMatchObject({
             default: { name: 'not a storage plugin' },
             marker: 'preserved',
@@ -222,8 +222,8 @@ it.effect(
         )
       );
 
-      const plugin = NpmPluginId.make('npm:fixture');
-      const pluginValueExit = yield* modules.get(plugin).pipe(Effect.exit);
+      const pluginId = NpmPluginId.make('npm:fixture');
+      const pluginValueExit = yield* modules.get(pluginId).pipe(Effect.exit);
       expect(pluginValueExit).toEqual(
         Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
       );
@@ -231,9 +231,9 @@ it.effect(
         const existsResult = yield* fs.exists(directory);
         expect(existsResult).toBe(false);
       }
-      const module = yield* modules.get(plugin);
+      const module = yield* modules.get(pluginId);
       expect(module).toMatchObject({ ready: true });
-      const pluginValue = yield* modules.get(plugin);
+      const pluginValue = yield* modules.get(pluginId);
       expect(pluginValue).toMatchObject({ ready: true });
       expect(directories).toHaveLength(2);
     },
@@ -280,9 +280,9 @@ it.effect.each(['resolution', 'import'] as const)(
         )
       );
 
-      const plugin = NpmPluginId.make('npm:fixture');
+      const pluginId = NpmPluginId.make('npm:fixture');
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const exit = yield* modules.get(plugin).pipe(Effect.exit);
+        const exit = yield* modules.get(pluginId).pipe(Effect.exit);
         expect(exit).toEqual(
           Exit.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
         );
@@ -291,9 +291,9 @@ it.effect.each(['resolution', 'import'] as const)(
           expect(existsResult).toBe(false);
         }
       }
-      const module = yield* modules.get(plugin);
+      const module = yield* modules.get(pluginId);
       expect(module).toMatchObject({ ready: true });
-      const pluginValue = yield* modules.get(plugin);
+      const pluginValue = yield* modules.get(pluginId);
       expect(pluginValue).toMatchObject({ ready: true });
       expect(directories).toHaveLength(3);
       for (const [index, directory] of directories.entries()) {

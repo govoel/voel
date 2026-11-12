@@ -24,13 +24,13 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
 
       const modules = yield* Cache.makeWith(
         Effect.fnUntraced(
-          function* (plugin: typeof NpmPluginId.Type) {
+          function* (pluginId: typeof NpmPluginId.Type) {
             const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'voel-plugin-' });
 
             const exitCode = yield* spawner.exitCode(
               ChildProcess.make(
                 process.execPath,
-                ['add', '--ignore-scripts', '--', `plugin@${plugin}`],
+                ['add', '--ignore-scripts', '--', `plugin@${pluginId}`],
                 {
                   cwd: directory,
                   env: { BUN_BE_BUN: '1' },
@@ -71,7 +71,7 @@ export class PluginModuleMap extends Context.Service<PluginModuleMap>()(
         }
       ).pipe(Effect.setContext(Context.empty()));
 
-      return { get: (plugin: typeof NpmPluginId.Type) => Cache.get(modules, plugin) };
+      return { get: (pluginId: typeof NpmPluginId.Type) => Cache.get(modules, pluginId) };
     }),
   }
 ) {

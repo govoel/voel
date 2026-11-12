@@ -1,4 +1,5 @@
 import { expect, it } from '@effect/vitest';
+import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Effect, Option } from 'effect';
 
 import { ForbiddenError, UnauthorizedError } from '@repo/spec-api/domains/auth/http.ts';
@@ -17,7 +18,8 @@ import {
 const createInput = (name: string) => ({
   name: Library.jsonCreate.fields.name.make(name),
   type: Library.jsonCreate.fields.type.make('movie'),
-  storagePlugin: Library.jsonCreate.fields.storagePlugin.make('builtin:local'),
+  storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
+  storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
 });
 
 it.layer(TestServerControllerClient.layer)('API client', (iit) => {

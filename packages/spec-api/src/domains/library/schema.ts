@@ -1,11 +1,10 @@
 import { Library as PluginLibrary, MediaType as PluginMediaType } from '@govoel/plugins/library';
 import {
-  StorageLocationValidationError,
   StorageMediaFileLocation,
   StoragePluginConstructionError,
   StoragePluginSettingsConstructionError,
+  StoragePluginSettingsInput,
   StoragePluginSettingsPersisted,
-  StorageRootLocation,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
 import { Model, VariantSchema } from 'effect/schema';
@@ -310,16 +309,13 @@ export class AudiobookContributorMap extends SoftDeletable.extend<AudiobookContr
 export class Library extends Timestamped.extend<Library>(
   '@repo/spec-api/domains/library/schema/Library'
 )({
-  id: DbModel.Field({
-    select: PluginLibrary.fields.id,
-    create: PluginLibrary.fields.id,
-    json: PluginLibrary.fields.id,
-  }),
+  id: Model.GeneratedByDb(PluginLibrary.fields.id),
   type: DbModel.Field({
     select: PluginLibrary.fields.type,
     create: PluginLibrary.fields.type,
     json: PluginLibrary.fields.type,
     jsonCreate: PluginLibrary.fields.type,
+    jsonUpdate: PluginLibrary.fields.type,
   }),
   name: DbModel.Field({
     select: PluginLibrary.fields.name,
@@ -328,37 +324,19 @@ export class Library extends Timestamped.extend<Library>(
     jsonCreate: PluginLibrary.fields.name,
     jsonUpdate: PluginLibrary.fields.name,
   }),
-  storagePlugin: DbModel.Field({
+  storagePluginId: DbModel.Field({
     select: StoragePluginId,
     create: StoragePluginId,
     json: StoragePluginId,
     jsonCreate: StoragePluginId,
+    jsonUpdate: StoragePluginId,
   }),
   storagePluginSettings: DbModel.Field({
-    select: Schema.OptionFromNullOr(StoragePluginSettingsPersisted.fromJsonString),
-    json: Schema.Option(StoragePluginSettingsPersisted),
-  }),
-}) {}
-
-export class LibraryRoot extends Timestamped.extend<LibraryRoot>(
-  '@repo/spec-api/domains/library/schema/LibraryRoot'
-)({
-  id: DbModel.Field({
-    select: Schema.Natural.pipe(
-      Schema.brand('@repo/spec-api/domains/library/schema/LibraryRoot/id')
-    ),
-    json: Schema.Natural.pipe(Schema.brand('@repo/spec-api/domains/library/schema/LibraryRoot/id')),
-  }),
-  libraryId: DbModel.Field({
-    select: Library.fields.id,
-    upsert: Library.fields.id,
-    json: Library.fields.id,
-  }),
-  root: DbModel.Field({
-    select: StorageRootLocation,
-    upsert: StorageRootLocation,
-    json: StorageRootLocation,
-    jsonUpsert: Schema.NonEmptyString,
+    select: StoragePluginSettingsPersisted.fromJsonString,
+    create: StoragePluginSettingsPersisted.fromJsonString,
+    json: StoragePluginSettingsPersisted,
+    jsonCreate: StoragePluginSettingsInput,
+    jsonUpdate: StoragePluginSettingsInput,
   }),
 }) {}
 
@@ -442,25 +420,6 @@ export class LibraryNameConflictError extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >('@repo/spec-api/domains/library/schema/LibraryNameConflictError')('LibraryNameConflictError', {
   libraryName: Library.fields.name,
-}) {}
-
-export class LibraryUnconfiguredError extends Schema.TaggedError<
-  LibraryUnconfiguredError,
-  { readonly brand: unique symbol }
->('@repo/spec-api/domains/library/schema/LibraryUnconfiguredError')('LibraryUnconfiguredError', {
-  id: Library.fields.id,
-}) {}
-
-export class LibraryInvalidRootError extends Schema.TaggedError<
-  LibraryInvalidRootError,
-  { readonly brand: unique symbol }
->('@repo/spec-api/domains/library/schema/LibraryInvalidRootError')('LibraryInvalidRootError', {
-  roots: Schema.NonEmptyArray(
-    Schema.Struct({
-      root: Schema.String,
-      message: StorageLocationValidationError.fields.message,
-    })
-  ),
 }) {}
 
 /** Cached construction state of storage and its settings editor, not a live health probe. */

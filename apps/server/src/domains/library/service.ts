@@ -1,10 +1,5 @@
-import type { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Array, Context, Effect, Layer, Option, RcMap, Unify } from 'effect';
 
-import {
-  LibraryInvalidRootError,
-  LibraryUnconfiguredError,
-} from '@repo/spec-api/domains/library/schema.ts';
 import type { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
@@ -22,14 +17,12 @@ export class LibraryService extends Context.Service<LibraryService>()(
       const retirementScope = yield* Effect.scope;
 
       const details = ({
-        settingsKey,
         storageKey,
-        roots,
+        ...library
       }: Effect.Success<ReturnType<typeof repository.getById>>) => ({
-        ...settingsKey.library,
-        storagePlugin: settingsKey.storagePlugin,
-        storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
-        roots,
+        ...library,
+        storagePluginId: storageKey.storagePluginId,
+        storagePluginSettings: storageKey.settings,
       });
 
       const health = Effect.fnUntraced(function* (
@@ -37,11 +30,10 @@ export class LibraryService extends Context.Service<LibraryService>()(
       ) {
         const [cached, failures] = yield* Effect.partition(
           [
-            editors.contextEffectOption(row.settingsKey).pipe(Effect.map(Option.isSome)),
-            Option.match(row.storageKey, {
-              onNone: () => Effect.succeed(false),
-              onSome: (key) => stores.contextEffectOption(key).pipe(Effect.map(Option.isSome)),
-            }),
+            editors
+              .contextEffectOption(row.storageKey.storagePluginId)
+              .pipe(Effect.map(Option.isSome)),
+            stores.contextEffectOption(row.storageKey).pipe(Effect.map(Option.isSome)),
           ],
           (check) => Unify.unify(check),
           { concurrency: 'unbounded' }
@@ -53,13 +45,8 @@ export class LibraryService extends Context.Service<LibraryService>()(
         }) satisfies typeof StoragePluginHealth.Type;
       }, Effect.scoped);
 
-      const launchRetirement = Effect.fnUntraced(
+      const launchStorageRetirement = Effect.fnUntraced(
         function* ({ id }: Pick<Library, 'id'>) {
-          for (const key of yield* RcMap.keys(editors.rcMap)) {
-            if (key.library.id === id) {
-              yield* editors.invalidate(key);
-            }
-          }
           for (const key of yield* RcMap.keys(stores.rcMap)) {
             if (key.library.id === id) {
               yield* stores.invalidate(key);
@@ -92,59 +79,67 @@ export class LibraryService extends Context.Service<LibraryService>()(
                 : Option.none(),
           };
         }),
-        create: repository.create,
-        rename: (request: Parameters<typeof repository.rename>[0]) =>
-          repository.rename(request).pipe(
-            Effect.tap(() => sql.afterCommit(launchRetirement({ id: request.id }))),
-            sql.withTransaction,
-            Effect.catchTags({ SqlError: Effect.die })
-          ),
+        getDraftStoragePluginSettingsForm: Effect.fnUntraced(function* (
+          request: Pick<Library, 'name' | 'type' | 'storagePluginId'> & {
+            readonly id: Option.Option<Library['id']>;
+          }
+        ) {
+          const current = yield* Option.match(request.id, {
+            onNone: () => Effect.succeedNone,
+            onSome: (id) =>
+              repository
+                .getById({ id })
+                .pipe(Effect.map((row) => Option.some(row.storageKey.settings))),
+          });
+          const editor = yield* editors.acquire(request.storagePluginId);
+          return yield* editor.getForm({
+            library: { name: request.name, type: request.type },
+            current,
+          });
+        }, Effect.scoped),
+        create: Effect.fnUntraced(
+          function* (request: typeof Library.jsonCreate.Type) {
+            const editor = yield* editors.acquire(request.storagePluginId);
+            const settings = yield* editor.decodeFormSubmission({
+              library: { name: request.name, type: request.type },
+              current: Option.none(),
+              input: request.storagePluginSettings,
+            });
+            const created = yield* repository.create({
+              name: request.name,
+              type: request.type,
+              storagePluginId: request.storagePluginId,
+              storagePluginSettings: settings,
+            });
+            return { id: created.id };
+          },
+          sql.withTransaction,
+          Effect.catchTags({ SqlError: Effect.die }),
+          Effect.scoped
+        ),
         getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
           const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.settingsKey);
+          const editor = yield* editors.acquire(row.storageKey.storagePluginId);
           return yield* editor.getForm({
-            current: Option.map(row.storageKey, ({ settings }) => settings),
+            library: { type: row.type, name: row.name },
+            current: Option.some(row.storageKey.settings),
           });
         }, Effect.scoped),
-        setStoragePluginSettings: Effect.fnUntraced(function* ({
-          id,
-          input,
-        }: Pick<Library, 'id'> & { readonly input: StoragePluginSettingsInput }) {
-          const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.settingsKey);
-          const settings = yield* editor.decodeFormSubmission({
-            current: Option.map(row.storageKey, (key) => key.settings),
-            input,
-          });
-          return yield* repository.setSettings({ id, settings }).pipe(
-            Effect.tap(() => sql.afterCommit(launchRetirement({ id }))),
-            sql.withTransaction,
-            Effect.catchTags({ SqlError: Effect.die })
-          );
-        }, Effect.scoped),
-        setRoots: Effect.fnUntraced(
-          function* ({
-            id,
-            roots,
-          }: Pick<Library, 'id'> & { readonly roots: ReadonlyArray<{ readonly root: string }> }) {
-            const row = yield* repository.getById({ id });
-            if (Option.isNone(row.storageKey)) {
-              return yield* LibraryUnconfiguredError.make({ id });
-            }
-            const storage = yield* stores.acquire(row.storageKey.value);
-            const decoded = yield* Effect.validate(
-              roots,
-              ({ root }) =>
-                storage.decodeRootLocation({ location: root }).pipe(
-                  Effect.catchTags({
-                    StorageLocationValidationError: ({ message }) => Effect.fail({ root, message }),
-                  })
-                ),
-              { concurrency: 'unbounded' }
-            ).pipe(Effect.catch((error) => LibraryInvalidRootError.make({ roots: error })));
-            const unique = Array.dedupe(decoded);
-            yield* repository.setRoots({ id, roots: unique });
-            return { id, roots: Array.map(unique, (root) => ({ root })) };
+        update: Effect.fnUntraced(
+          function* (request: typeof Library.jsonUpdate.Type & Pick<Library, 'id'>) {
+            const row = yield* repository.getById({ id: request.id });
+            const editor = yield* editors.acquire(request.storagePluginId);
+            const settings = yield* editor.decodeFormSubmission({
+              library: { name: request.name, type: request.type },
+              current: Option.some(row.storageKey.settings),
+              input: request.storagePluginSettings,
+            });
+            const updated = yield* repository.update({
+              ...request,
+              storagePluginSettings: settings,
+            });
+            yield* sql.afterCommit(launchStorageRetirement({ id: request.id }));
+            return { id: updated.id };
           },
           sql.withTransaction,
           Effect.catchTags({ SqlError: Effect.die }),
@@ -152,7 +147,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
         ),
         delete: (request: Pick<Library, 'id'>) =>
           repository.deleteById(request).pipe(
-            Effect.tap(() => sql.afterCommit(launchRetirement(request))),
+            Effect.tap(() => sql.afterCommit(launchStorageRetirement(request))),
             sql.withTransaction,
             Effect.catchTags({ SqlError: Effect.die })
           ),

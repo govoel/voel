@@ -1,10 +1,8 @@
 import {
-  StoragePluginConstructionError,
   StoragePluginInvalidSettingsError,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
   StoragePluginSettingsForm,
-  StoragePluginSettingsInput,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from 'effect/http-api';
@@ -12,11 +10,8 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from 'effect/http-api';
 import { AdminMiddleware, AuthMiddleware } from '#src/domains/auth/http.ts';
 import {
   Library,
-  LibraryInvalidRootError,
   LibraryNameConflictError,
   LibraryNotFoundError,
-  LibraryRoot,
-  LibraryUnconfiguredError,
   StoragePluginHealth,
   StoragePluginStatus,
 } from '#src/domains/library/schema.ts';
@@ -27,11 +22,8 @@ class LibraryResponse extends Schema.Struct({
   id: Library.json.fields.id,
   type: Library.json.fields.type,
   name: Library.json.fields.name,
-  storagePlugin: Library.json.fields.storagePlugin,
+  storagePluginId: Library.json.fields.storagePluginId,
   storagePluginSettings: Library.json.fields.storagePluginSettings,
-  roots: Schema.Array(
-    Schema.Struct({ id: LibraryRoot.json.fields.id, root: LibraryRoot.json.fields.root })
-  ),
 }) {}
 
 export const LibraryApi = HttpApiGroup.make('library')
@@ -62,21 +54,59 @@ export const LibraryApi = HttpApiGroup.make('library')
       payload: Schema.Struct({
         name: Library.jsonCreate.fields.name,
         type: Library.jsonCreate.fields.type,
-        storagePlugin: Library.jsonCreate.fields.storagePlugin,
+        storagePluginId: Library.jsonCreate.fields.storagePluginId,
+        storagePluginSettings: Library.jsonCreate.fields.storagePluginSettings,
       }),
       success: Schema.Struct({ id: Library.json.fields.id }),
-      error: LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+      error: [
+        LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+        PluginLoadError.pipe(HttpApiSchema.status(500)),
+        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+      ],
     }),
 
-    HttpApiEndpoint.patch('update', '/api/libraries/:id', {
+    HttpApiEndpoint.put('update', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: Schema.Struct({ name: Library.jsonUpdate.fields.name }),
+      payload: Schema.Struct({
+        name: Library.jsonUpdate.fields.name,
+        type: Library.jsonUpdate.fields.type,
+        storagePluginId: Library.jsonUpdate.fields.storagePluginId,
+        storagePluginSettings: Library.jsonUpdate.fields.storagePluginSettings,
+      }),
       success: Schema.Struct({ id: Library.json.fields.id }),
       error: [
         LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
         LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
+        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
+        PluginLoadError.pipe(HttpApiSchema.status(500)),
+        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
       ],
     }),
+
+    HttpApiEndpoint.post(
+      'getDraftStoragePluginSettingsForm',
+      '/api/libraries/plugins/storage/settings-form',
+      {
+        payload: Schema.Struct({
+          id: Schema.OptionFromOptionalKey(Library.json.fields.id),
+          name: Library.jsonCreate.fields.name,
+          type: Library.jsonCreate.fields.type,
+          storagePluginId: Library.jsonCreate.fields.storagePluginId,
+        }),
+        success: StoragePluginSettingsForm,
+        error: [
+          LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
+          StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
+          PluginLoadError.pipe(HttpApiSchema.status(500)),
+          StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
+        ],
+      }
+    ),
 
     HttpApiEndpoint.get(
       'getStoragePluginSettingsForm',
@@ -87,45 +117,11 @@ export const LibraryApi = HttpApiGroup.make('library')
         error: [
           LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
           StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-          StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
           PluginLoadError.pipe(HttpApiSchema.status(500)),
           StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
         ],
       }
     ),
-
-    HttpApiEndpoint.put('setStoragePluginSettings', '/api/libraries/:id/plugins/storage/settings', {
-      params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: Schema.Struct({ input: StoragePluginSettingsInput }),
-      success: Schema.Struct({ id: Library.json.fields.id }),
-      error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-        StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
-        StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
-        PluginLoadError.pipe(HttpApiSchema.status(500)),
-        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
-      ],
-    }),
-
-    HttpApiEndpoint.put('setRoots', '/api/libraries/:id/roots', {
-      params: Schema.Struct({ id: Library.json.fields.id }),
-      payload: Schema.Struct({
-        roots: Schema.Array(Schema.Struct({ root: LibraryRoot.jsonUpsert.fields.root })),
-      }),
-      success: Schema.Struct({
-        id: Library.json.fields.id,
-        roots: Schema.Array(Schema.Struct({ root: LibraryRoot.json.fields.root })),
-      }),
-      error: [
-        LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-        LibraryUnconfiguredError.pipe(HttpApiSchema.status(409)),
-        LibraryInvalidRootError.pipe(HttpApiSchema.status(422)),
-        StoragePluginConstructionError.pipe(HttpApiSchema.status(500)),
-        PluginLoadError.pipe(HttpApiSchema.status(500)),
-        StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
-      ],
-    }),
 
     HttpApiEndpoint.delete('delete', '/api/libraries/:id', {
       params: Schema.Struct({ id: Library.json.fields.id }),

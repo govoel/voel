@@ -4,20 +4,37 @@ import type { HttpClient } from 'effect/http';
 
 import type { Library } from '#src/library.ts';
 
+export class StoragePluginSettingsFieldName extends Schema.String.check(
+  Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/u)
+).pipe(Schema.brand('@govoel/plugins/storage/StoragePluginSettingsFieldName')) {}
+
+const textInputPurpose = Schema.Literals(['text', 'name', 'username', 'email', 'url']);
+
 /**
  * Ordered UI fields with unique, flat names. An empty array means no settings.
+ * TextField submits a string; TextListField submits an array of strings.
+ * Purpose is required and applies to each input.
  * Descriptors carry no semantic validation rules and must contain no secrets.
  */
 export class StoragePluginSettingsForm extends Schema.Array(
-  Schema.TaggedStruct('TextField', {
-    name: Schema.String.check(Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/u)).pipe(
-      Schema.brand('@govoel/plugins/storage/StoragePluginSettingsFieldName')
-    ),
-    label: Schema.NonEmptyString,
-    placeholder: Schema.String,
-    purpose: Schema.optionalKey(Schema.Literals(['name', 'username', 'email', 'url'])),
-    initialValue: Schema.String,
-  })
+  Schema.Union([
+    Schema.Struct({
+      kind: Schema.Literal('TextField'),
+      name: StoragePluginSettingsFieldName,
+      label: Schema.NonEmptyString,
+      placeholder: Schema.String,
+      purpose: textInputPurpose,
+      initialValue: Schema.String,
+    }),
+    Schema.Struct({
+      kind: Schema.Literal('TextListField'),
+      name: StoragePluginSettingsFieldName,
+      label: Schema.NonEmptyString,
+      placeholder: Schema.String,
+      purpose: textInputPurpose,
+      initialValue: Schema.Array(Schema.String),
+    }),
+  ]).pipe(Schema.toTaggedUnion('kind'))
 ).check(
   Schema.makeFilter(
     (fields) => Array.dedupe(Array.map(fields, ({ name }) => name)).length === fields.length,
@@ -37,7 +54,7 @@ export const StoragePluginSettingsInput = Schema.Json.pipe(
 export type StoragePluginSettingsInput = typeof StoragePluginSettingsInput.Type;
 
 /**
- * Replicated, secret-free JSON; plugins validate and encode before branding.
+ * Replicated, secret-free JSON; the host validates and brands plugin output.
  * This brand checks JSON structure, not whether values contain secrets.
  */
 export class StoragePluginSettingsPersisted extends Schema.Json.pipe(
@@ -46,15 +63,6 @@ export class StoragePluginSettingsPersisted extends Schema.Json.pipe(
   public static readonly decodeEffect = Schema.decodeEffect(this);
 
   public static readonly fromJsonString = Schema.fromJsonString(this);
-}
-
-/**
- * Non-empty library root, interpreted by the configured plugin.
- */
-export class StorageRootLocation extends Schema.NonEmptyString.pipe(
-  Schema.brand('@govoel/plugins/storage/StorageRootLocation')
-) {
-  public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
 /**
@@ -126,13 +134,6 @@ export class StoragePlugin extends Context.Service<
     /**
      * Complete, idempotent decoder: validate, optionally transform, then brand.
      */
-    readonly decodeRootLocation: (request: {
-      readonly location: string;
-    }) => Effect.Effect<typeof StorageRootLocation.Type, StorageLocationValidationError>;
-
-    /**
-     * Complete, idempotent decoder: validate, optionally transform, then brand.
-     */
     readonly decodeMediaFileLocation: (request: {
       readonly location: string;
     }) => Effect.Effect<typeof StorageMediaFileLocation.Type, StorageLocationValidationError>;
@@ -140,8 +141,12 @@ export class StoragePlugin extends Context.Service<
 >()('@govoel/plugins/storage/StoragePlugin') {}
 
 /**
- * Neither method writes settings. `current` is server-loaded JSON for this plugin:
- * None means setup; Some means a persisted value (which must be decoded by the plugin).
+ * One instance is shared across libraries and concurrent invocations. Keep
+ * library-specific state in method inputs rather than on the shared service.
+ *
+ * Neither method writes settings. `current` is server-loaded JSON for the library:
+ * None means setup; Some means a persisted value, possibly from another plugin or version.
+ * The selected plugin must decode, transform, reject, or ignore that value as appropriate.
  * Plugins translate schema failures into client-safe errors; malformed successful outputs
  * violate the contract and are reported as defects by the host.
  */
@@ -150,24 +155,28 @@ export class StoragePluginSettings extends Context.Service<
   // oxlint-disable-next-line effect-conventions/no-context-service-second-type-argument -- plugins implement this contract
   {
     /**
-     * UI fields and secret-free initial values; no validation rules.
-     * Invalid current settings and operational failures use StoragePluginSettingsError.
+     * Unbranded UI descriptors and secret-free initial values; no validation rules.
+     * The host validates the form and brands its field names.
+     * Infallible: populate compatible current values and use defaults otherwise.
+     * Incompatible saved settings must not prevent users from opening the form to replace them.
      */
     readonly getForm: (request: {
+      readonly library: Pick<typeof Library.Type, 'name' | 'type'>;
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
-    }) => Effect.Effect<typeof StoragePluginSettingsForm.Type, StoragePluginSettingsError>;
+    }) => Effect.Effect<typeof StoragePluginSettingsForm.Encoded>;
 
     /**
      * Schema-validate input, using current as needed, into complete, secret-free JSON.
-     * Input and persisted shapes may differ. The host validates JSON before saving.
+     * Input and persisted shapes may differ. The host validates and brands JSON before saving.
      * Reject submitted input with StoragePluginInvalidSettingsError; invalid current
      * settings and operational failures use StoragePluginSettingsError.
      */
     readonly decodeFormSubmission: (request: {
+      readonly library: Pick<typeof Library.Type, 'name' | 'type'>;
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
       readonly input: StoragePluginSettingsInput;
     }) => Effect.Effect<
-      typeof StoragePluginSettingsPersisted.Type,
+      Schema.Json,
       StoragePluginInvalidSettingsError | StoragePluginSettingsError
     >;
   }
@@ -180,7 +189,7 @@ export class StoragePluginSettings extends Context.Service<
 export interface StoragePluginModule {
   readonly storage: {
     /**
-     * Decode persisted settings with the plugin's codec, then build storage.
+     * Build storage using the library and any settings it needs.
      */
     readonly layer: (request: {
       readonly library: typeof Library.Type;
@@ -192,11 +201,10 @@ export interface StoragePluginModule {
     >;
 
     /**
-     * Only built for persisted libraries; must not require configured storage or valid credentials.
+     * Plugin-wide settings editor. Library metadata and settings are method inputs.
+     * Must not require configured storage or valid credentials.
      */
-    readonly layerSettings: (request: {
-      readonly library: typeof Library.Type;
-    }) => Layer.Layer<
+    readonly layerSettings: Layer.Layer<
       StoragePluginSettings,
       StoragePluginSettingsConstructionError,
       FileSystem.FileSystem | Path.Path | HttpClient.HttpClient

@@ -6,7 +6,6 @@ import {
   StoragePluginSettings,
   StoragePluginSettingsForm,
   StoragePluginSettingsPersisted,
-  StorageRootLocation,
 } from '@govoel/plugins/storage';
 import {
   Clock,
@@ -33,10 +32,7 @@ import { StoragePluginLoadError } from '@repo/spec-api/domains/plugins/storage.t
 
 import { PluginModuleMap } from '#src/domains/plugins/index.ts';
 import local from '#src/domains/plugins/storage/local/index.ts';
-import type {
-  StoragePluginKey,
-  StoragePluginSettingsKey,
-} from '#src/domains/plugins/storage/schema.ts';
+import type { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 const pickInvocationContext = Context.pick(
   References.CurrentLogLevel,
@@ -51,8 +47,7 @@ class StoragePluginModuleExport extends Schema.Struct({
         Predicate.isFunction(value)
       ),
       layerSettings: Schema.declare(
-        (value): value is StoragePluginModule['storage']['layerSettings'] =>
-          Predicate.isFunction(value)
+        (value): value is StoragePluginModule['storage']['layerSettings'] => Layer.isLayer(value)
       ),
     }),
   }),
@@ -67,11 +62,11 @@ export class StoragePluginModuleMap extends Context.Service<StoragePluginModuleM
       const modules = yield* PluginModuleMap;
 
       return {
-        get: (plugin: Library['storagePlugin']) =>
-          Match.value(plugin).pipe(
+        get: (pluginId: Library['storagePluginId']) =>
+          Match.value(pluginId).pipe(
             Match.when('builtin:local', () => Effect.succeed<StoragePluginModule>(local)),
-            Match.when(NpmPluginId.is, (npmPlugin) =>
-              modules.get(npmPlugin).pipe(
+            Match.when(NpmPluginId.is, (npmPluginId) =>
+              modules.get(npmPluginId).pipe(
                 Effect.flatMap(StoragePluginModuleExport.decodeUnknownEffect),
                 Effect.map((module) => module.default),
                 Effect.catchTags({
@@ -121,10 +116,10 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
         );
 
       return Effect.fnUntraced(function* <ROut, E>({
-        storagePlugin,
+        storagePluginId,
         makeLayer,
       }: {
-        readonly storagePlugin: Library['storagePlugin'];
+        readonly storagePluginId: Library['storagePluginId'];
         readonly makeLayer: (
           module: StoragePluginModule
         ) => Layer.Layer<ROut, E, FileSystem.FileSystem | Path.Path | HttpClient.HttpClient>;
@@ -134,7 +129,7 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
         );
 
         const context = yield* Layer.buildWithScope(
-          plugins.get(storagePlugin).pipe(Effect.map(makeLayer), Layer.unwrap),
+          plugins.get(storagePluginId).pipe(Effect.map(makeLayer), Layer.unwrap),
           pluginScope
         ).pipe(Effect.setContext(isolatedContext));
 
@@ -155,55 +150,77 @@ export class StoragePluginBuilder extends Context.Service<StoragePluginBuilder>(
   );
 }
 
+class StoragePluginSettingsEditor extends Context.Service<StoragePluginSettingsEditor>()(
+  '@repo/server/domains/plugins/storage/StoragePluginSettingsEditor',
+  {
+    make: Effect.fnUntraced(function* ({ storagePluginId }: Pick<Library, 'storagePluginId'>) {
+      const buildPlugin = yield* StoragePluginBuilder;
+      const { context, invoke } = yield* buildPlugin({
+        storagePluginId,
+        makeLayer: (module) => module.storage.layerSettings,
+      });
+      const settings = Context.get(context, StoragePluginSettings);
+      return {
+        getForm: ({ library, current }: Parameters<typeof settings.getForm>[0]) =>
+          invoke(() =>
+            settings
+              .getForm({
+                library: { name: library.name, type: library.type },
+                current,
+              })
+              .pipe(
+                Effect.flatMap((form) =>
+                  StoragePluginSettingsForm.decodeEffect(form).pipe(
+                    Effect.catchTags({ SchemaError: Effect.die })
+                  )
+                )
+              )
+          ),
+        decodeFormSubmission: ({
+          library,
+          current,
+          input,
+        }: Parameters<typeof settings.decodeFormSubmission>[0]) =>
+          invoke(() =>
+            settings
+              .decodeFormSubmission({
+                library: { name: library.name, type: library.type },
+                current,
+                input,
+              })
+              .pipe(
+                Effect.flatMap((persisted) =>
+                  StoragePluginSettingsPersisted.decodeEffect(persisted).pipe(
+                    Effect.catchTags({ SchemaError: Effect.die })
+                  )
+                )
+              )
+          ),
+      };
+    }),
+  }
+) {
+  public static readonly layerNoDeps = (request: Parameters<typeof this.make>[0]) =>
+    Layer.effect(this, this.make(request));
+
+  public static readonly layer = (request: Parameters<typeof this.make>[0]) =>
+    this.layerNoDeps(request).pipe(Layer.provide(StoragePluginBuilder.layer));
+}
+
 export class StoragePluginSettingsMap extends Context.Service<StoragePluginSettingsMap>()(
   '@repo/server/domains/plugins/storage/StoragePluginSettingsMap',
   {
     make: LayerMap.make(
-      (request: StoragePluginSettingsKey) =>
-        Layer.effect(
-          StoragePluginSettings,
-          Effect.gen(function* () {
-            const buildPlugin = yield* StoragePluginBuilder;
-            const { context, invoke } = yield* buildPlugin({
-              storagePlugin: request.storagePlugin,
-              makeLayer: (module) => module.storage.layerSettings({ library: request.library }),
-            });
-
-            const settings = Context.get(context, StoragePluginSettings);
-            return StoragePluginSettings.of({
-              getForm: (input) =>
-                invoke(() =>
-                  settings
-                    .getForm(input)
-                    .pipe(
-                      Effect.flatMap((form) =>
-                        StoragePluginSettingsForm.decodeEffect(form).pipe(
-                          Effect.catchTags({ SchemaError: Effect.die })
-                        )
-                      )
-                    )
-                ),
-              decodeFormSubmission: (input) =>
-                invoke(() =>
-                  settings
-                    .decodeFormSubmission(input)
-                    .pipe(
-                      Effect.flatMap((persisted) =>
-                        StoragePluginSettingsPersisted.decodeEffect(persisted).pipe(
-                          Effect.catchTags({ SchemaError: Effect.die })
-                        )
-                      )
-                    )
-                ),
-            });
-          })
-        ),
+      (storagePluginId: Library['storagePluginId']) =>
+        StoragePluginSettingsEditor.layerNoDeps({ storagePluginId }),
       { idleTimeToLive: '5 minutes' }
     ).pipe(
       Effect.map((map) => ({
         ...map,
-        acquire: (request: StoragePluginSettingsKey) =>
-          map.contextEffect(request).pipe(Effect.map(Context.get(StoragePluginSettings))),
+        acquire: (storagePluginId: Library['storagePluginId']) =>
+          map
+            .contextEffect(storagePluginId)
+            .pipe(Effect.map(Context.get(StoragePluginSettingsEditor))),
       }))
     ),
   }
@@ -223,7 +240,7 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
           Effect.gen(function* () {
             const buildPlugin = yield* StoragePluginBuilder;
             const { context, invoke } = yield* buildPlugin({
-              storagePlugin: request.storagePlugin,
+              storagePluginId: request.storagePluginId,
               makeLayer: (module) =>
                 module.storage.layer({
                   library: request.library,
@@ -233,18 +250,6 @@ export class StoragePluginMap extends Context.Service<StoragePluginMap>()(
 
             const storage = Context.get(context, StoragePlugin);
             return StoragePlugin.of({
-              decodeRootLocation: (input) =>
-                invoke(() =>
-                  storage
-                    .decodeRootLocation(input)
-                    .pipe(
-                      Effect.flatMap((result) =>
-                        StorageRootLocation.decodeEffect(result).pipe(
-                          Effect.catchTags({ SchemaError: Effect.die })
-                        )
-                      )
-                    )
-                ),
               decodeMediaFileLocation: (input) =>
                 invoke(() =>
                   storage

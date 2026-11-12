@@ -1,54 +1,52 @@
 import { StoragePluginSettingsPersisted } from '@govoel/plugins/storage';
-import { Array, Context, Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
+import { Context, Effect, Layer, Option, Schema, SchemaGetter } from 'effect';
 import { SqlSchema } from 'effect/sql';
 
 import {
   Library,
   LibraryNameConflictError,
   LibraryNotFoundError,
-  LibraryRoot,
 } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryDatabase } from '#src/domains/library/database/index.ts';
-import { StoragePluginKey, StoragePluginSettingsKey } from '#src/domains/plugins/storage/schema.ts';
-
-class LibraryRecord extends Schema.Struct({
-  settingsKey: StoragePluginSettingsKey,
-  storageKey: Schema.Option(StoragePluginKey),
-  roots: Schema.Array(Schema.Struct({ id: LibraryRoot.fields.id, root: LibraryRoot.fields.root })),
-}) {}
+import { StoragePluginKey } from '#src/domains/plugins/storage/schema.ts';
 
 class LibraryRow extends Schema.Struct({
   id: Schema.toEncoded(Library.fields.id),
   type: Schema.toEncoded(Library.fields.type),
   name: Schema.toEncoded(Library.fields.name),
-  storagePlugin: Schema.toEncoded(Library.fields.storagePlugin),
-  storagePluginSettings: Schema.OptionFromNullOr(
-    Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted))
-  ),
-  roots: Schema.fromJsonString(Schema.toEncoded(LibraryRecord.fields.roots)),
+  storagePluginId: Schema.toEncoded(Library.fields.storagePluginId),
+  storagePluginSettings: Schema.fromJsonString(Schema.toEncoded(StoragePluginSettingsPersisted)),
 }).pipe(
-  Schema.decodeTo(LibraryRecord, {
-    decode: SchemaGetter.transform(
-      ({ id, type, name, storagePlugin, storagePluginSettings, roots }) => {
-        const settingsKey = { storagePlugin, library: { id, type, name } };
-        return {
-          settingsKey,
-          storageKey: Option.map(storagePluginSettings, (settings) => ({
-            ...settingsKey,
-            settings,
-          })),
-          roots,
-        };
-      }
-    ),
-    encode: SchemaGetter.transform(({ settingsKey, storageKey, roots }) => ({
-      ...settingsKey.library,
-      storagePlugin: settingsKey.storagePlugin,
-      storagePluginSettings: Option.map(storageKey, ({ settings }) => settings),
-      roots,
-    })),
-  })
+  Schema.decodeTo(
+    Schema.Struct({
+      id: Library.fields.id,
+      type: Library.fields.type,
+      name: Library.fields.name,
+      storageKey: StoragePluginKey,
+    }),
+    {
+      decode: SchemaGetter.transform(
+        ({ id, type, name, storagePluginId, storagePluginSettings }) => ({
+          id,
+          type,
+          name,
+          storageKey: {
+            library: { id, type, name },
+            storagePluginId,
+            settings: storagePluginSettings,
+          },
+        })
+      ),
+      encode: SchemaGetter.transform(({ id, type, name, storageKey }) => ({
+        id,
+        type,
+        name,
+        storagePluginId: storageKey.storagePluginId,
+        storagePluginSettings: storageKey.settings,
+      })),
+    }
+  )
 ) {}
 
 export class LibraryRepository extends Context.Service<LibraryRepository>()(
@@ -57,30 +55,11 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
     make: Effect.gen(function* () {
       const sql = yield* LibraryDatabase;
       const selection = sql`
-        l.id,
-        l.type,
-        l.name,
-        l."storagePlugin",
-        l."storagePluginSettings",
-        coalesce(
-          (
-            select
-              json_group_array(json_object('id', r.id, 'root', r.root))
-            from
-              (
-                select
-                  id,
-                  root
-                from
-                  "libraryRoot"
-                where
-                  "libraryId" = l.id
-                order by
-                  id
-              ) as r
-          ),
-          '[]'
-        ) as roots
+        id,
+        type,
+        name,
+        "storagePluginId",
+        "storagePluginSettings"
       `;
 
       const queries = {
@@ -123,72 +102,38 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
 
         create: SqlSchema.findOne({
           Request: Schema.Struct({
-            name: Library.jsonCreate.fields.name,
-            type: Library.jsonCreate.fields.type,
-            storagePlugin: Library.jsonCreate.fields.storagePlugin,
+            name: Library.create.fields.name,
+            type: Library.create.fields.type,
+            storagePluginId: Library.create.fields.storagePluginId,
+            storagePluginSettings: Library.create.fields.storagePluginSettings,
           }),
-          Result: Schema.Struct({ id: Library.fields.id }),
-          execute: (request) => sql`
+          Result: LibraryRow,
+          execute: (library) => sql`
             insert into
-              library ${sql.insert(request)}
+              library ${sql.insert(library)}
             returning
-              id
+              ${selection}
           `,
         }),
 
-        rename: SqlSchema.findOne({
-          Request: Schema.Struct({ id: Library.fields.id, name: Library.fields.name }),
-          Result: Schema.Struct({ id: Library.fields.id }),
-          execute: ({ id, name }) =>
-            sql`
-              update library
-              set
-                name = ${name}
-              where
-                id = ${id}
-              returning
-                id
-            `,
-        }),
-
-        setSettings: SqlSchema.findOne({
+        update: SqlSchema.findOne({
           Request: Schema.Struct({
             id: Library.fields.id,
-            settings: StoragePluginSettingsPersisted.fromJsonString,
+            name: Library.create.fields.name,
+            type: Library.create.fields.type,
+            storagePluginId: Library.create.fields.storagePluginId,
+            storagePluginSettings: Library.create.fields.storagePluginSettings,
           }),
-          Result: Schema.Struct({ id: Library.fields.id }),
-          execute: ({ id, settings }) =>
-            sql`
-              update library
-              set
-                "storagePluginSettings" = ${settings}
-              where
-                id = ${id}
-              returning
-                id
-            `,
-        }),
-
-        setRoots: SqlSchema.void({
-          Request: Schema.Struct({
-            id: Library.fields.id,
-            roots: Schema.Array(LibraryRoot.fields.root),
-          }),
-          execute: Effect.fnUntraced(function* ({ id, roots }) {
-            yield* sql`
-              delete from "libraryRoot"
-              where
-                "libraryId" = ${id}
-                and not ${sql.in('root', roots)}
-            `;
-            if (Array.isReadonlyArrayNonEmpty(roots)) {
-              yield* sql`
-                insert into
-                  "libraryRoot" ${sql.insert(Array.map(roots, (root) => ({ libraryId: id, root })))}
-                on conflict ("libraryId", root) do nothing
-              `;
-            }
-          }, sql.withTransaction),
+          Result: LibraryRow,
+          execute: ({ id, ...library }) => sql`
+            update library
+            set
+              ${sql.update(library)}
+            where
+              id = ${id}
+            returning
+              ${selection}
+          `,
         }),
 
         deleteById: SqlSchema.void({
@@ -223,8 +168,8 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               NoSuchElementError: Effect.die,
             })
           ),
-        rename: (request: Parameters<typeof queries.rename>[0]) =>
-          queries.rename(request).pipe(
+        update: (request: Parameters<typeof queries.update>[0]) =>
+          queries.update(request).pipe(
             Effect.catchReason('SqlError', 'UniqueViolation', () =>
               LibraryNameConflictError.make({ libraryName: request.name })
             ),
@@ -234,16 +179,6 @@ export class LibraryRepository extends Context.Service<LibraryRepository>()(
               SqlError: Effect.die,
             })
           ),
-        setSettings: (request: Parameters<typeof queries.setSettings>[0]) =>
-          queries.setSettings(request).pipe(
-            Effect.catchTags({
-              NoSuchElementError: () => LibraryNotFoundError.make({ id: request.id }),
-              SchemaError: Effect.die,
-              SqlError: Effect.die,
-            })
-          ),
-        setRoots: (request: Parameters<typeof queries.setRoots>[0]) =>
-          queries.setRoots(request).pipe(Effect.orDie),
         deleteById: (request: Parameters<typeof queries.deleteById>[0]) =>
           queries.deleteById(request).pipe(Effect.orDie),
       };

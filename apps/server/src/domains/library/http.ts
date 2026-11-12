@@ -15,14 +15,13 @@ export const LibraryHandlersLayerNoDeps = HttpApiBuilder.group(
       .handle('get', ({ params }) => service.get(params))
       .handle('list', ({ query }) => service.list(query))
       .handle('create', ({ payload }) => service.create(payload))
-      .handle('update', ({ params, payload }) => service.rename({ ...params, ...payload }))
+      .handle('update', ({ params, payload }) => service.update({ ...params, ...payload }))
+      .handle('getDraftStoragePluginSettingsForm', ({ payload }) =>
+        service.getDraftStoragePluginSettingsForm(payload)
+      )
       .handle('getStoragePluginSettingsForm', ({ params }) =>
         service.getStoragePluginSettingsForm(params)
       )
-      .handle('setStoragePluginSettings', ({ params, payload }) =>
-        service.setStoragePluginSettings({ ...params, ...payload })
-      )
-      .handle('setRoots', ({ params, payload }) => service.setRoots({ ...params, ...payload }))
       .handle('delete', ({ params }) => service.delete(params));
   })
 );

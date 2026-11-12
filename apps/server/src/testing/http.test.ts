@@ -1,5 +1,6 @@
 import { BunHttpServer } from '@effect/platform-bun';
 import { expect, it } from '@effect/vitest';
+import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { Effect, Layer, Schema } from 'effect';
 import { HttpApiTest } from 'effect/http-api';
 import { Reactivity } from 'effect/reactivity';
@@ -217,15 +218,16 @@ it.layer(testLayer)('groups utils headers', (iit) => {
         payload: {
           name: Library.fields.name.make('Authenticated library'),
           type: Library.fields.type.make('movie'),
-          storagePlugin: Library.fields.storagePlugin.make('builtin:local'),
+          storagePluginId: Library.fields.storagePluginId.make('builtin:local'),
+          storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
         },
       });
       const resultValue = yield* client.library.get({ params: library });
       expect(resultValue).toMatchObject({
         name: 'Authenticated library',
         type: 'movie',
-        storagePlugin: 'builtin:local',
-        storagePluginHealth: { status: 'unknown' },
+        storagePluginId: 'builtin:local',
+        storagePluginHealth: { status: 'healthy' },
       });
     })
   );

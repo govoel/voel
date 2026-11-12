@@ -59,19 +59,15 @@ const setupLibrary = Effect.fnUntraced(function* (name: string) {
   const account = Option.getOrThrow(state);
   const authentication = yield* AuthClientMap.use((authClients) => authClients.acquire(account));
   const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-  const createLibrary = Effect.fnUntraced(function* (libraryName: string) {
-    const library = yield* client.library.create({
+  const createLibrary = (libraryName: string) =>
+    client.library.create({
       payload: {
         name: Library.fields.name.make(libraryName),
         type: MediaType.fields.type.make('audiobook'),
-        storagePlugin: Library.json.fields.storagePlugin.make('builtin:local'),
+        storagePluginId: Library.json.fields.storagePluginId.make('builtin:local'),
+        storagePluginSettings: StoragePluginSettingsInput.make({ roots: [] }),
       },
     });
-    return yield* client.library.setStoragePluginSettings({
-      params: library,
-      payload: { input: StoragePluginSettingsInput.make({}) },
-    });
-  });
   yield* createLibrary(name);
   return {
     createLibrary,
@@ -109,12 +105,14 @@ it.layer(TestServerControllerClient.layer)('library database', (iit) => {
           expect(libraryNamesResult).toEqual([{ name: 'Audiobooks' }]);
           const rows = yield* database`
               select
-                "storagePlugin",
+                "storagePluginId",
                 "storagePluginSettings"
               from
                 library
             `;
-          expect(rows).toEqual([{ storagePlugin: 'builtin:local', storagePluginSettings: '{}' }]);
+          expect(rows).toEqual([
+            { storagePluginId: 'builtin:local', storagePluginSettings: '{"roots":[]}' },
+          ]);
 
           for (const statement of [
             database`
