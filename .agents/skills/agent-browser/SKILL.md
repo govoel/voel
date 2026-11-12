@@ -39,8 +39,6 @@ Run `bun agent-browser skills list` to see everything available on the installed
 
 ## Observability Dashboard
 
-The dashboard runs independently of browser sessions on port 4848. Loopback origins need no configuration or token. For a reverse-proxied or forwarded HTTPS origin, start it with `bun agent-browser dashboard start --allowed-origins https://dashboard.agent-browser.localhost` (or set `AGENT_BROWSER_DASHBOARD_ALLOWED_ORIGINS`). Open the matching private access URL printed by the CLI; its fragment token must not be shared. Stop the dashboard before changing its port or allowed origins, and redact cookies from proxy logs.
-
-Stay on the dashboard origin: session tabs, status, and stream traffic are proxied internally, so session ports do not need to be exposed.
+The dashboard runs independently of browser sessions on port 4848 and can also be opened through a proxied or forwarded URL such as `https://dashboard.agent-browser.localhost`. Agents should stay on the dashboard origin: session tabs, status, and stream traffic are proxied internally, so session ports do not need to be exposed.
 
 Ensure you manage sessions properly, especially closing sessions after use.

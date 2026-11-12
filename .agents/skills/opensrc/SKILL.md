@@ -30,9 +30,8 @@ bun opensrc path effect @expo/ui
 # Specific versions
 bun opensrc path effect@4.1.4
 bun opensrc path Effect-TS/effect@effect@4.1.4
-bun opensrc path expo/expo@expo@58.0.24
-bun opensrc path owner/repo@v1.0.0
-bun opensrc path owner/repo#main
+opensrc path owner/repo@v1.0.0
+opensrc path owner/repo#main
 ```
 
 ### Version Resolution
@@ -43,8 +42,6 @@ For npm packages, opensrc auto-detects the installed version from lockfiles (`pa
 bun opensrc path zod --cwd /path/to/project
 ```
 
-For repos, use `@ref` or `#ref` to select a branch or tag.
-
-Verify the fetched source before treating it as a release. In opensrc 0.7.3, npm version fetching tries only `v<version>` and `<version>` tags, then falls back to the default branch. Monorepos such as Effect and Expo use package-prefixed tags; request the exact repository tag as above. A version-looking cache directory is not proof of a matching checkout. Inspect the package version and, where needed, compare against the published tarball. Repository refs must be branches or tags accepted by `git clone --branch`; a raw commit SHA also falls back to the default branch.
+For repos, use `@ref` or `#ref` to pin a branch, tag, or commit.
 
 If you get an error like "Error: error decoding response body", try the repo instead of package name or git clone the repo directly.
