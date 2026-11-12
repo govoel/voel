@@ -6,9 +6,9 @@ import { RpcClient, RpcClientError } from 'effect/rpc';
 import type { AtomId } from '@repo/effect-atom-devtools-core/atom-dev-tools';
 import { AtomDevToolsRpc } from '@repo/effect-atom-devtools-core/rpc';
 
-import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.ts';
-import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.ts';
-import { makeRpcClientProtocol } from '#src/ui/rpc/protocol.ts';
+import { EFFECT_ATOM_DEVTOOLS_PLUGIN_ID } from '#src/shared/plugin-id.js';
+import type { RpcBridgeEventMap } from '#src/shared/rpc-bridge.js';
+import { makeRpcClientProtocol } from '#src/ui/rpc/protocol.js';
 
 const RozeniteRpcClientProtocolLayer = Layer.effect(
   RpcClient.Protocol,

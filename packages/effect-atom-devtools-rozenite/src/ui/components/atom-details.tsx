@@ -12,9 +12,9 @@ import {
   clearPredefinedStateMutation,
   refreshAtomMutation,
   selectedAtomIdAtom,
-} from '#src/ui/atoms.ts';
-import { ErrorState, LoadingState } from '#src/ui/components/async-states.tsx';
-import { useToastMutation } from '#src/ui/hooks/use-toast-mutation.ts';
+} from '#src/ui/atoms.js';
+import { ErrorState, LoadingState } from '#src/ui/components/async-states.js';
+import { useToastMutation } from '#src/ui/hooks/use-toast-mutation.js';
 
 const DetailSection = ({
   title,

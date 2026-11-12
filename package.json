@@ -17,19 +17,19 @@
     "prepare": "effect-tsgo patch --no-typescript --oxlint"
   },
   "devDependencies": {
-    "@effect/tsgo": "0.67.5",
-    "@oxlint/plugins": "1.92.0",
-    "agent-browser": "0.41.2",
+    "@effect/tsgo": "0.68.1",
+    "@oxlint/plugins": "1.93.0",
+    "agent-browser": "0.42.0",
     "agent-device": "0.21.36",
     "bun-types": "1.4.4",
-    "effect": "4.1.2",
+    "effect": "4.1.4",
     "eslint-plugin-sql": "3.4.1",
-    "eslint-plugin-turbo": "2.11.10",
+    "eslint-plugin-turbo": "2.11.11",
     "opensrc": "0.7.3",
-    "oxfmt": "0.77.0",
-    "oxlint": "1.92.0",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
     "oxlint-tsgolint": "7.0.2006",
-    "turbo": "2.11.10",
+    "turbo": "2.11.11",
     "typescript": "7.0.2"
   },
   "engines": {
@@ -38,7 +38,6 @@
   "packageManager": "bun@1.4.4",
   "patchedDependencies": {
     "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
-    "rozenite@2.5.0": "patches/rozenite@2.5.0.patch",
     "@tursodatabase/sync-react-native@0.8.3": "patches/@tursodatabase%2Fsync-react-native@0.8.3.patch"
   }
 }

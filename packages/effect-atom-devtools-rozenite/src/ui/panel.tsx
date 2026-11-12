@@ -2,10 +2,10 @@ import { RegistryProvider, useAtomValue } from '@effect/atom-react';
 import { EmptyState, PluginShell, Split, Toast } from '@rozenite/ui';
 import { Option } from 'effect';
 
-import { selectedAtomIdAtom } from '#src/ui/atoms.ts';
-import { AtomCatalogPane } from '#src/ui/components/atom-catalog.tsx';
-import { AtomDetailsPane } from '#src/ui/components/atom-details.tsx';
-import { AtomDevToolsPanelHeader } from '#src/ui/components/panel-header.tsx';
+import { selectedAtomIdAtom } from '#src/ui/atoms.js';
+import { AtomCatalogPane } from '#src/ui/components/atom-catalog.js';
+import { AtomDetailsPane } from '#src/ui/components/atom-details.js';
+import { AtomDevToolsPanelHeader } from '#src/ui/components/panel-header.js';
 
 // oxlint-disable-next-line import/no-unassigned-import
 import './styles.css';
