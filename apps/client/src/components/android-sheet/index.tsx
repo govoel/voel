@@ -15,6 +15,7 @@ export const AndroidAccountsSheet = ({
   readonly ref?: Ref<ModalBottomSheetRef>;
 }) => {
   const router = useRouter();
+
   return (
     <Host seedColor={materialSeedColor} style={{ flex: 1 }}>
       <ModalBottomSheet

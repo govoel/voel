@@ -2,7 +2,6 @@ import {
   Alert,
   Button,
   HStack,
-  Host,
   List,
   NavigationDestination,
   NavigationLink,
@@ -23,15 +22,14 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Redirect, Stack, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { useSubmitState } from '#src/components/form/hooks.tsx';
 import { StorageFields } from '#src/components/library-editor/storage-fields';
-import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
 import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
@@ -49,34 +47,14 @@ const SubmissionFeedback = () => {
   });
 };
 
-export const LibraryEditorScreen = ({
-  children,
+export const LibraryForm = ({
+  source,
+  editor,
 }: {
-  readonly children: (onSuccess: Parameters<typeof useLibraryForm>[0]['onSuccess']) => ReactNode;
+  readonly source: LibraryEditorSource;
+  readonly editor: ReturnType<typeof useLibraryForm>;
 }) => {
-  const [savedId, setSavedId] = useState<Option.Option<typeof Library.fields.id.Type>>(
-    Option.none()
-  );
-  if (Option.isSome(savedId)) {
-    return (
-      <Redirect
-        href={{ pathname: '/accounts/server/libraries/[id]', params: { id: savedId.value } }}
-      />
-    );
-  }
-  return (
-    <Host style={{ flex: 1 }}>
-      {children(({ id }) => {
-        setSavedId(Option.some(id));
-      })}
-    </Host>
-  );
-};
-
-export const LibraryEditor = (options: Parameters<typeof useLibraryForm>[0]) => {
-  const { source } = options;
   const router = useRouter();
-  const editor = useLibraryForm(options);
   const { form } = editor;
   const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
   const [path, setPath] = useState<Array<string>>([]);
@@ -222,25 +200,7 @@ export const LibraryEditor = (options: Parameters<typeof useLibraryForm>[0]) => 
                         ),
                       })
                     )}
-                    {Option.match(editor.storage, {
-                      onNone: () => null,
-                      onSome: (storage) => (
-                        <form.FormGroup
-                          key={storage.key}
-                          name="storagePluginSettings"
-                          defaultValue={storage.defaultValue}
-                          validators={storage.validators}>
-                          {() => (
-                            <StorageFields
-                              form={form}
-                              fields="storagePluginSettings"
-                              descriptors={storage.descriptors}
-                              defaults={storage.defaultValue}
-                            />
-                          )}
-                        </form.FormGroup>
-                      ),
-                    })}
+                    <StorageFields form={form} storage={editor.storage} />
                     <SubmissionFeedback />
                   </List>
                   <Toolbar.Content>

@@ -220,25 +220,7 @@ const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSSt
       <editor.form.AppField name="name">
         {(field) => <field.TextField label="Name" placeholder="" />}
       </editor.form.AppField>
-      {Option.match(editor.storage, {
-        onNone: () => null,
-        onSome: (storage) => (
-          <editor.form.FormGroup
-            key={storage.key}
-            name="storagePluginSettings"
-            defaultValue={storage.defaultValue}
-            validators={storage.validators}>
-            {() => (
-              <StorageFields
-                form={editor.form}
-                fields="storagePluginSettings"
-                descriptors={storage.descriptors}
-                defaults={storage.defaultValue}
-              />
-            )}
-          </editor.form.FormGroup>
-        ),
-      })}
+      <StorageFields form={editor.form} storage={editor.storage} />
       <Pressable role="button" disabled={!editor.canLoad} onPress={editor.handleLoad}>
         <Text>Load settings</Text>
       </Pressable>

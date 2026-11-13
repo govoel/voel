@@ -1,1 +1,1 @@
-export { LibraryEditor, LibraryEditorScreen } from '#src/components/library-editor/index.ios.tsx';
+export { LibraryForm } from '#src/components/library-editor/index.ios.tsx';

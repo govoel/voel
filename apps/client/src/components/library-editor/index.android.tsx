@@ -12,20 +12,16 @@ import {
   TextButton,
   useNativeState,
 } from '@expo/ui/jetpack-compose';
-import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, menuAnchor } from '@expo/ui/jetpack-compose/modifiers';
 import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Redirect, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
-import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { FormLayout } from '#src/components/form/layout';
 import { StorageFields } from '#src/components/library-editor/storage-fields';
-import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
 import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
@@ -95,41 +91,13 @@ const Selection = <T extends string>({
   );
 };
 
-export const LibraryEditorScreen = ({
-  children,
+export const LibraryForm = ({
+  source,
+  editor,
 }: {
-  readonly children: (onSuccess: Parameters<typeof useLibraryForm>[0]['onSuccess']) => ReactNode;
+  readonly source: LibraryEditorSource;
+  readonly editor: ReturnType<typeof useLibraryForm>;
 }) => {
-  const navigation = useNavigation();
-  const [sheet, setSheet] = useState<ModalBottomSheetRef | null>(null);
-  const [savedId, setSavedId] = useState<Option.Option<typeof Library.fields.id.Type>>(
-    Option.none()
-  );
-  if (Option.isSome(savedId)) {
-    return (
-      <Redirect
-        href={{ pathname: '/accounts/server/libraries/[id]', params: { id: savedId.value } }}
-      />
-    );
-  }
-  return (
-    <AndroidAccountsSheet ref={setSheet}>
-      {children(async ({ id }) => {
-        if (sheet === null || !navigation.isFocused()) {
-          return;
-        }
-        await sheet.hide();
-        if (navigation.isFocused()) {
-          setSavedId(Option.some(id));
-        }
-      })}
-    </AndroidAccountsSheet>
-  );
-};
-
-export const LibraryEditor = (options: Parameters<typeof useLibraryForm>[0]) => {
-  const { source } = options;
-  const editor = useLibraryForm(options);
   const { form } = editor;
   const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
   return (
@@ -191,7 +159,6 @@ export const LibraryEditor = (options: Parameters<typeof useLibraryForm>[0]) => 
                 platformProps={{
                   android: {
                     variant: 'outlined',
-                    keyboardOptions: { capitalization: 'none', autoCorrectEnabled: false },
                     modifiers: [fillMaxWidth()],
                   },
                 }}
@@ -214,25 +181,7 @@ export const LibraryEditor = (options: Parameters<typeof useLibraryForm>[0]) => 
             onDefect: () => <Text>Unable to load storage settings. Try again.</Text>,
           })
         )}
-        {Option.match(editor.storage, {
-          onNone: () => null,
-          onSome: (storage) => (
-            <form.FormGroup
-              key={storage.key}
-              name="storagePluginSettings"
-              defaultValue={storage.defaultValue}
-              validators={storage.validators}>
-              {() => (
-                <StorageFields
-                  form={form}
-                  fields="storagePluginSettings"
-                  descriptors={storage.descriptors}
-                  defaults={storage.defaultValue}
-                />
-              )}
-            </form.FormGroup>
-          ),
-        })}
+        <StorageFields form={form} storage={editor.storage} />
       </FormLayout>
       {Option.match(editor.pending, {
         onNone: () => null,

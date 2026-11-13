@@ -8,7 +8,7 @@ import { SubmitButton } from '#src/components/form/submit-button/index.ios.tsx';
 import { TextField } from '#src/components/form/text-field/index.ios.tsx';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-export const { useAppForm, withForm, withFieldGroup } = createEffectSchemaFormHook({
+export const { useAppForm, withForm } = createEffectSchemaFormHook({
   runtime: AppRuntime,
   fieldContext,
   formContext,

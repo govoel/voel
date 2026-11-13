@@ -98,14 +98,13 @@ export const useLibraryForm = ({
       },
     },
     onSubmit: ({ value }) =>
-      Option.filter(
-        AsyncResult.value(settings),
-        (fields) =>
-          current(value) && Schema.is(storageSettingsSchema(fields))(value.storagePluginSettings)
-      ).pipe(
-        Effect.fromOption,
-        Effect.catchTag('NoSuchElementError', () => StorageSettingsNotLoaded.make({})),
-        Effect.flatMap(() => saveLibrary({ account, source, values: value }))
+      Effect.andThen(
+        AsyncResult.isSuccess(settings) &&
+          current(value) &&
+          Schema.is(storageSettingsSchema(settings.value))(value.storagePluginSettings)
+          ? Effect.void
+          : Effect.fail(StorageSettingsNotLoaded.make({})),
+        () => saveLibrary({ account, source, values: value })
       ),
     onFailure: ({ error }) =>
       Match.value(error).pipe(

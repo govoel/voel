@@ -2,17 +2,20 @@ import { Button, List, Section } from '@expo/ui/swift-ui';
 import { disabled } from '@expo/ui/swift-ui/modifiers';
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
 import { Array, Match, Option, Record } from 'effect';
-import type { ReactElement } from 'react';
 
-import { withFieldGroup } from '#src/components/form';
 import { useStorageList } from '#src/components/library-editor/storage-fields/use-list.ts';
+import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
-import { libraryFormDefaults } from '#src/domains/library/editor.ts';
 
 const StorageList = ({
-  children,
+  form,
+  descriptor,
 }: {
-  readonly children: (index: number, defaultValue: string) => ReactElement;
+  readonly form: ReturnType<typeof useLibraryForm>['form'];
+  readonly descriptor: Extract<
+    (typeof StoragePluginSettingsForm.Type)[number],
+    { kind: 'TextListField' }
+  >;
 }) => {
   const list = useStorageList();
   return (
@@ -28,7 +31,19 @@ const StorageList = ({
                 list.handleRemove({ indices });
               },
             })}>
-        {({ index }) => children(index, Array.getUnsafe(list.field.state.value, index))}
+        {({ index }) => (
+          <form.AppField
+            name={`storagePluginSettings.${descriptor.name}[${index}]`}
+            defaultValue={Array.getUnsafe(list.field.state.value, index)}>
+            {(input) => (
+              <input.TextField
+                label={descriptor.label}
+                placeholder={descriptor.placeholder}
+                purpose={descriptor.purpose}
+              />
+            )}
+          </form.AppField>
+        )}
       </List.ForEach>
       <Button onPress={list.handleAdd} modifiers={[disabled(list.submitting)]}>
         <Text>Add entry</Text>
@@ -37,55 +52,54 @@ const StorageList = ({
   );
 };
 
-export const StorageFields = withFieldGroup({
-  defaultValues: libraryFormDefaults.storagePluginSettings,
-  props: {
-    descriptors: [] as typeof StoragePluginSettingsForm.Type,
-    defaults: libraryFormDefaults.storagePluginSettings,
-  },
-  render: function render({ group, descriptors, defaults }) {
-    return Array.map(descriptors, (descriptor) => {
-      // Group defaults are installed on mount; native inputs need their first-render value too.
-      const initialValue = Option.getOrElse(Record.get(group.state.values, descriptor.name), () =>
-        Option.getOrThrow(Record.get(defaults, descriptor.name))
-      );
-      return Match.value(descriptor).pipe(
-        Match.when({ kind: 'TextField' }, (field) => (
-          <Section key={field.name}>
-            <group.AppField name={field.name} defaultValue={initialValue}>
-              {(input) => (
-                <input.TextField
-                  label={field.label}
-                  placeholder={field.placeholder}
-                  purpose={field.purpose}
-                />
-              )}
-            </group.AppField>
-          </Section>
-        )),
-        Match.when({ kind: 'TextListField' }, (field) => (
-          <Section key={field.name} title={field.label}>
-            <group.AppField name={field.name} mode="array" defaultValue={initialValue}>
-              {() => (
-                <StorageList>
-                  {(index, defaultValue) => (
-                    <group.AppField name={`${field.name}[${index}]`} defaultValue={defaultValue}>
-                      {(input) => (
-                        <input.TextField
-                          label={field.label}
-                          placeholder={field.placeholder}
-                          purpose={field.purpose}
-                        />
-                      )}
-                    </group.AppField>
-                  )}
-                </StorageList>
-              )}
-            </group.AppField>
-          </Section>
-        )),
-        Match.exhaustive
-      );
-    });
-  },
-});
+export const StorageFields = ({
+  form,
+  storage,
+}: Pick<ReturnType<typeof useLibraryForm>, 'form' | 'storage'>) =>
+  Option.match(storage, {
+    onNone: () => null,
+    onSome: ({ key, descriptors, defaultValue, validators }) => (
+      <form.FormGroup
+        key={key}
+        name="storagePluginSettings"
+        defaultValue={defaultValue}
+        validators={validators}>
+        {() =>
+          Array.map(descriptors, (descriptor) => {
+            // Group defaults are installed on mount; native inputs need their first-render value too.
+            const initialValue =
+              form.state.values.storagePluginSettings[descriptor.name] ??
+              Option.getOrThrow(Record.get(defaultValue, descriptor.name));
+            return Match.value(descriptor).pipe(
+              Match.when({ kind: 'TextField' }, (field) => (
+                <Section key={field.name}>
+                  <form.AppField
+                    name={`storagePluginSettings.${field.name}`}
+                    defaultValue={initialValue}>
+                    {(input) => (
+                      <input.TextField
+                        label={field.label}
+                        placeholder={field.placeholder}
+                        purpose={field.purpose}
+                      />
+                    )}
+                  </form.AppField>
+                </Section>
+              )),
+              Match.when({ kind: 'TextListField' }, (field) => (
+                <Section key={field.name} title={field.label}>
+                  <form.AppField
+                    name={`storagePluginSettings.${field.name}`}
+                    mode="array"
+                    defaultValue={initialValue}>
+                    {() => <StorageList form={form} descriptor={field} />}
+                  </form.AppField>
+                </Section>
+              )),
+              Match.exhaustive
+            );
+          })
+        }
+      </form.FormGroup>
+    ),
+  });
