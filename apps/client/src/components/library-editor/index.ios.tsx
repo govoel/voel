@@ -155,89 +155,87 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
                 <NavigationDestination value="storage">
                   <Toolbar modifiers={[navigationTitle('Storage')]}>
                     <List modifiers={[frame({ maxHeight: Infinity })]}>
-                      <>
+                      <Section>
+                        <Picker<'local' | 'custom'>
+                          label="Provider"
+                          selection={provider}
+                          onSelectionChange={(value) => {
+                            editor.selectProvider({ provider: value });
+                          }}
+                          modifiers={[pickerStyle('menu'), disabled(editor.submitting)]}>
+                          <Text modifiers={[tag('local')]}>Local folders</Text>
+                          <Text modifiers={[tag('custom')]}>Custom plugin</Text>
+                        </Picker>
+                      </Section>
+                      {provider === 'custom' ? (
                         <Section>
-                          <Picker<'local' | 'custom'>
-                            label="Provider"
-                            selection={provider}
-                            onSelectionChange={(value) => {
-                              editor.selectProvider({ provider: value });
-                            }}
-                            modifiers={[pickerStyle('menu'), disabled(editor.submitting)]}>
-                            <Text modifiers={[tag('local')]}>Local folders</Text>
-                            <Text modifiers={[tag('custom')]}>Custom plugin</Text>
-                          </Picker>
+                          <form.AppField name="storagePluginId">
+                            {(field) => (
+                              <field.TextField
+                                label="Plugin ID"
+                                placeholder="npm:@example/storage-plugin@1.2.3"
+                                purpose="text"
+                              />
+                            )}
+                          </form.AppField>
+                          <Button
+                            onPress={editor.handleLoad}
+                            modifiers={[disabled(!editor.canLoad)]}>
+                            <Text>Load settings</Text>
+                          </Button>
                         </Section>
-                        {provider === 'custom' ? (
-                          <Section>
-                            <form.AppField name="storagePluginId">
-                              {(field) => (
-                                <field.TextField
-                                  label="Plugin ID"
-                                  placeholder="npm:@example/storage-plugin@1.2.3"
-                                  purpose="text"
-                                />
-                              )}
-                            </form.AppField>
-                            <Button
-                              onPress={editor.handleLoad}
-                              modifiers={[disabled(!editor.canLoad)]}>
-                              <Text>Load settings</Text>
-                            </Button>
-                          </Section>
-                        ) : null}
-                        {provider === 'local' &&
-                        Option.isNone(editor.storage) &&
-                        !editor.settings.waiting ? (
-                          <Section>
-                            <Button
-                              onPress={editor.handleLoad}
-                              modifiers={[disabled(!editor.canLoad)]}>
-                              <Text>Load settings</Text>
-                            </Button>
-                          </Section>
-                        ) : null}
-                        {editor.settings.waiting ? (
-                          <Section>
-                            <ProgressView />
-                          </Section>
-                        ) : (
-                          AsyncResult.matchWithError(editor.settings, {
-                            onInitial: () => null,
-                            onSuccess: () => null,
-                            onError: (error) => (
-                              <Section>
-                                <Text>{libraryFailureMessage({ error })}</Text>
-                              </Section>
-                            ),
-                            onDefect: () => (
-                              <Section>
-                                <Text>Unable to load storage settings. Try again.</Text>
-                              </Section>
-                            ),
-                          })
-                        )}
-                        {Option.match(editor.storage, {
-                          onNone: () => null,
-                          onSome: (storage) => (
-                            <form.FormGroup
-                              key={storage.key}
-                              name="storagePluginSettings"
-                              defaultValue={storage.defaultValue}
-                              validators={storage.validators}>
-                              {() => (
-                                <StorageFields
-                                  form={form}
-                                  fields="storagePluginSettings"
-                                  descriptors={storage.descriptors}
-                                  defaults={storage.defaultValue}
-                                />
-                              )}
-                            </form.FormGroup>
+                      ) : null}
+                      {provider === 'local' &&
+                      Option.isNone(editor.storage) &&
+                      !editor.settings.waiting ? (
+                        <Section>
+                          <Button
+                            onPress={editor.handleLoad}
+                            modifiers={[disabled(!editor.canLoad)]}>
+                            <Text>Load settings</Text>
+                          </Button>
+                        </Section>
+                      ) : null}
+                      {editor.settings.waiting ? (
+                        <Section>
+                          <ProgressView />
+                        </Section>
+                      ) : (
+                        AsyncResult.matchWithError(editor.settings, {
+                          onInitial: () => null,
+                          onSuccess: () => null,
+                          onError: (error) => (
+                            <Section>
+                              <Text>{libraryFailureMessage({ error })}</Text>
+                            </Section>
                           ),
-                        })}
-                        <SubmissionFeedback />
-                      </>
+                          onDefect: () => (
+                            <Section>
+                              <Text>Unable to load storage settings. Try again.</Text>
+                            </Section>
+                          ),
+                        })
+                      )}
+                      {Option.match(editor.storage, {
+                        onNone: () => null,
+                        onSome: (storage) => (
+                          <form.FormGroup
+                            key={storage.key}
+                            name="storagePluginSettings"
+                            defaultValue={storage.defaultValue}
+                            validators={storage.validators}>
+                            {() => (
+                              <StorageFields
+                                form={form}
+                                fields="storagePluginSettings"
+                                descriptors={storage.descriptors}
+                                defaults={storage.defaultValue}
+                              />
+                            )}
+                          </form.FormGroup>
+                        ),
+                      })}
+                      <SubmissionFeedback />
                     </List>
                     <Toolbar.Content>
                       <ToolbarItem placement="confirmationAction">
