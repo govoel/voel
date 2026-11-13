@@ -16,8 +16,9 @@ import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, menuAnchor } from '@expo/ui/jetpack-compose/modifiers';
 import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Redirect } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { Redirect, useNavigation } from 'expo-router';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
@@ -94,24 +95,16 @@ const Selection = <T extends string>({
   );
 };
 
-export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditorSource }) => {
-  const sheetRef = useRef<ModalBottomSheetRef>(null);
+export const LibraryEditorScreen = ({
+  children,
+}: {
+  readonly children: (onSuccess: Parameters<typeof useLibraryForm>[0]['onSuccess']) => ReactNode;
+}) => {
+  const navigation = useNavigation();
+  const [sheet, setSheet] = useState<ModalBottomSheetRef | null>(null);
   const [savedId, setSavedId] = useState<Option.Option<typeof Library.fields.id.Type>>(
     Option.none()
   );
-  const editor = useLibraryForm({
-    source,
-    onSuccess: async ({ id }) => {
-      const sheet = sheetRef.current;
-      if (sheet === null) {
-        return;
-      }
-      await sheet.hide();
-      setSavedId(Option.some(id));
-    },
-  });
-  const { form } = editor;
-  const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
   if (Option.isSome(savedId)) {
     return (
       <Redirect
@@ -120,134 +113,152 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
     );
   }
   return (
-    <AndroidAccountsSheet ref={sheetRef}>
-      <form.AppForm>
-        <FormLayout
-          title={LibraryEditorSource.$is('Create')(source) ? 'New library' : 'Edit library'}
-          footer={
-            <form.SubmitButton
-              disabled={!editor.ready}
-              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-              <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create library' : 'Save'}</Text>
-            </form.SubmitButton>
-          }>
-          <form.AppField name="name">
+    <AndroidAccountsSheet ref={setSheet}>
+      {children(async ({ id }) => {
+        if (sheet === null || !navigation.isFocused()) {
+          return;
+        }
+        await sheet.hide();
+        if (navigation.isFocused()) {
+          setSavedId(Option.some(id));
+        }
+      })}
+    </AndroidAccountsSheet>
+  );
+};
+
+export const LibraryEditor = (options: Parameters<typeof useLibraryForm>[0]) => {
+  const { source } = options;
+  const editor = useLibraryForm(options);
+  const { form } = editor;
+  const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
+  return (
+    <form.AppForm>
+      <FormLayout
+        title={LibraryEditorSource.$is('Create')(source) ? 'New library' : 'Edit library'}
+        footer={
+          <form.SubmitButton
+            disabled={!editor.ready}
+            platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+            <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create library' : 'Save'}</Text>
+          </form.SubmitButton>
+        }>
+        <form.AppField name="name">
+          {(field) => (
+            <field.TextField
+              label="Library name"
+              placeholder="Library name"
+              purpose="name"
+              platformProps={{ android: { variant: 'outlined', modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="type">
+          {(field) => (
+            <Selection
+              label="Media type"
+              selected={field.state.value}
+              enabled={!editor.submitting}
+              onSelect={field.handleChange}
+              options={Array.map(['audiobook', 'movie', 'show'] as const, (type) => ({
+                value: type,
+                label: mediaTypeLabel({ type: Library.fields.type.make(type) }),
+              }))}
+            />
+          )}
+        </form.AppField>
+        <HorizontalDivider />
+        <Text variant="h4">Storage</Text>
+        <Selection<'local' | 'custom'>
+          label="Provider"
+          selected={provider}
+          enabled={!editor.submitting}
+          onSelect={(value) => {
+            editor.selectProvider({ provider: value });
+          }}
+          options={[
+            { value: 'local', label: 'Local folders' },
+            { value: 'custom', label: 'Custom plugin' },
+          ]}
+        />
+        {provider === 'custom' ? (
+          <form.AppField name="storagePluginId">
             {(field) => (
               <field.TextField
-                label="Library name"
-                placeholder="Library name"
-                purpose="name"
-                platformProps={{ android: { variant: 'outlined', modifiers: [fillMaxWidth()] } }}
+                label="Plugin ID"
+                placeholder="npm:@example/storage-plugin@1.2.3"
+                purpose="text"
+                platformProps={{
+                  android: {
+                    variant: 'outlined',
+                    keyboardOptions: { capitalization: 'none', autoCorrectEnabled: false },
+                    modifiers: [fillMaxWidth()],
+                  },
+                }}
               />
             )}
           </form.AppField>
-          <form.AppField name="type">
-            {(field) => (
-              <Selection
-                label="Media type"
-                selected={field.state.value}
-                enabled={!editor.submitting}
-                onSelect={field.handleChange}
-                options={Array.map(['audiobook', 'movie', 'show'] as const, (type) => ({
-                  value: type,
-                  label: mediaTypeLabel({ type: Library.fields.type.make(type) }),
-                }))}
-              />
-            )}
-          </form.AppField>
-          <HorizontalDivider />
-          <Text variant="h4">Storage</Text>
-          <Selection<'local' | 'custom'>
-            label="Provider"
-            selected={provider}
-            enabled={!editor.submitting}
-            onSelect={(value) => {
-              editor.selectProvider({ provider: value });
-            }}
-            options={[
-              { value: 'local', label: 'Local folders' },
-              { value: 'custom', label: 'Custom plugin' },
-            ]}
-          />
-          {provider === 'custom' ? (
-            <form.AppField name="storagePluginId">
-              {(field) => (
-                <field.TextField
-                  label="Plugin ID"
-                  placeholder="npm:@example/storage-plugin@1.2.3"
-                  purpose="text"
-                  platformProps={{
-                    android: {
-                      variant: 'outlined',
-                      keyboardOptions: { capitalization: 'none', autoCorrectEnabled: false },
-                      modifiers: [fillMaxWidth()],
-                    },
-                  }}
+        ) : null}
+        {provider === 'custom' || Option.isNone(editor.storage) ? (
+          <Button enabled={editor.canLoad} onClick={editor.handleLoad}>
+            <Text>Load settings</Text>
+          </Button>
+        ) : null}
+        {editor.settings.waiting ? (
+          <LoadingIndicator />
+        ) : (
+          AsyncResult.matchWithError(editor.settings, {
+            onInitial: () => null,
+            onSuccess: () => null,
+            onError: (error) => <Text>{libraryFailureMessage({ error })}</Text>,
+            onDefect: () => <Text>Unable to load storage settings. Try again.</Text>,
+          })
+        )}
+        {Option.match(editor.storage, {
+          onNone: () => null,
+          onSome: (storage) => (
+            <form.FormGroup
+              key={storage.key}
+              name="storagePluginSettings"
+              defaultValue={storage.defaultValue}
+              validators={storage.validators}>
+              {() => (
+                <StorageFields
+                  form={form}
+                  fields="storagePluginSettings"
+                  descriptors={storage.descriptors}
+                  defaults={storage.defaultValue}
                 />
               )}
-            </form.AppField>
-          ) : null}
-          {provider === 'custom' || Option.isNone(editor.storage) ? (
-            <Button enabled={editor.canLoad} onClick={editor.handleLoad}>
-              <Text>Load settings</Text>
-            </Button>
-          ) : null}
-          {editor.settings.waiting ? (
-            <LoadingIndicator />
-          ) : (
-            AsyncResult.matchWithError(editor.settings, {
-              onInitial: () => null,
-              onSuccess: () => null,
-              onError: (error) => <Text>{libraryFailureMessage({ error })}</Text>,
-              onDefect: () => <Text>Unable to load storage settings. Try again.</Text>,
-            })
-          )}
-          {Option.match(editor.storage, {
-            onNone: () => null,
-            onSome: (storage) => (
-              <form.FormGroup
-                key={storage.key}
-                name="storagePluginSettings"
-                defaultValue={storage.defaultValue}
-                validators={storage.validators}>
-                {() => (
-                  <StorageFields
-                    form={form}
-                    fields="storagePluginSettings"
-                    descriptors={storage.descriptors}
-                    defaults={storage.defaultValue}
-                  />
-                )}
-              </form.FormGroup>
-            ),
-          })}
-        </FormLayout>
-        {Option.match(editor.pending, {
-          onNone: () => null,
-          onSome: (request) => (
-            <AlertDialog onDismissRequest={editor.handleCancelConsent}>
-              <AlertDialog.Title>
-                <Text>Load external plugin?</Text>
-              </AlertDialog.Title>
-              <AlertDialog.Text>
-                <Text>
-                  {`${request.storagePluginId}\n\nLoading settings may download and run this plugin on your server with the server process’s permissions. Only continue if you trust its source.\n\nCode may run even if you don’t save the library.`}
-                </Text>
-              </AlertDialog.Text>
-              <AlertDialog.DismissButton>
-                <TextButton onClick={editor.handleCancelConsent}>
-                  <Text>Cancel</Text>
-                </TextButton>
-              </AlertDialog.DismissButton>
-              <AlertDialog.ConfirmButton>
-                <TextButton onClick={editor.handleApprove}>
-                  <Text>Load plugin</Text>
-                </TextButton>
-              </AlertDialog.ConfirmButton>
-            </AlertDialog>
+            </form.FormGroup>
           ),
         })}
-      </form.AppForm>
-    </AndroidAccountsSheet>
+      </FormLayout>
+      {Option.match(editor.pending, {
+        onNone: () => null,
+        onSome: (request) => (
+          <AlertDialog onDismissRequest={editor.handleCancelConsent}>
+            <AlertDialog.Title>
+              <Text>Load external plugin?</Text>
+            </AlertDialog.Title>
+            <AlertDialog.Text>
+              <Text>
+                {`${request.storagePluginId}\n\nLoading settings may download and run this plugin on your server with the server process’s permissions. Only continue if you trust its source.\n\nCode may run even if you don’t save the library.`}
+              </Text>
+            </AlertDialog.Text>
+            <AlertDialog.DismissButton>
+              <TextButton onClick={editor.handleCancelConsent}>
+                <Text>Cancel</Text>
+              </TextButton>
+            </AlertDialog.DismissButton>
+            <AlertDialog.ConfirmButton>
+              <TextButton onClick={editor.handleApprove}>
+                <Text>Load plugin</Text>
+              </TextButton>
+            </AlertDialog.ConfirmButton>
+          </AlertDialog>
+        ),
+      })}
+    </form.AppForm>
   );
 };

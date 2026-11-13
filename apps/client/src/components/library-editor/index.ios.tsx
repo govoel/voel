@@ -25,6 +25,7 @@ import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
@@ -48,22 +49,14 @@ const SubmissionFeedback = () => {
   });
 };
 
-export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditorSource }) => {
-  const router = useRouter();
+export const LibraryEditorScreen = ({
+  children,
+}: {
+  readonly children: (onSuccess: Parameters<typeof useLibraryForm>[0]['onSuccess']) => ReactNode;
+}) => {
   const [savedId, setSavedId] = useState<Option.Option<typeof Library.fields.id.Type>>(
     Option.none()
   );
-  const editor = useLibraryForm({
-    source,
-    onSuccess: ({ id }) => {
-      setSavedId(Option.some(id));
-    },
-  });
-  const { form } = editor;
-  const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
-  const [path, setPath] = useState<Array<string>>([]);
-  const external = Option.isSome(editor.pending);
-  const title = LibraryEditorSource.$is('Create')(source) ? 'New Library' : 'Edit Library';
   if (Option.isSome(savedId)) {
     return (
       <Redirect
@@ -72,210 +65,222 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
     );
   }
   return (
+    <Host style={{ flex: 1 }}>
+      {children(({ id }) => {
+        setSavedId(Option.some(id));
+      })}
+    </Host>
+  );
+};
+
+export const LibraryEditor = (options: Parameters<typeof useLibraryForm>[0]) => {
+  const { source } = options;
+  const router = useRouter();
+  const editor = useLibraryForm(options);
+  const { form } = editor;
+  const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
+  const [path, setPath] = useState<Array<string>>([]);
+  const external = Option.isSome(editor.pending);
+  const title = LibraryEditorSource.$is('Create')(source) ? 'New Library' : 'Edit Library';
+  return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <Host style={{ flex: 1 }}>
-        <form.AppForm>
-          <Alert title="Load external plugin?" isPresented={external}>
-            <Alert.Trigger>
-              <NavigationStack
-                path={path}
-                onPathChange={(next) => {
-                  if (
-                    next.length > 0 &&
-                    path.length === 0 &&
-                    editor.metadata.storagePluginId === 'builtin:local' &&
-                    Option.isNone(editor.storage)
-                  ) {
-                    editor.handleLoad();
-                  }
-                  setPath(next);
-                }}>
-                <Toolbar modifiers={[navigationTitle(title)]}>
+      <form.AppForm>
+        <Alert title="Load external plugin?" isPresented={external}>
+          <Alert.Trigger>
+            <NavigationStack
+              path={path}
+              onPathChange={(next) => {
+                if (
+                  next.length > 0 &&
+                  path.length === 0 &&
+                  editor.metadata.storagePluginId === 'builtin:local' &&
+                  Option.isNone(editor.storage)
+                ) {
+                  editor.handleLoad();
+                }
+                setPath(next);
+              }}>
+              <Toolbar modifiers={[navigationTitle(title)]}>
+                <List modifiers={[frame({ maxHeight: Infinity })]}>
+                  <Section>
+                    <form.AppField name="name">
+                      {(field) => (
+                        <field.TextField label="Name" placeholder="Library name" purpose="name" />
+                      )}
+                    </form.AppField>
+                    <form.AppField name="type">
+                      {(field) => (
+                        <Picker<typeof editor.metadata.type>
+                          label="Media type"
+                          selection={field.state.value}
+                          onSelectionChange={field.handleChange}
+                          modifiers={[disabled(editor.submitting), pickerStyle('menu')]}>
+                          {Array.map(['audiobook', 'movie', 'show'] as const, (type) => (
+                            <Text key={type} modifiers={[tag(type)]}>
+                              {mediaTypeLabel({ type: Library.fields.type.make(type) })}
+                            </Text>
+                          ))}
+                        </Picker>
+                      )}
+                    </form.AppField>
+                  </Section>
+                  <Section title="Storage">
+                    <NavigationLink value="storage" modifiers={[disabled(editor.submitting)]}>
+                      <HStack>
+                        <Text>Storage</Text>
+                        <Text
+                          modifiers={[
+                            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                          ]}>
+                          {editor.metadata.storagePluginId === 'builtin:local'
+                            ? 'Local folders'
+                            : 'Custom plugin'}
+                        </Text>
+                      </HStack>
+                    </NavigationLink>
+                  </Section>
+                  <SubmissionFeedback />
+                </List>
+                <Toolbar.Content>
+                  <ToolbarItem placement="cancellationAction">
+                    <Button
+                      onPress={() => {
+                        router.back();
+                      }}>
+                      <Text>Cancel</Text>
+                    </Button>
+                  </ToolbarItem>
+                  <ToolbarItem placement="confirmationAction">
+                    <Button
+                      onPress={() => {
+                        void form.handleSubmit();
+                      }}
+                      modifiers={[disabled(!editor.ready || editor.submitting)]}>
+                      <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create' : 'Save'}</Text>
+                    </Button>
+                  </ToolbarItem>
+                </Toolbar.Content>
+              </Toolbar>
+              <NavigationDestination value="storage">
+                <Toolbar modifiers={[navigationTitle('Storage')]}>
                   <List modifiers={[frame({ maxHeight: Infinity })]}>
                     <Section>
-                      <form.AppField name="name">
-                        {(field) => (
-                          <field.TextField label="Name" placeholder="Library name" purpose="name" />
-                        )}
-                      </form.AppField>
-                      <form.AppField name="type">
-                        {(field) => (
-                          <Picker<typeof editor.metadata.type>
-                            label="Media type"
-                            selection={field.state.value}
-                            onSelectionChange={field.handleChange}
-                            modifiers={[disabled(editor.submitting), pickerStyle('menu')]}>
-                            {Array.map(['audiobook', 'movie', 'show'] as const, (type) => (
-                              <Text key={type} modifiers={[tag(type)]}>
-                                {mediaTypeLabel({ type: Library.fields.type.make(type) })}
-                              </Text>
-                            ))}
-                          </Picker>
-                        )}
-                      </form.AppField>
+                      <Picker<'local' | 'custom'>
+                        label="Provider"
+                        selection={provider}
+                        onSelectionChange={(value) => {
+                          editor.selectProvider({ provider: value });
+                        }}
+                        modifiers={[pickerStyle('menu'), disabled(editor.submitting)]}>
+                        <Text modifiers={[tag('local')]}>Local folders</Text>
+                        <Text modifiers={[tag('custom')]}>Custom plugin</Text>
+                      </Picker>
                     </Section>
-                    <Section title="Storage">
-                      <NavigationLink value="storage" modifiers={[disabled(editor.submitting)]}>
-                        <HStack>
-                          <Text>Storage</Text>
-                          <Text
-                            modifiers={[
-                              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-                            ]}>
-                            {editor.metadata.storagePluginId === 'builtin:local'
-                              ? 'Local folders'
-                              : 'Custom plugin'}
-                          </Text>
-                        </HStack>
-                      </NavigationLink>
-                    </Section>
+                    {provider === 'custom' ? (
+                      <Section>
+                        <form.AppField name="storagePluginId">
+                          {(field) => (
+                            <field.TextField
+                              label="Plugin ID"
+                              placeholder="npm:@example/storage-plugin@1.2.3"
+                              purpose="text"
+                            />
+                          )}
+                        </form.AppField>
+                        <Button onPress={editor.handleLoad} modifiers={[disabled(!editor.canLoad)]}>
+                          <Text>Load settings</Text>
+                        </Button>
+                      </Section>
+                    ) : null}
+                    {provider === 'local' &&
+                    Option.isNone(editor.storage) &&
+                    !editor.settings.waiting ? (
+                      <Section>
+                        <Button onPress={editor.handleLoad} modifiers={[disabled(!editor.canLoad)]}>
+                          <Text>Load settings</Text>
+                        </Button>
+                      </Section>
+                    ) : null}
+                    {editor.settings.waiting ? (
+                      <Section>
+                        <ProgressView />
+                      </Section>
+                    ) : (
+                      AsyncResult.matchWithError(editor.settings, {
+                        onInitial: () => null,
+                        onSuccess: () => null,
+                        onError: (error) => (
+                          <Section>
+                            <Text>{libraryFailureMessage({ error })}</Text>
+                          </Section>
+                        ),
+                        onDefect: () => (
+                          <Section>
+                            <Text>Unable to load storage settings. Try again.</Text>
+                          </Section>
+                        ),
+                      })
+                    )}
+                    {Option.match(editor.storage, {
+                      onNone: () => null,
+                      onSome: (storage) => (
+                        <form.FormGroup
+                          key={storage.key}
+                          name="storagePluginSettings"
+                          defaultValue={storage.defaultValue}
+                          validators={storage.validators}>
+                          {() => (
+                            <StorageFields
+                              form={form}
+                              fields="storagePluginSettings"
+                              descriptors={storage.descriptors}
+                              defaults={storage.defaultValue}
+                            />
+                          )}
+                        </form.FormGroup>
+                      ),
+                    })}
                     <SubmissionFeedback />
                   </List>
                   <Toolbar.Content>
-                    <ToolbarItem placement="cancellationAction">
-                      <Button
-                        onPress={() => {
-                          router.back();
-                        }}>
-                        <Text>Cancel</Text>
-                      </Button>
-                    </ToolbarItem>
                     <ToolbarItem placement="confirmationAction">
                       <Button
                         onPress={() => {
-                          void form.handleSubmit();
+                          setPath([]);
                         }}
                         modifiers={[disabled(!editor.ready || editor.submitting)]}>
-                        <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create' : 'Save'}</Text>
+                        <Text>Done</Text>
                       </Button>
                     </ToolbarItem>
                   </Toolbar.Content>
                 </Toolbar>
-                <NavigationDestination value="storage">
-                  <Toolbar modifiers={[navigationTitle('Storage')]}>
-                    <List modifiers={[frame({ maxHeight: Infinity })]}>
-                      <Section>
-                        <Picker<'local' | 'custom'>
-                          label="Provider"
-                          selection={provider}
-                          onSelectionChange={(value) => {
-                            editor.selectProvider({ provider: value });
-                          }}
-                          modifiers={[pickerStyle('menu'), disabled(editor.submitting)]}>
-                          <Text modifiers={[tag('local')]}>Local folders</Text>
-                          <Text modifiers={[tag('custom')]}>Custom plugin</Text>
-                        </Picker>
-                      </Section>
-                      {provider === 'custom' ? (
-                        <Section>
-                          <form.AppField name="storagePluginId">
-                            {(field) => (
-                              <field.TextField
-                                label="Plugin ID"
-                                placeholder="npm:@example/storage-plugin@1.2.3"
-                                purpose="text"
-                              />
-                            )}
-                          </form.AppField>
-                          <Button
-                            onPress={editor.handleLoad}
-                            modifiers={[disabled(!editor.canLoad)]}>
-                            <Text>Load settings</Text>
-                          </Button>
-                        </Section>
-                      ) : null}
-                      {provider === 'local' &&
-                      Option.isNone(editor.storage) &&
-                      !editor.settings.waiting ? (
-                        <Section>
-                          <Button
-                            onPress={editor.handleLoad}
-                            modifiers={[disabled(!editor.canLoad)]}>
-                            <Text>Load settings</Text>
-                          </Button>
-                        </Section>
-                      ) : null}
-                      {editor.settings.waiting ? (
-                        <Section>
-                          <ProgressView />
-                        </Section>
-                      ) : (
-                        AsyncResult.matchWithError(editor.settings, {
-                          onInitial: () => null,
-                          onSuccess: () => null,
-                          onError: (error) => (
-                            <Section>
-                              <Text>{libraryFailureMessage({ error })}</Text>
-                            </Section>
-                          ),
-                          onDefect: () => (
-                            <Section>
-                              <Text>Unable to load storage settings. Try again.</Text>
-                            </Section>
-                          ),
-                        })
-                      )}
-                      {Option.match(editor.storage, {
-                        onNone: () => null,
-                        onSome: (storage) => (
-                          <form.FormGroup
-                            key={storage.key}
-                            name="storagePluginSettings"
-                            defaultValue={storage.defaultValue}
-                            validators={storage.validators}>
-                            {() => (
-                              <StorageFields
-                                form={form}
-                                fields="storagePluginSettings"
-                                descriptors={storage.descriptors}
-                                defaults={storage.defaultValue}
-                              />
-                            )}
-                          </form.FormGroup>
-                        ),
-                      })}
-                      <SubmissionFeedback />
-                    </List>
-                    <Toolbar.Content>
-                      <ToolbarItem placement="confirmationAction">
-                        <Button
-                          onPress={() => {
-                            setPath([]);
-                          }}
-                          modifiers={[disabled(!editor.ready || editor.submitting)]}>
-                          <Text>Done</Text>
-                        </Button>
-                      </ToolbarItem>
-                    </Toolbar.Content>
-                  </Toolbar>
-                </NavigationDestination>
-              </NavigationStack>
-            </Alert.Trigger>
-            <Alert.Message>
-              <Text>
-                {Option.match(editor.pending, {
-                  onNone: () => '',
-                  onSome: (request) =>
-                    `${request.storagePluginId}\n\nLoading settings may download and run this plugin on your server with the server process’s permissions. Only continue if you trust its source.\n\nCode may run even if you don’t save the library.`,
-                })}
-              </Text>
-            </Alert.Message>
-            <Alert.Actions>
-              <Button
-                role="cancel"
-                onPress={() => {
-                  editor.handleCancelConsent();
-                }}>
-                <Text>Cancel</Text>
-              </Button>
-              <Button onPress={editor.handleApprove}>
-                <Text>Load plugin</Text>
-              </Button>
-            </Alert.Actions>
-          </Alert>
-        </form.AppForm>
-      </Host>
+              </NavigationDestination>
+            </NavigationStack>
+          </Alert.Trigger>
+          <Alert.Message>
+            <Text>
+              {Option.match(editor.pending, {
+                onNone: () => '',
+                onSome: (request) =>
+                  `${request.storagePluginId}\n\nLoading settings may download and run this plugin on your server with the server process’s permissions. Only continue if you trust its source.\n\nCode may run even if you don’t save the library.`,
+              })}
+            </Text>
+          </Alert.Message>
+          <Alert.Actions>
+            <Button
+              role="cancel"
+              onPress={() => {
+                editor.handleCancelConsent();
+              }}>
+              <Text>Cancel</Text>
+            </Button>
+            <Button onPress={editor.handleApprove}>
+              <Text>Load plugin</Text>
+            </Button>
+          </Alert.Actions>
+        </Alert>
+      </form.AppForm>
     </>
   );
 };
