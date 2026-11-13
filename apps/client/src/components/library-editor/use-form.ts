@@ -57,12 +57,14 @@ export const useLibraryForm = ({
       readonly previous: (typeof LibraryEditorInput.Encoded)['storagePluginSettings'];
     }>
   >(() =>
-    LibraryEditorSource.$is('Edit')(source)
-      ? Option.map(LibraryEditorMetadata.decodeUnknownOption(source.library), (metadata) => ({
+    LibraryEditorSource.$match(source, {
+      Create: () => Option.none(),
+      Edit: ({ library }) =>
+        Option.map(LibraryEditorMetadata.decodeUnknownOption(library), (metadata) => ({
           metadata,
           previous: {},
-        }))
-      : Option.none()
+        })),
+    })
   );
   const [pending, setPending] = useState<Option.Option<typeof LibraryEditorMetadata.Type>>(
     Option.none()
@@ -72,9 +74,10 @@ export const useLibraryForm = ({
     onSome: ({ metadata }) =>
       libraryStorageSettingsAtom({
         account,
-        id: LibraryEditorSource.$is('Edit')(source)
-          ? Option.some(source.library.id)
-          : Option.none(),
+        id: LibraryEditorSource.$match(source, {
+          Create: () => Option.none(),
+          Edit: ({ library }) => Option.some(library.id),
+        }),
         request: metadata,
       }),
   });
@@ -87,14 +90,21 @@ export const useLibraryForm = ({
     Equal.equals(requestedMetadata, LibraryEditorMetadata.decodeUnknownOption(value));
   const form = useAppForm({
     schema: LibraryEditorInput,
-    defaultValues: {
-      name: LibraryEditorSource.$is('Edit')(source) ? source.library.name : '',
-      type: LibraryEditorSource.$is('Edit')(source) ? source.library.type : 'audiobook',
-      storagePluginId: LibraryEditorSource.$is('Edit')(source)
-        ? source.library.storagePluginId
-        : 'builtin:local',
-      storagePluginSettings: {},
-    },
+    defaultValues: LibraryEditorSource.$match(source, {
+      Create: () =>
+        ({
+          name: '',
+          type: 'audiobook',
+          storagePluginId: 'builtin:local',
+          storagePluginSettings: {},
+        }) satisfies typeof LibraryEditorInput.Encoded,
+      Edit: ({ library }) => ({
+        name: library.name,
+        type: library.type,
+        storagePluginId: library.storagePluginId,
+        storagePluginSettings: {},
+      }),
+    }),
     listeners: {
       onChange: ({ fieldApi }) => {
         if (
