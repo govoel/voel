@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { useSelector } from '@tanstack/react-form';
+import { useFormGroup, useSelector } from '@tanstack/react-form';
 import {
   Array,
   Effect,
@@ -51,43 +51,12 @@ export const useLibraryForm = ({
   }) => void | Promise<void>;
 }) => {
   const account = useSelectedAccount();
-  const [requested, setRequested] = useState<
-    Option.Option<{
-      readonly metadata: typeof LibraryEditorMetadata.Type;
-      readonly previous: (typeof LibraryEditorInput.Encoded)['storagePluginSettings'];
-    }>
-  >(() =>
-    LibraryEditorSource.$match(source, {
-      Create: () => Option.none(),
-      Edit: ({ library }) =>
-        Option.map(LibraryEditorMetadata.decodeUnknownOption(library), (metadata) => ({
-          metadata,
-          previous: {},
-        })),
-    })
-  );
+  const [approved, setApproved] = useState<
+    Option.Option<typeof LibraryEditorMetadata.Type.storagePluginId>
+  >(Option.none());
   const [pending, setPending] = useState<Option.Option<typeof LibraryEditorMetadata.Type>>(
     Option.none()
   );
-  const query = Option.match(requested, {
-    onNone: () => noSettings,
-    onSome: ({ metadata }) =>
-      libraryStorageSettingsAtom({
-        account,
-        id: LibraryEditorSource.$match(source, {
-          Create: () => Option.none(),
-          Edit: ({ library }) => Option.some(library.id),
-        }),
-        request: metadata,
-      }),
-  });
-  const settings = useAtomValue(query);
-  const refresh = useAtomRefresh(query);
-  const requestedMetadata = Option.map(requested, (snapshot) => snapshot.metadata);
-  const current = (value: typeof LibraryEditorMetadata.Encoded) =>
-    AsyncResult.isSuccess(settings) &&
-    !settings.waiting &&
-    Equal.equals(requestedMetadata, LibraryEditorMetadata.decodeUnknownOption(value));
   const form = useAppForm({
     schema: LibraryEditorInput,
     defaultValues: LibraryEditorSource.$match(source, {
@@ -111,6 +80,7 @@ export const useLibraryForm = ({
           Array.some(Struct.keys(LibraryEditorMetadata.fields), (name) => fieldApi.name === name)
         ) {
           setPending(Option.none());
+          resetStorage();
         }
       },
     },
@@ -125,7 +95,7 @@ export const useLibraryForm = ({
       ),
     onFailure: ({ error }) =>
       Match.value(error).pipe(
-        Match.tag('StorageSettingsNotLoaded', () => 'Load storage settings before saving.'),
+        Match.tag('StorageSettingsNotLoaded', () => 'Configure storage settings before saving.'),
         Match.orElse((failure) => libraryFailureMessage({ error: failure }))
       ),
     onSuccess: async ({ result }) => onSuccess(result),
@@ -139,28 +109,54 @@ export const useLibraryForm = ({
     form.store,
     (state) => [state.canSubmit, state.isSubmitting] as const
   );
-  const input = LibraryEditorMetadata.decodeUnknownOption(metadata);
-  const storage = Option.flatMap(requested, (snapshot) =>
-    Option.map(
-      Option.filter(AsyncResult.value(settings), () => current(metadata)),
-      (descriptors) => ({
-        descriptors,
-        key: snapshot.metadata.storagePluginId,
-        defaultValue: settingsDefaults({ fields: descriptors, previous: snapshot.previous }),
-        validators: {
-          onChangeAsync: Schema.toStandardSchemaV1(storageSettingsSchema(descriptors)),
-        },
-      })
-    )
+  const input: Option.Option<typeof LibraryEditorMetadata.Type> =
+    LibraryEditorMetadata.decodeUnknownOption(metadata);
+  const request = Option.filter(
+    input,
+    ({ storagePluginId }) => !requiresPluginConsent({ source, storagePluginId, approved })
   );
-  const load = (request: typeof LibraryEditorMetadata.Type) => {
-    // This snapshot seeds the next group's defaults; it is not a second live form store.
-    const previous = Option.exists(
-      requested,
-      (snapshot) => snapshot.metadata.storagePluginId === request.storagePluginId
-    )
-      ? form.state.values.storagePluginSettings
-      : {};
+  const query = Option.match(request, {
+    onNone: () => noSettings,
+    onSome: (requestMetadata) =>
+      libraryStorageSettingsAtom({
+        account,
+        id: LibraryEditorSource.$match(source, {
+          Create: () => Option.none(),
+          Edit: ({ library }) => Option.some(library.id),
+        }),
+        request: requestMetadata,
+      }),
+  });
+  const settings = useAtomValue(query);
+  const refresh = useAtomRefresh(query);
+  const current = (value: typeof LibraryEditorMetadata.Encoded) =>
+    AsyncResult.isSuccess(settings) &&
+    !settings.waiting &&
+    Option.isSome(request) &&
+    Equal.equals(request, LibraryEditorMetadata.decodeUnknownOption(value));
+  const storage = Option.map(
+    Option.filter(AsyncResult.value(settings), () => current(metadata)),
+    (descriptors) => ({
+      descriptors,
+      defaultValue: settingsDefaults({ fields: descriptors }),
+      validators: {
+        onChangeAsync: Schema.toStandardSchemaV1(storageSettingsSchema(descriptors)),
+      },
+    })
+  );
+  useFormGroup({
+    form,
+    name: 'storagePluginSettings',
+    ...Option.match(storage, {
+      onNone: () => ({ defaultValue: {} }),
+      onSome: ({ defaultValue, validators }) => ({ defaultValue, validators }),
+    }),
+  });
+  const resetStorage = ({
+    defaultValue = {},
+  }: {
+    readonly defaultValue?: (typeof LibraryEditorInput.Encoded)['storagePluginSettings'];
+  } = {}) => {
     for (const name of Struct.keys(form.state.fieldMeta)) {
       if (
         name === 'storagePluginSettings' ||
@@ -169,11 +165,11 @@ export const useLibraryForm = ({
         form.resetField(name);
       }
     }
-    form.setFieldValue('storagePluginSettings', {}, { dontUpdateMeta: true, dontValidate: true });
-    if (Equal.equals(requestedMetadata, Option.some(request))) {
-      refresh();
-    }
-    setRequested(Option.some({ metadata: request, previous }));
+    form.setFieldValue('storagePluginSettings', defaultValue, {
+      dontUpdateMeta: true,
+      dontValidate: true,
+      dontRunListeners: true,
+    });
   };
   return {
     form,
@@ -183,33 +179,25 @@ export const useLibraryForm = ({
     pending,
     submitting,
     ready: Option.isSome(storage) && canSubmit,
-    canLoad:
-      Option.isSome(input) &&
-      (!settings.waiting || !Equal.equals(requestedMetadata, input)) &&
-      !submitting,
-    handleLoad: () => {
-      const request = LibraryEditorMetadata.decodeUnknownOption(form.state.values);
-      if (Option.isNone(request) || submitting) {
-        return;
-      }
-      if (
-        requiresPluginConsent({
-          source,
-          storagePluginId: request.value.storagePluginId,
-          approved: Option.map(
-            requestedMetadata,
-            (requestMetadata) => requestMetadata.storagePluginId
-          ),
-        })
-      ) {
-        setPending(request);
-      } else {
-        load(request.value);
+    canOpenStorage: Option.isSome(input) && !submitting,
+    needsConsent: Option.isSome(input) && Option.isNone(request),
+    handleRetry: refresh,
+    resetStorage: () => {
+      resetStorage({
+        defaultValue: Option.match(storage, {
+          onNone: () => ({}),
+          onSome: ({ defaultValue }) => defaultValue,
+        }),
+      });
+    },
+    handleRequestConsent: () => {
+      if (Option.isSome(input) && !submitting) {
+        setPending(input);
       }
     },
     handleApprove: () => {
       if (Option.isSome(pending)) {
-        load(pending.value);
+        setApproved(Option.some(pending.value.storagePluginId));
         setPending(Option.none());
       }
     },
@@ -218,10 +206,6 @@ export const useLibraryForm = ({
     },
     selectProvider: ({ provider }: { readonly provider: 'local' | 'custom' }) => {
       form.setFieldValue('storagePluginId', provider === 'local' ? 'builtin:local' : '');
-      const request = LibraryEditorMetadata.decodeUnknownOption(form.state.values);
-      if (provider === 'local' && Option.isSome(request)) {
-        load(request.value);
-      }
     },
   };
 };

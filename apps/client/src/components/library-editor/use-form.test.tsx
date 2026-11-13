@@ -1,9 +1,10 @@
 import { RegistryContext } from '@effect/atom-react';
-import { useField, useFormGroup } from '@tanstack/react-form';
+import { useField } from '@tanstack/react-form';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { Array, Deferred, Effect, String as EffectString, Option } from 'effect';
 import type { Layer as EffectLayer } from 'effect';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
+import { useState } from 'react';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,7 +18,7 @@ import { StorageFields as IOSStorageFields } from '#src/components/library-edito
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
-import { LibraryEditorSource } from '#src/domains/library/editor.ts';
+import { LibraryEditorMetadata, LibraryEditorSource } from '#src/domains/library/editor.ts';
 
 vi.mock('#src/runtime/index.ts', async () => {
   const { Context, Effect: effect, Layer, LayerMap } = await import('effect');
@@ -129,13 +130,13 @@ const account = AccountKey.make({
   serverUrl: AccountKey.fields.serverUrl.make('https://library.test'),
   userId: AccountKey.fields.userId.make('admin'),
 });
-const plugin = 'npm:@fixture/storage@1.0.0';
-const otherPlugin = 'npm:@fixture/storage@2.0.0';
+const plugin = Library.json.fields.storagePluginId.make('npm:@fixture/storage@1.0.0');
+const otherPlugin = Library.json.fields.storagePluginId.make('npm:@fixture/storage@2.0.0');
 const original = {
   id: Library.fields.id.make(7),
   name: Library.fields.name.make('Audiobooks'),
   type: Library.fields.type.make('audiobook'),
-  storagePluginId: Library.json.fields.storagePluginId.make(plugin),
+  storagePluginId: plugin,
 };
 const descriptors = [
   {
@@ -147,7 +148,7 @@ const descriptors = [
     initialValue: ['/media/original'],
   },
 ];
-const loadSettings = vi.fn<() => Promise<Response>>();
+const loadSettings = vi.fn<(metadata: typeof LibraryEditorMetadata.Type) => Promise<Response>>();
 const save = vi.fn<(payload: unknown) => Promise<Response>>();
 const registries = new Set<AtomRegistry.AtomRegistry>();
 const createSource = LibraryEditorSource.Create();
@@ -169,11 +170,6 @@ const setup = async ({
   return renderHook(
     () => {
       const editor = useLibraryForm({ source, onSuccess: () => void 0 });
-      useFormGroup({
-        form: editor.form,
-        name: 'storagePluginSettings',
-        ...Option.getOrElse(editor.storage, () => ({})),
-      });
       useField({ form: editor.form, name: 'name' });
       useField({ form: editor.form, name: 'type' });
       useField({ form: editor.form, name: 'storagePluginId' });
@@ -190,7 +186,9 @@ beforeEach(() => {
     const request =
       input instanceof Request ? new Request(input, init) : new Request(String(input), init);
     return EffectString.endsWith('settings-form')(new URL(request.url).pathname)
-      ? loadSettings()
+      ? loadSettings(
+          Option.getOrThrow(LibraryEditorMetadata.decodeUnknownOption(await request.json()))
+        )
       : save(await request.json());
   });
 });
@@ -211,19 +209,34 @@ const enterCustom = async (editor: Awaited<ReturnType<typeof setup>>) => {
 };
 
 const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSStorageFields }) => {
-  const editor = useLibraryForm({
-    source: editSource,
-    onSuccess: () => void 0,
-  });
+  const editor = useLibraryForm({ source: editSource, onSuccess: () => void 0 });
+  const [storageOpen, setStorageOpen] = useState(false);
   return (
     <editor.form.AppForm>
       <editor.form.AppField name="name">
         {(field) => <field.TextField label="Name" placeholder="" />}
       </editor.form.AppField>
-      <StorageFields form={editor.form} storage={editor.storage} />
-      <Pressable role="button" disabled={!editor.canLoad} onPress={editor.handleLoad}>
-        <Text>Load settings</Text>
+      <Pressable
+        role="button"
+        disabled={!editor.canOpenStorage}
+        onPress={() => {
+          editor.resetStorage();
+          setStorageOpen(true);
+        }}>
+        <Text>Storage settings</Text>
       </Pressable>
+      {storageOpen ? (
+        <>
+          <StorageFields form={editor.form} storage={editor.storage} />
+          <Pressable
+            role="button"
+            onPress={() => {
+              setStorageOpen(false);
+            }}>
+            <Text>Done</Text>
+          </Pressable>
+        </>
+      ) : null}
       <Pressable
         role="button"
         disabled={!editor.ready}
@@ -239,7 +252,7 @@ describe('library editor', () => {
     { platform: 'iOS', StorageFields: IOSStorageFields },
     { platform: 'Android', StorageFields: AndroidStorageFields },
   ])(
-    'keeps edited text and list fields when reloading settings on $platform',
+    'preloads settings, saves subpage edits, and resets a new visit on $platform',
     async ({ platform, StorageFields }) => {
       const textField = {
         kind: 'TextField',
@@ -261,6 +274,12 @@ describe('library editor', () => {
           </SelectedAccountContext.Provider>
         </RegistryContext.Provider>
       );
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+      });
+      expect(loadSettings).toHaveBeenCalledTimes(1);
+      expect(screen.queryByLabelText('Directories')).toBeNull();
+      await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
       const roots = await screen.findAllByLabelText('Directories');
       await fireEvent.changeText(Array.getUnsafe(roots, 1), '/kept');
       await (platform === 'iOS'
@@ -272,6 +291,24 @@ describe('library editor', () => {
         '/new'
       );
       await fireEvent.changeText(screen.getByLabelText('Folder'), '/edited');
+      await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+      expect(screen.queryByLabelText('Directories')).toBeNull();
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => {
+        expect(save).toHaveBeenCalledWith({
+          name: original.name,
+          type: original.type,
+          storagePluginId: plugin,
+          storagePluginSettings: { roots: ['/kept', '/new'], folder: '/edited' },
+        });
+      });
+      await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+      const resetRoots = screen.getAllByLabelText('Directories');
+      expect(resetRoots).toHaveLength(2);
+      expect(Array.getUnsafe(resetRoots, 0)).toHaveProp('value', '/same');
+      expect(Array.getUnsafe(resetRoots, 1)).toHaveProp('value', '/same');
+      expect(screen.getByLabelText('Folder')).toHaveProp('value', '/default');
+      await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
       loadSettings.mockResolvedValueOnce(
         Response.json([
           descriptors[0],
@@ -280,37 +317,61 @@ describe('library editor', () => {
         ])
       );
       await fireEvent.changeText(screen.getByLabelText('Name'), 'Renamed');
-      await fireEvent.press(screen.getByRole('button', { name: 'Load settings' }));
-      await screen.findByLabelText('New location');
+      await waitFor(() => {
+        expect(loadSettings).toHaveBeenCalledTimes(2);
+      });
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
       });
+      await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+      await screen.findByLabelText('New location');
+      const replacedRoots = screen.getAllByLabelText('Directories');
+      expect(replacedRoots).toHaveLength(1);
+      expect(Array.getUnsafe(replacedRoots, 0)).toHaveProp('value', '/media/original');
+      await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
       await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
       await waitFor(() => {
         expect(save).toHaveBeenCalledWith({
           name: 'Renamed',
           type: original.type,
           storagePluginId: plugin,
-          storagePluginSettings: { roots: ['/kept', '/new'], folder: '/edited', new: '/fresh' },
+          storagePluginSettings: { roots: ['/media/original'], folder: '/default', new: '/fresh' },
         });
       });
     }
   );
 
-  it('requires consent before loading an external plugin for each new library', async () => {
+  it('preloads local settings without opening Storage', async () => {
     const editor = await setup();
-    await enterCustom(editor);
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
+    });
+    expect(loadSettings).toHaveBeenCalledTimes(1);
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.form.setFieldValue('name', 'Audiobooks');
+    });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
     });
     await act(async () => editor.result.current.form.handleSubmit());
-    await act(() => {
-      editor.result.current.handleCancelConsent();
+    expect(save).toHaveBeenCalledWith({
+      name: 'Audiobooks',
+      type: 'audiobook',
+      storagePluginId: 'builtin:local',
+      storagePluginSettings: { roots: ['/media/original'] },
     });
-    expect(loadSettings).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('requires consent for each new library even when descriptors are cached', async () => {
+    const registry = AtomRegistry.make();
+    const editor = await setup({ registry });
+    await enterCustom(editor);
+    expect(editor.result.current.needsConsent).toBe(true);
+    expect(loadSettings).not.toHaveBeenCalledWith(
+      expect.objectContaining({ storagePluginId: plugin })
+    );
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.handleRequestConsent();
     });
     await act(() => {
       editor.result.current.handleApprove();
@@ -318,110 +379,85 @@ describe('library editor', () => {
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
-    await editor.unmount();
-    const fresh = await setup();
+    const fresh = await setup({ registry });
     await enterCustom(fresh);
     await act(() => {
-      fresh.result.current.handleLoad();
+      fresh.result.current.handleRequestConsent();
     });
-    expect(loadSettings).toHaveBeenCalledTimes(1);
+    await act(() => {
+      fresh.result.current.handleCancelConsent();
+    });
+    await act(async () => fresh.result.current.form.handleSubmit());
+    expect(fresh.result.current.form.state.values.storagePluginId).toBe(plugin);
+    expect(fresh.result.current.ready).toBe(false);
+    expect(
+      Array.filter(loadSettings.mock.calls, ([metadata]) => metadata.storagePluginId === plugin)
+    ).toHaveLength(1);
+    expect(save).not.toHaveBeenCalled();
   });
 
-  it('cancels loading without reverting the plugin ID and retains the original draft if selected again', async () => {
+  it('cancels consent for a changed plugin without changing the ID or loading it', async () => {
     const editor = await setup({ source: editSource });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
     await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/edited']);
       editor.result.current.form.setFieldValue('storagePluginId', otherPlugin);
     });
+    expect(editor.result.current.needsConsent).toBe(true);
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.handleRequestConsent();
     });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(loadSettings).toHaveBeenCalledTimes(1);
-    expect(save).not.toHaveBeenCalled();
     await act(() => {
       editor.result.current.handleCancelConsent();
     });
+    await act(async () => editor.result.current.form.handleSubmit());
     expect(editor.result.current.form.state.values.storagePluginId).toBe(otherPlugin);
-    await act(async () => editor.result.current.form.handleSubmit());
+    expect(editor.result.current.pending).toEqual(Option.none());
+    expect(editor.result.current.ready).toBe(false);
     expect(loadSettings).toHaveBeenCalledTimes(1);
     expect(save).not.toHaveBeenCalled();
-    await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginId', plugin);
-    });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        storagePluginId: plugin,
-        storagePluginSettings: { roots: ['/media/edited'] },
-      })
-    );
   });
 
-  it('uses the new plugin defaults rather than another plugin’s edited settings', async () => {
+  it('loads changed metadata in the background and uses exactly the returned settings', async () => {
     const editor = await setup({ source: editSource });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
-    await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/edited']);
-      editor.result.current.form.setFieldValue('storagePluginId', otherPlugin);
-    });
-    loadSettings.mockImplementation(async () =>
-      Response.json([{ ...descriptors[0], initialValue: ['/media/new'] }])
+    loadSettings.mockResolvedValueOnce(
+      Response.json([
+        {
+          kind: 'TextField',
+          name: 'folder',
+          label: 'Folder',
+          placeholder: '',
+          purpose: 'text',
+          initialValue: '/fresh',
+        },
+        { ...descriptors[0], name: 'constructor', initialValue: ['/safe'] },
+      ])
     );
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/edited']);
+      editor.result.current.form.setFieldValue('type', 'movie');
     });
-    await act(() => {
-      editor.result.current.handleApprove();
+    await waitFor(() => {
+      expect(loadSettings).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
+    expect(editor.result.current.pending).toEqual(Option.none());
     await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        storagePluginId: otherPlugin,
-        storagePluginSettings: { roots: ['/media/new'] },
-      })
-    );
+    expect(save).toHaveBeenCalledWith({
+      name: original.name,
+      type: 'movie',
+      storagePluginId: plugin,
+      storagePluginSettings: { folder: '/fresh', constructor: ['/safe'] },
+    });
   });
 
-  it('keeps the loaded draft when metadata is changed and then restored', async () => {
-    const editor = await setup({ source: editSource });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/edited']);
-      editor.result.current.form.setFieldValue('name', 'Another name');
-    });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).not.toHaveBeenCalled();
-    await act(() => {
-      editor.result.current.form.setFieldValue('name', original.name);
-    });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: original.name,
-        storagePluginSettings: { roots: ['/media/edited'] },
-      })
-    );
-    expect(loadSettings).toHaveBeenCalledTimes(1);
-  });
-
-  it('initializes each form independently when descriptors come from a shared cached query', async () => {
+  it('keeps form values independent when descriptors come from a shared cached query', async () => {
     const registry = AtomRegistry.make();
     const first = await setup({ source: editSource, registry });
     await waitFor(() => {
@@ -445,68 +481,45 @@ describe('library editor', () => {
     expect(loadSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('can use an in-flight load after returning to its metadata', async () => {
+  it('ignores an older load after the plugin changes', async () => {
     const delayed = await Effect.runPromise(Deferred.make<Response>());
-    loadSettings.mockImplementationOnce(async () => Effect.runPromise(Deferred.await(delayed)));
-    const editor = await setup({ source: editSource });
-    await waitFor(() => {
-      expect(loadSettings).toHaveBeenCalledTimes(1);
-    });
-    await act(() => {
-      editor.result.current.form.setFieldValue('type', 'movie');
-    });
-    await act(async () => {
-      await Effect.runPromise(Deferred.succeed(delayed, Response.json(descriptors)));
-    });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).not.toHaveBeenCalled();
-    await act(() => {
-      editor.result.current.form.setFieldValue('type', original.type);
-    });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: original.type,
-        storagePluginSettings: { roots: ['/media/original'] },
-      })
+    loadSettings.mockImplementation(async ({ storagePluginId }) =>
+      storagePluginId === plugin
+        ? Effect.runPromise(Deferred.await(delayed))
+        : Response.json(descriptors)
     );
-    expect(loadSettings).toHaveBeenCalledTimes(1);
-  });
-
-  it('saves only the latest plugin settings when an older load finishes late', async () => {
-    const delayed = await Effect.runPromise(Deferred.make<Response>());
-    loadSettings.mockImplementationOnce(async () => Effect.runPromise(Deferred.await(delayed)));
     const editor = await setup();
     await enterCustom(editor);
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.handleRequestConsent();
     });
     await act(() => {
       editor.result.current.handleApprove();
     });
     await waitFor(() => {
-      expect(loadSettings).toHaveBeenCalledTimes(1);
+      expect(loadSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ storagePluginId: plugin })
+      );
     });
     await act(() => {
       editor.result.current.form.setFieldValue('storagePluginId', otherPlugin);
     });
-    loadSettings.mockImplementation(async () =>
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).not.toHaveBeenCalled();
+    loadSettings.mockResolvedValueOnce(
       Response.json([
         {
           kind: 'TextField',
           name: 'folder',
           label: 'Folder',
-          placeholder: '/media',
+          placeholder: '',
           purpose: 'text',
-          initialValue: '/media/new',
+          initialValue: '/new',
         },
       ])
     );
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.handleRequestConsent();
     });
     await act(() => {
       editor.result.current.handleApprove();
@@ -522,20 +535,20 @@ describe('library editor', () => {
       name: 'Audiobooks',
       type: 'audiobook',
       storagePluginId: otherPlugin,
-      storagePluginSettings: { folder: '/media/new' },
+      storagePluginSettings: { folder: '/new' },
     });
   });
 
-  it('can retry a failed settings load without asking for consent again', async () => {
+  it('retries failed settings loading without asking for consent again', async () => {
+    loadSettings.mockImplementation(async ({ storagePluginId }) =>
+      storagePluginId === plugin
+        ? Response.json(PluginLoadError.make({ message: 'Failed to load plugin' }), { status: 500 })
+        : Response.json(descriptors)
+    );
     const editor = await setup();
     await enterCustom(editor);
-    loadSettings.mockResolvedValueOnce(
-      Response.json(PluginLoadError.make({ message: 'Failed to install or load plugin' }), {
-        status: 500,
-      })
-    );
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.handleRequestConsent();
     });
     await act(() => {
       editor.result.current.handleApprove();
@@ -543,71 +556,17 @@ describe('library editor', () => {
     await waitFor(() => {
       expect(AsyncResult.isFailure(editor.result.current.settings)).toBe(true);
     });
+    loadSettings.mockResolvedValueOnce(Response.json(descriptors));
     await act(() => {
-      editor.result.current.handleLoad();
+      editor.result.current.handleRetry();
     });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
+    expect(editor.result.current.pending).toEqual(Option.none());
     await act(async () => editor.result.current.form.handleSubmit());
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({ storagePluginSettings: { roots: ['/media/original'] } })
-    );
-  });
-
-  it('keeps compatible edits and saves only current fields after library details change', async () => {
-    const textField = {
-      kind: 'TextField',
-      name: 'folder',
-      label: 'Folder',
-      placeholder: '',
-      purpose: 'text',
-      initialValue: 'default',
-    } as const;
-    loadSettings.mockResolvedValueOnce(
-      Response.json([
-        textField,
-        { ...textField, name: 'changed' },
-        { ...textField, name: 'removed' },
-      ])
-    );
-    const editor = await setup({ source: editSource });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginSettings', {
-        folder: 'user edit',
-        changed: 'old shape',
-        removed: 'old value',
-      });
-      editor.result.current.form.setFieldValue('name', 'Renamed');
-    });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).not.toHaveBeenCalled();
-    loadSettings.mockResolvedValueOnce(
-      Response.json([
-        textField,
-        { ...textField, name: 'constructor', initialValue: 'safe default' },
-        { ...descriptors[0], name: 'changed', initialValue: ['new shape'] },
-      ])
-    );
-    await act(() => {
-      editor.result.current.handleLoad();
-    });
-    await waitFor(() => {
-      expect(editor.result.current.ready).toBe(true);
-    });
-    await act(async () => editor.result.current.form.handleSubmit());
-    expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'Renamed',
-        storagePluginSettings: {
-          folder: 'user edit',
-          constructor: 'safe default',
-          changed: ['new shape'],
-        },
-      })
     );
   });
 });

@@ -1,5 +1,5 @@
 import { StoragePluginSettingsForm } from '@govoel/plugins/storage';
-import { Array, Data, Effect, Match, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, Data, Effect, Match, Option, Record, Schema, Struct } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
@@ -52,7 +52,7 @@ const storageFieldSchemas = {
 export const storageSettingsSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
   Schema.Struct(
     Record.fromEntries(
-      Array.map(fields, (field) => [String(field.name), storageFieldSchemas[field.kind]] as const)
+      Array.map(fields, (field) => [field.name, storageFieldSchemas[field.kind]] as const)
     )
   );
 
@@ -69,32 +69,24 @@ export class LibraryEditorInput extends Library.jsonCreate.pipe(
 
 export const settingsDefaults = ({
   fields,
-  previous,
 }: {
   readonly fields: typeof StoragePluginSettingsForm.Type;
-  readonly previous: (typeof LibraryEditorInput.Encoded)['storagePluginSettings'];
 }) =>
   Record.fromEntries(
-    Array.map(fields, (field) => {
-      const value = Record.get(previous, field.name);
-      return [
-        String(field.name),
-        Match.value(field).pipe(
-          Match.when({ kind: 'TextField' }, (descriptor) =>
-            Option.getOrElse(
-              Option.filter(value, Predicate.isString),
-              () => descriptor.initialValue
-            )
-          ),
-          Match.when({ kind: 'TextListField' }, (descriptor) =>
-            Option.getOrElse(Option.filter(value, Predicate.not(Predicate.isString)), () =>
+    Array.map(
+      fields,
+      (field) =>
+        [
+          field.name,
+          Match.value(field).pipe(
+            Match.when({ kind: 'TextField' }, (descriptor) => descriptor.initialValue),
+            Match.when({ kind: 'TextListField' }, (descriptor) =>
               Array.fromIterable(descriptor.initialValue)
-            )
+            ),
+            Match.exhaustive
           ),
-          Match.exhaustive
-        ),
-      ] as const;
-    })
+        ] as const
+    )
   );
 
 export const libraryStorageSettingsAtom = Atom.family(

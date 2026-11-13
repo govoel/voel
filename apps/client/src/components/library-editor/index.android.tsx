@@ -2,7 +2,6 @@ import {
   AlertDialog,
   Button,
   HorizontalDivider,
-  LoadingIndicator,
   SegmentedButton,
   SingleChoiceSegmentedButtonRow,
   TextButton,
@@ -10,12 +9,15 @@ import {
 import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
+import { useState } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { FormLayout } from '#src/components/form/layout';
 import { StorageFields } from '#src/components/library-editor/storage-fields';
 import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import { ListState } from '#src/components/list-state';
+import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
@@ -29,6 +31,7 @@ export const LibraryForm = ({
   readonly editor: ReturnType<typeof useLibraryForm>;
 }) => {
   const { form } = editor;
+  const [storageOpen, setStorageOpen] = useState(false);
   const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
   return (
     <form.AppForm>
@@ -121,23 +124,65 @@ export const LibraryForm = ({
             )}
           </form.AppField>
         ) : null}
-        {provider === 'custom' || Option.isNone(editor.storage) ? (
-          <Button enabled={editor.canLoad} onClick={editor.handleLoad}>
-            <Text>Load settings</Text>
-          </Button>
-        ) : null}
-        {editor.settings.waiting ? (
-          <LoadingIndicator />
-        ) : (
-          AsyncResult.matchWithError(editor.settings, {
-            onInitial: () => null,
-            onSuccess: () => null,
-            onError: (error) => <Text>{libraryFailureMessage({ error })}</Text>,
-            onDefect: () => <Text>Unable to load storage settings. Try again.</Text>,
-          })
-        )}
-        <StorageFields form={form} storage={editor.storage} />
+        <Button
+          enabled={editor.canOpenStorage}
+          onClick={() => {
+            if (editor.needsConsent) {
+              editor.handleRequestConsent();
+            } else {
+              editor.resetStorage();
+              setStorageOpen(true);
+            }
+          }}>
+          <Text>Storage settings</Text>
+        </Button>
       </FormLayout>
+      {storageOpen ? (
+        <Sheet
+          onDismissed={() => {
+            setStorageOpen(false);
+          }}>
+          {({ dismiss }) => (
+            <FormLayout
+              title="Storage"
+              footer={
+                <Button
+                  enabled={!editor.submitting}
+                  onClick={() => {
+                    void dismiss();
+                  }}
+                  modifiers={[fillMaxWidth()]}>
+                  <Text>Done</Text>
+                </Button>
+              }>
+              {editor.settings.waiting ? (
+                <ListState kind="loading" />
+              ) : (
+                AsyncResult.matchWithError(editor.settings, {
+                  onInitial: () => <ListState kind="loading" />,
+                  onSuccess: () => <StorageFields form={form} storage={editor.storage} />,
+                  onError: (error) => (
+                    <ListState
+                      kind="error"
+                      message={libraryFailureMessage({ error })}
+                      onRetry={editor.handleRetry}
+                      retrying={editor.settings.waiting}
+                    />
+                  ),
+                  onDefect: () => (
+                    <ListState
+                      kind="error"
+                      message="Unable to load storage settings."
+                      onRetry={editor.handleRetry}
+                      retrying={editor.settings.waiting}
+                    />
+                  ),
+                })
+              )}
+            </FormLayout>
+          )}
+        </Sheet>
+      ) : null}
       {Option.match(editor.pending, {
         onNone: () => null,
         onSome: (request) => (
@@ -156,7 +201,12 @@ export const LibraryForm = ({
               </TextButton>
             </AlertDialog.DismissButton>
             <AlertDialog.ConfirmButton>
-              <TextButton onClick={editor.handleApprove}>
+              <TextButton
+                onClick={() => {
+                  editor.handleApprove();
+                  editor.resetStorage();
+                  setStorageOpen(true);
+                }}>
                 <Text>Load plugin</Text>
               </TextButton>
             </AlertDialog.ConfirmButton>

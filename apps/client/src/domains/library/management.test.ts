@@ -247,7 +247,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const updated = yield* LibraryEditorInput.decodeEffect({
           ...request,
           name: 'Renamed',
-          storagePluginSettings: settingsDefaults({ fields: editingFields, previous: {} }),
+          storagePluginSettings: settingsDefaults({ fields: editingFields }),
         });
         yield* saveLibrary({
           account: account.key,
