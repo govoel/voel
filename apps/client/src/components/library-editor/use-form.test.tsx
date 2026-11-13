@@ -13,7 +13,6 @@ import type { ApiClient as ApiClientService } from '#src/api-client.ts';
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
-import { newSettingsEntry } from '#src/domains/library/editor.ts';
 import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
 
 vi.mock('#src/runtime/index.ts', async () => {
@@ -182,9 +181,7 @@ describe('library editor', () => {
       expect(editor.result.current.ready).toBe(true);
     });
     await act(() => {
-      editor.result.current.form.setFieldValue('listValues.roots', [
-        newSettingsEntry({ value: '/media/edited' }),
-      ]);
+      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/edited']);
       editor.result.current.form.setFieldValue('storagePluginId', otherPlugin);
     });
     await act(() => {
@@ -205,6 +202,36 @@ describe('library editor', () => {
       expect.objectContaining({
         storagePluginId: plugin,
         storagePluginSettings: { roots: ['/media/edited'] },
+      })
+    );
+  });
+
+  it('uses the new plugin defaults rather than another plugin’s edited settings', async () => {
+    const editor = await setup({ _tag: 'Edit', library: original });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
+    });
+    await act(() => {
+      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/edited']);
+      editor.result.current.form.setFieldValue('storagePluginId', otherPlugin);
+    });
+    loadSettings.mockImplementation(async () =>
+      Response.json([{ ...descriptors[0], initialValue: ['/media/new'] }])
+    );
+    await act(() => {
+      editor.result.current.handleLoad();
+    });
+    await act(() => {
+      editor.result.current.handleApprove();
+    });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
+    });
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storagePluginId: otherPlugin,
+        storagePluginSettings: { roots: ['/media/new'] },
       })
     );
   });
@@ -306,9 +333,7 @@ describe('library editor', () => {
       expect(editor.result.current.ready).toBe(true);
     });
     await act(() => {
-      editor.result.current.form.setFieldValue('listValues.roots', [
-        newSettingsEntry({ value: '/media/changed' }),
-      ]);
+      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/changed']);
     });
     await act(async () => editor.result.current.form.handleSubmit());
     expect(save).toHaveBeenCalledWith(

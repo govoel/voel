@@ -11,11 +11,10 @@ import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import {
   LibraryEditorMetadata,
-  LibraryEditorValues,
   fetchLibrarySettings,
-  newSettingsEntry,
+  libraryFormSchema,
   saveLibrary,
-  settingsValues,
+  settingsDefaults,
 } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
@@ -225,17 +224,14 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           id: Option.none(),
           request,
         });
-        const values = yield* Schema.decodeEffect(LibraryEditorValues)({
+        const values = yield* Schema.decodeEffect(libraryFormSchema(fields))({
           ...request,
-          settingsFor: null,
-          textValues: {},
-          listValues: { roots: [newSettingsEntry({ value: '/media/first' })] },
+          storagePluginSettings: { roots: ['/media/first'] },
         });
         const created = yield* saveLibrary({
           account: account.key,
           source: { _tag: 'Create' },
           values,
-          fields,
         });
         expect((yield* Atom.getResult(query, { suspendOnWaiting: true })).items).toMatchObject([
           { id: created.id, name: 'Audiobooks' },
@@ -249,17 +245,15 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           id: Option.some(created.id),
           request,
         });
-        const updated = yield* Schema.decodeEffect(LibraryEditorValues)({
+        const updated = yield* Schema.decodeEffect(libraryFormSchema(editingFields))({
           ...request,
-          settingsFor: null,
           name: 'Renamed',
-          ...settingsValues({ fields: editingFields, previous: Option.none() }),
+          storagePluginSettings: settingsDefaults({ fields: editingFields, previous: {} }),
         });
         yield* saveLibrary({
           account: account.key,
           source: editSource,
           values: updated,
-          fields: editingFields,
         });
         const saved = yield* Atom.getResult(detail, { suspendOnWaiting: true });
         expect(saved).toMatchObject({

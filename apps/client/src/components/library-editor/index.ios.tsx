@@ -21,7 +21,8 @@ import {
   pickerStyle,
   tag,
 } from '@expo/ui/swift-ui/modifiers';
-import { Array, Match, Option, Order } from 'effect';
+import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
+import { Array, Match, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -29,10 +30,9 @@ import { useState } from 'react';
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { useSubmitState } from '#src/components/form/hooks.tsx';
-import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import { useLibraryForm, useStorageListField } from '#src/components/library-editor/use-form.ts';
 import type { LibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
-import { newSettingsEntry } from '#src/domains/library/editor.ts';
 import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel } from '#src/domains/library/management.ts';
@@ -49,6 +49,50 @@ const SubmissionFeedback = () => {
   });
 };
 
+const StorageList = ({
+  editor,
+  descriptor,
+}: {
+  readonly editor: LibraryForm;
+  readonly descriptor: Extract<
+    (typeof StoragePluginSettingsForm.Type)[number],
+    { readonly kind: 'TextListField' }
+  >;
+}) => {
+  const { form } = editor;
+  const list = useStorageListField();
+  return (
+    <>
+      <List.ForEach
+        data={list.keys}
+        keyExtractor={String}
+        recycling={false}
+        {...(editor.submitting
+          ? {}
+          : {
+              onDelete: (indices: Array<number>) => {
+                list.handleRemove({ indices });
+              },
+            })}>
+        {({ index }) => (
+          <form.AppField name={`storagePluginSettings.${descriptor.name}[${index}]`}>
+            {(input) => (
+              <input.TextField
+                label={descriptor.label}
+                placeholder={descriptor.placeholder}
+                purpose={descriptor.purpose}
+              />
+            )}
+          </form.AppField>
+        )}
+      </List.ForEach>
+      <Button onPress={list.handleAdd} modifiers={[disabled(editor.submitting)]}>
+        <Text>Add entry</Text>
+      </Button>
+    </>
+  );
+};
+
 const StorageFields = ({ editor }: { readonly editor: LibraryForm }) => {
   const { form } = editor;
   return Option.match(editor.fields, {
@@ -58,7 +102,7 @@ const StorageFields = ({ editor }: { readonly editor: LibraryForm }) => {
         Match.value(descriptor).pipe(
           Match.when({ kind: 'TextField' }, (field) => (
             <Section key={field.name}>
-              <form.AppField name={`textValues.${field.name}`}>
+              <form.AppField name={`storagePluginSettings.${field.name}`}>
                 {(input) => (
                   <input.TextField
                     label={field.label}
@@ -71,43 +115,8 @@ const StorageFields = ({ editor }: { readonly editor: LibraryForm }) => {
           )),
           Match.when({ kind: 'TextListField' }, (field) => (
             <Section key={field.name} title={field.label}>
-              <form.AppField name={`listValues.${field.name}`} mode="array">
-                {(list) => (
-                  <>
-                    <List.ForEach
-                      data={list.state.value}
-                      keyExtractor={(entry) => String(entry.key)}
-                      recycling={false}
-                      {...(editor.submitting
-                        ? {}
-                        : {
-                            onDelete: (indices: Array<number>) => {
-                              for (const index of Array.sort(indices, Order.flip(Order.Number))) {
-                                list.removeValue(index);
-                              }
-                            },
-                          })}>
-                      {({ index }) => (
-                        <form.AppField name={`listValues.${field.name}[${index}].value`}>
-                          {(input) => (
-                            <input.TextField
-                              label={field.label}
-                              placeholder={field.placeholder}
-                              purpose={field.purpose}
-                            />
-                          )}
-                        </form.AppField>
-                      )}
-                    </List.ForEach>
-                    <Button
-                      onPress={() => {
-                        list.pushValue(newSettingsEntry({ value: '' }));
-                      }}
-                      modifiers={[disabled(editor.submitting)]}>
-                      <Text>Add entry</Text>
-                    </Button>
-                  </>
-                )}
+              <form.AppField name={`storagePluginSettings.${field.name}`} mode="array">
+                {() => <StorageList editor={editor} descriptor={field} />}
               </form.AppField>
             </Section>
           )),

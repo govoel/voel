@@ -1,13 +1,8 @@
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsForm } from '@govoel/plugins/storage';
-import { Effect, Option, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 
-import {
-  LibraryEditorValues,
-  newSettingsEntry,
-  settingsSubmission,
-  settingsValues,
-} from '#src/domains/library/editor.ts';
+import { libraryFormSchema, settingsDefaults } from '#src/domains/library/editor.ts';
 
 it.effect(
   'keeps compatible edits and submits only settings from the current plugin form',
@@ -38,21 +33,14 @@ it.effect(
         initialValue: ['new shape'],
       },
     ]);
-    const previous = {
-      textValues: { retained: 'user edit', changed: 'old shape', removed: 'old value' },
-      listValues: { removedList: [newSettingsEntry({ value: 'old list' })] },
-    };
-    const defaults = settingsValues({ fields, previous: Option.some(previous) });
-    const values = yield* Schema.decodeEffect(LibraryEditorValues)({
+    const previous = { retained: 'user edit', changed: 'old shape', removed: 'old value' };
+    const values = yield* Schema.decodeEffect(libraryFormSchema(fields))({
       name: 'Library',
       type: 'movie',
       storagePluginId: 'builtin:local',
-      settingsFor: null,
-      textValues: { ...previous.textValues, ...defaults.textValues },
-      listValues: { ...previous.listValues, ...defaults.listValues },
+      storagePluginSettings: { ...previous, ...settingsDefaults({ fields, previous }) },
     });
-    const submitted = yield* settingsSubmission({ fields, values });
-    expect(submitted).toEqual({
+    expect(values.storagePluginSettings).toEqual({
       retained: 'user edit',
       constructor: 'safe default',
       changed: ['new shape'],

@@ -1,6 +1,5 @@
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
-import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Effect, Match, Option, Record, Schema } from 'effect';
+import { Array, Effect, Match, Option, Predicate, Record, Schema } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
@@ -15,33 +14,6 @@ export class LibraryEditorMetadata extends Schema.Struct({
   type: Library.jsonCreate.fields.type,
   storagePluginId: Library.jsonCreate.fields.storagePluginId,
 }) {}
-
-const SettingsEntryId = Schema.Natural.pipe(
-  Schema.brand('voel/domains/library/editor/SettingsEntryId')
-);
-
-export class LibraryEditorValues extends Schema.Struct({
-  ...LibraryEditorMetadata.fields,
-  settingsFor: Schema.NullOr(LibraryEditorMetadata),
-  textValues: Schema.Record(Schema.String, Schema.String),
-  listValues: Schema.Record(
-    Schema.String,
-    Schema.mutable(
-      Schema.Array(
-        Schema.Struct({
-          key: SettingsEntryId,
-          value: Schema.String,
-        })
-      )
-    )
-  ),
-}) {}
-
-let entrySequence = 0;
-export const newSettingsEntry = ({ value }: { readonly value: string }) => {
-  entrySequence += 1;
-  return { key: SettingsEntryId.make(entrySequence), value };
-};
 
 export type LibraryEditorSource =
   | { readonly _tag: 'Create' }
@@ -74,68 +46,61 @@ export const requiresPluginConsent = ({
   !(source._tag === 'Edit' && source.library.storagePluginId === storagePluginId) &&
   !Option.contains(approved, storagePluginId);
 
-export const settingsValues = ({
+const storageSettingsSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
+  Schema.Struct(
+    Record.fromEntries(
+      Array.map(
+        fields,
+        (field) =>
+          [
+            String(field.name),
+            Match.value(field).pipe(
+              Match.when({ kind: 'TextField' }, () => Schema.String),
+              Match.when({ kind: 'TextListField' }, () =>
+                Schema.mutable(Schema.Array(Schema.String))
+              ),
+              Match.exhaustive
+            ),
+          ] as const
+      )
+    )
+  );
+
+export const libraryFormSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
+  Schema.Struct({
+    ...Library.jsonCreate.fields,
+    name: LibraryEditorMetadata.fields.name,
+    storagePluginSettings: storageSettingsSchema(fields),
+  });
+
+export const settingsDefaults = ({
   fields,
   previous,
 }: {
   readonly fields: typeof StoragePluginSettingsForm.Type;
-  readonly previous: Option.Option<
-    Pick<typeof LibraryEditorValues.Encoded, 'textValues' | 'listValues'>
-  >;
-}) => ({
-  textValues: Record.fromEntries(
-    Array.map(
-      Array.filter(fields, (field) => field.kind === 'TextField'),
-      (field) =>
-        [
-          field.name,
-          Option.match(previous, {
-            onNone: () => field.initialValue,
-            onSome: (value) =>
-              Option.getOrElse(Record.get(value.textValues, field.name), () => field.initialValue),
-          }),
-        ] as const
-    )
-  ),
-  listValues: Record.fromEntries(
-    Array.map(
-      Array.filter(fields, (field) => field.kind === 'TextListField'),
-      (field) =>
-        [
-          field.name,
-          Option.match(previous, {
-            onNone: () => Array.map(field.initialValue, (value) => newSettingsEntry({ value })),
-            onSome: (value) =>
-              Option.getOrElse(Record.get(value.listValues, field.name), () =>
-                Array.map(field.initialValue, (text) => newSettingsEntry({ value: text }))
-              ),
-          }),
-        ] as const
-    )
-  ),
-});
-
-export const settingsSubmission = ({
-  fields,
-  values,
-}: {
-  readonly fields: typeof StoragePluginSettingsForm.Type;
-  readonly values: typeof LibraryEditorValues.Type;
+  readonly previous: ReturnType<typeof storageSettingsSchema>['Encoded'];
 }) =>
-  Schema.decodeUnknownEffect(StoragePluginSettingsInput)(
-    Record.fromEntries(
-      Array.map(fields, (field) =>
+  Record.fromEntries(
+    Array.map(fields, (field) => {
+      const value = Record.get(previous, field.name);
+      return [
+        String(field.name),
         Match.value(field).pipe(
-          Match.when({ kind: 'TextField' }, ({ name }) => [name, values.textValues[name]] as const),
-          Match.when(
-            { kind: 'TextListField' },
-            ({ name }) =>
-              [name, Array.map(values.listValues[name] ?? [], ({ value }) => value)] as const
+          Match.when({ kind: 'TextField' }, (descriptor) =>
+            Option.getOrElse(
+              Option.filter(value, Predicate.isString),
+              () => descriptor.initialValue
+            )
+          ),
+          Match.when({ kind: 'TextListField' }, (descriptor) =>
+            Option.getOrElse(Option.filter(value, Predicate.not(Predicate.isString)), () =>
+              Array.fromIterable(descriptor.initialValue)
+            )
           ),
           Match.exhaustive
-        )
-      )
-    )
+        ),
+      ] as const;
+    })
   );
 
 export const fetchLibrarySettings = Effect.fnUntraced(function* ({
@@ -166,20 +131,13 @@ export const saveLibrary = Effect.fnUntraced(
     account,
     source,
     values,
-    fields,
   }: {
     readonly account: AccountKey;
     readonly source: LibraryEditorSource;
-    readonly values: typeof LibraryEditorValues.Type;
-    readonly fields: typeof StoragePluginSettingsForm.Type;
+    readonly values: typeof Library.jsonCreate.Encoded;
   }) {
     const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-    const payload = {
-      name: values.name,
-      type: values.type,
-      storagePluginId: values.storagePluginId,
-      storagePluginSettings: yield* settingsSubmission({ fields, values }),
-    };
+    const payload = yield* Schema.decodeEffect(Library.jsonCreate)(values);
     return yield* Match.value(source).pipe(
       Match.when({ _tag: 'Create' }, () => client.library.create({ payload })),
       Match.when({ _tag: 'Edit' }, ({ library }) =>

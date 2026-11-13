@@ -18,6 +18,7 @@ import {
 } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, menuAnchor, weight } from '@expo/ui/jetpack-compose/modifiers';
+import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
 import { Array, Match, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { Redirect } from 'expo-router';
@@ -27,11 +28,10 @@ import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { FormLayout } from '#src/components/form/layout';
-import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import { useLibraryForm, useStorageListField } from '#src/components/library-editor/use-form.ts';
 import type { LibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { newSettingsEntry } from '#src/domains/library/editor.ts';
 import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel } from '#src/domains/library/management.ts';
@@ -100,6 +100,49 @@ const Selection = <T extends string>({
   );
 };
 
+const StorageList = ({
+  editor,
+  descriptor,
+}: {
+  readonly editor: LibraryForm;
+  readonly descriptor: Extract<
+    (typeof StoragePluginSettingsForm.Type)[number],
+    { readonly kind: 'TextListField' }
+  >;
+}) => {
+  const { form } = editor;
+  const list = useStorageListField();
+  return (
+    <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+      <Text>{descriptor.label}</Text>
+      {Array.map(list.keys, (key, index) => (
+        <Row key={key} verticalAlignment="center">
+          <form.AppField name={`storagePluginSettings.${descriptor.name}[${index}]`}>
+            {(input) => (
+              <input.TextField
+                label={descriptor.label}
+                placeholder={descriptor.placeholder}
+                purpose={descriptor.purpose}
+                platformProps={{ android: { variant: 'outlined', modifiers: [weight(1)] } }}
+              />
+            )}
+          </form.AppField>
+          <IconButton
+            enabled={!editor.submitting}
+            onClick={() => {
+              list.handleRemove({ indices: [index] });
+            }}>
+            <Icon source={Delete} contentDescription={`Remove ${descriptor.label} ${index + 1}`} />
+          </IconButton>
+        </Row>
+      ))}
+      <TextButton enabled={!editor.submitting} onClick={list.handleAdd}>
+        <Text>Add entry</Text>
+      </TextButton>
+    </Column>
+  );
+};
+
 const StorageFields = ({ editor }: { readonly editor: LibraryForm }) => {
   const { form } = editor;
   return Option.match(editor.fields, {
@@ -108,62 +151,24 @@ const StorageFields = ({ editor }: { readonly editor: LibraryForm }) => {
       Array.map(fields, (descriptor) =>
         Match.value(descriptor).pipe(
           Match.when({ kind: 'TextField' }, (field) => (
-            <form.AppField key={field.name} name={`textValues.${field.name}`}>
+            <form.AppField key={field.name} name={`storagePluginSettings.${field.name}`}>
               {(input) => (
                 <input.TextField
                   label={field.label}
                   placeholder={field.placeholder}
                   purpose={field.purpose}
-                  platformProps={{
-                    android: { variant: 'outlined', modifiers: [fillMaxWidth()] },
-                  }}
+                  platformProps={{ android: { variant: 'outlined', modifiers: [fillMaxWidth()] } }}
                 />
               )}
             </form.AppField>
           )),
           Match.when({ kind: 'TextListField' }, (field) => (
-            <Column key={field.name} verticalArrangement={{ spacedBy: Spacing.two }}>
-              <Text>{field.label}</Text>
-              <form.AppField name={`listValues.${field.name}`} mode="array">
-                {(list) => (
-                  <>
-                    {Array.map(list.state.value, (entry, index) => (
-                      <Row key={entry.key} verticalAlignment="center">
-                        <form.AppField name={`listValues.${field.name}[${index}].value`}>
-                          {(input) => (
-                            <input.TextField
-                              label={field.label}
-                              placeholder={field.placeholder}
-                              purpose={field.purpose}
-                              platformProps={{
-                                android: { variant: 'outlined', modifiers: [weight(1)] },
-                              }}
-                            />
-                          )}
-                        </form.AppField>
-                        <IconButton
-                          enabled={!editor.submitting}
-                          onClick={() => {
-                            list.removeValue(index);
-                          }}>
-                          <Icon
-                            source={Delete}
-                            contentDescription={`Remove ${field.label} ${index + 1}`}
-                          />
-                        </IconButton>
-                      </Row>
-                    ))}
-                    <TextButton
-                      enabled={!editor.submitting}
-                      onClick={() => {
-                        list.pushValue(newSettingsEntry({ value: '' }));
-                      }}>
-                      <Text>Add entry</Text>
-                    </TextButton>
-                  </>
-                )}
-              </form.AppField>
-            </Column>
+            <form.AppField
+              key={field.name}
+              name={`storagePluginSettings.${field.name}`}
+              mode="array">
+              {() => <StorageList editor={editor} descriptor={field} />}
+            </form.AppField>
           )),
           Match.exhaustive
         )
