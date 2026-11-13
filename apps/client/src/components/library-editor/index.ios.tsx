@@ -59,7 +59,10 @@ export const LibraryForm = ({
   const provider = editor.metadata.storagePluginId === 'builtin:local' ? 'local' : 'custom';
   const [path, setPath] = useState<Array<string>>([]);
   const external = Option.isSome(editor.pending);
-  const title = LibraryEditorSource.$is('Create')(source) ? 'New Library' : 'Edit Library';
+  const title = LibraryEditorSource.$match(source, {
+    Create: () => 'New Library',
+    Edit: () => 'Edit Library',
+  });
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -135,7 +138,12 @@ export const LibraryForm = ({
                         void form.handleSubmit();
                       }}
                       modifiers={[disabled(!editor.ready || editor.submitting)]}>
-                      <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create' : 'Save'}</Text>
+                      <Text>
+                        {LibraryEditorSource.$match(source, {
+                          Create: () => 'Create',
+                          Edit: () => 'Save',
+                        })}
+                      </Text>
                     </Button>
                   </ToolbarItem>
                 </Toolbar.Content>

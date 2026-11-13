@@ -33,12 +33,20 @@ export const LibraryForm = ({
   return (
     <form.AppForm>
       <FormLayout
-        title={LibraryEditorSource.$is('Create')(source) ? 'New library' : 'Edit library'}
+        title={LibraryEditorSource.$match(source, {
+          Create: () => 'New library',
+          Edit: () => 'Edit library',
+        })}
         footer={
           <form.SubmitButton
             disabled={!editor.ready}
             platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-            <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create library' : 'Save'}</Text>
+            <Text>
+              {LibraryEditorSource.$match(source, {
+                Create: () => 'Create library',
+                Edit: () => 'Save',
+              })}
+            </Text>
           </form.SubmitButton>
         }>
         <form.AppField name="name">

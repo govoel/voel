@@ -36,9 +36,10 @@ export const requiresPluginConsent = ({
   readonly approved: Option.Option<typeof LibraryEditorMetadata.Type.storagePluginId>;
 }) =>
   NpmPluginId.is(storagePluginId) &&
-  !(
-    LibraryEditorSource.$is('Edit')(source) && source.library.storagePluginId === storagePluginId
-  ) &&
+  LibraryEditorSource.$match(source, {
+    Create: () => true,
+    Edit: ({ library }) => library.storagePluginId !== storagePluginId,
+  }) &&
   !Option.contains(approved, storagePluginId);
 
 const storageFieldSchemas = {
