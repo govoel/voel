@@ -1,17 +1,18 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { Host } from '@expo/ui/swift-ui';
+import { Button, Host, List, Section } from '@expo/ui/swift-ui';
+import { frame } from '@expo/ui/swift-ui/modifiers';
 import { Option, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import type { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryParams } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
-import { FormLayout } from '#src/components/form/layout';
 import { LibraryForm } from '#src/components/library-editor';
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { ListState } from '#src/components/list-state';
+import { Text } from '#src/components/text';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
@@ -45,29 +46,35 @@ const EditLibrary = ({ id }: typeof LibraryParams.Type) => {
     <Host style={{ flex: 1 }}>
       {AsyncResult.matchWithError(state, {
         onInitial: () => (
-          <FormLayout footer={null}>
-            <ListState kind="loading" />
-          </FormLayout>
+          <List modifiers={[frame({ maxHeight: Infinity })]}>
+            <Section>
+              <ListState kind="loading" />
+            </Section>
+          </List>
         ),
         onError: (error) => (
-          <FormLayout footer={null}>
-            <ListState
-              kind="error"
-              message={libraryFailureMessage({ error })}
-              onRetry={refresh}
-              retrying={state.waiting}
-            />
-          </FormLayout>
+          <List modifiers={[frame({ maxHeight: Infinity })]}>
+            <Section>
+              <ListState
+                kind="error"
+                message={libraryFailureMessage({ error })}
+                onRetry={refresh}
+                retrying={state.waiting}
+              />
+            </Section>
+          </List>
         ),
         onDefect: () => (
-          <FormLayout footer={null}>
-            <ListState
-              kind="error"
-              message="Unable to load this library."
-              onRetry={refresh}
-              retrying={state.waiting}
-            />
-          </FormLayout>
+          <List modifiers={[frame({ maxHeight: Infinity })]}>
+            <Section>
+              <ListState
+                kind="error"
+                message="Unable to load this library."
+                onRetry={refresh}
+                retrying={state.waiting}
+              />
+            </Section>
+          </List>
         ),
         onSuccess: ({ value }) => (
           <EditLibraryForm
@@ -82,19 +89,35 @@ const EditLibrary = ({ id }: typeof LibraryParams.Type) => {
 
 export default function EditLibraryScreen() {
   const params = useRouteParams(LibraryParams);
-  return (
-    <>
-      <Stack.Screen.Title>Edit Library</Stack.Screen.Title>
-      {Result.match(params, {
-        onFailure: () => (
-          <Host style={{ flex: 1 }}>
-            <FormLayout footer={null}>
-              <ListState kind="message" message="This link is invalid." />
-            </FormLayout>
-          </Host>
-        ),
-        onSuccess: ({ id }) => <EditLibrary key={id} id={id} />,
-      })}
-    </>
-  );
+  const router = useRouter();
+  return Result.match(params, {
+    onFailure: () => (
+      <>
+        <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
+        <Host style={{ flex: 1 }}>
+          <List modifiers={[frame({ maxHeight: Infinity })]}>
+            <Section>
+              <Text>This link is invalid.</Text>
+              <Button
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/');
+                  }
+                }}>
+                <Text>Back</Text>
+              </Button>
+            </Section>
+          </List>
+        </Host>
+      </>
+    ),
+    onSuccess: ({ id }) => (
+      <>
+        <Stack.Screen.Title>Edit Library</Stack.Screen.Title>
+        <EditLibrary key={id} id={id} />
+      </>
+    ),
+  });
 }

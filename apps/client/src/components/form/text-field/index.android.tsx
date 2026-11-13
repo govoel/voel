@@ -1,8 +1,4 @@
-import {
-  TextField as ComposeTextField,
-  OutlinedTextField,
-  useNativeState,
-} from '@expo/ui/jetpack-compose';
+import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 import { useEffect, useRef } from 'react';
 
@@ -32,13 +28,10 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
     lastNativeChange.current = text;
     field.handleChange(text);
   };
-  const { variant = 'filled', ...androidProps } =
-    'android' in platformProps ? platformProps.android : {};
-  const NativeTextField = variant === 'outlined' ? OutlinedTextField : ComposeTextField;
 
   return (
-    <NativeTextField
-      {...androidProps}
+    <ComposeTextField
+      {...('android' in platformProps ? platformProps.android : {})}
       textStyle={{
         ...materialInputTextStyle,
         ...('android' in platformProps ? platformProps.android.textStyle : {}),
@@ -56,22 +49,22 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
       }
       singleLine={'android' in platformProps ? (platformProps.android.singleLine ?? true) : true}
       isError={Option.isSome(errorMessage)}>
-      <NativeTextField.Label>
+      <ComposeTextField.Label>
         <Text>{label}</Text>
-      </NativeTextField.Label>
+      </ComposeTextField.Label>
 
-      <NativeTextField.Placeholder>
+      <ComposeTextField.Placeholder>
         <Text>{placeholder}</Text>
-      </NativeTextField.Placeholder>
+      </ComposeTextField.Placeholder>
 
       {Option.match(errorMessage, {
         onNone: () => null,
         onSome: (error) => (
-          <NativeTextField.SupportingText>
+          <ComposeTextField.SupportingText>
             <Text variant="caption">{getFormFieldErrorMessage(error)}</Text>
-          </NativeTextField.SupportingText>
+          </ComposeTextField.SupportingText>
         ),
       })}
-    </NativeTextField>
+    </ComposeTextField>
   );
 }) satisfies TextFieldComponent;

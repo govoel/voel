@@ -33,7 +33,7 @@ const StorageList = ({
                 label={descriptor.label}
                 placeholder={descriptor.placeholder}
                 purpose={descriptor.purpose}
-                platformProps={{ android: { variant: 'outlined', modifiers: [weight(1)] } }}
+                platformProps={{ android: { modifiers: [weight(1)] } }}
               />
             )}
           </form.AppField>
@@ -83,7 +83,7 @@ export const StorageFields = ({
                       placeholder={field.placeholder}
                       purpose={field.purpose}
                       platformProps={{
-                        android: { variant: 'outlined', modifiers: [fillMaxWidth()] },
+                        android: { modifiers: [fillMaxWidth()] },
                       }}
                     />
                   )}

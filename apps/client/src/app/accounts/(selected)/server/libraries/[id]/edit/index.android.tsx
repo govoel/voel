@@ -1,18 +1,22 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { LazyColumn } from '@expo/ui/jetpack-compose';
 import type { ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
+import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { Option, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { Redirect, Stack, useNavigation } from 'expo-router';
+import { Redirect, Stack, useNavigation, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 
 import type { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryParams } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
-import { FormLayout } from '#src/components/form/layout';
 import { LibraryForm } from '#src/components/library-editor';
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { ListState } from '#src/components/list-state';
+import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Text } from '#src/components/text';
+import { Spacing } from '#src/constants/theme.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
@@ -57,29 +61,41 @@ const EditLibrary = ({ id }: typeof LibraryParams.Type) => {
     <AndroidAccountsSheet ref={sheetRef}>
       {AsyncResult.matchWithError(state, {
         onInitial: () => (
-          <FormLayout footer={null}>
+          <LazyColumn
+            contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+            <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+              Edit Library
+            </Text>
             <ListState kind="loading" />
-          </FormLayout>
+          </LazyColumn>
         ),
         onError: (error) => (
-          <FormLayout footer={null}>
+          <LazyColumn
+            contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+            <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+              Edit Library
+            </Text>
             <ListState
               kind="error"
               message={libraryFailureMessage({ error })}
               onRetry={refresh}
               retrying={state.waiting}
             />
-          </FormLayout>
+          </LazyColumn>
         ),
         onDefect: () => (
-          <FormLayout footer={null}>
+          <LazyColumn
+            contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+            <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+              Edit Library
+            </Text>
             <ListState
               kind="error"
               message="Unable to load this library."
               onRetry={refresh}
               retrying={state.waiting}
             />
-          </FormLayout>
+          </LazyColumn>
         ),
         onSuccess: ({ value }) => (
           <EditLibraryForm
@@ -94,19 +110,47 @@ const EditLibrary = ({ id }: typeof LibraryParams.Type) => {
 
 export default function EditLibraryScreen() {
   const params = useRouteParams(LibraryParams);
-  return (
-    <>
-      <Stack.Screen.Title>Edit Library</Stack.Screen.Title>
-      {Result.match(params, {
-        onFailure: () => (
-          <AndroidAccountsSheet>
-            <FormLayout footer={null}>
-              <ListState kind="message" message="This link is invalid." />
-            </FormLayout>
-          </AndroidAccountsSheet>
-        ),
-        onSuccess: ({ id }) => <EditLibrary key={id} id={id} />,
-      })}
-    </>
-  );
+  const router = useRouter();
+  return Result.match(params, {
+    onFailure: () => (
+      <>
+        <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
+        <AndroidAccountsSheet>
+          <LazyColumn
+            contentPadding={{ start: Spacing.three, end: Spacing.three, bottom: Spacing.three }}>
+            <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
+              Invalid Link
+            </Text>
+            <SegmentedList>
+              <SegmentedListItem index={0} count={2} enabled={false}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text>This link is invalid.</Text>
+                </SegmentedListItem.HeadlineContent>
+              </SegmentedListItem>
+              <SegmentedListItem
+                index={1}
+                count={2}
+                onClick={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/');
+                  }
+                }}>
+                <SegmentedListItem.HeadlineContent>
+                  <Text>Back</Text>
+                </SegmentedListItem.HeadlineContent>
+              </SegmentedListItem>
+            </SegmentedList>
+          </LazyColumn>
+        </AndroidAccountsSheet>
+      </>
+    ),
+    onSuccess: ({ id }) => (
+      <>
+        <Stack.Screen.Title>Edit Library</Stack.Screen.Title>
+        <EditLibrary key={id} id={id} />
+      </>
+    ),
+  });
 }

@@ -1,21 +1,15 @@
-import ArrowDropDown from '@expo/material-symbols/arrow_drop_down.xml';
 import {
   AlertDialog,
   Button,
-  DropdownMenuItem,
-  ExposedDropdownMenu,
-  ExposedDropdownMenuBox,
   HorizontalDivider,
-  Icon,
   LoadingIndicator,
-  OutlinedTextField,
+  SegmentedButton,
+  SingleChoiceSegmentedButtonRow,
   TextButton,
-  useNativeState,
 } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, menuAnchor } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Array, Option } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { useEffect, useState } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
@@ -26,70 +20,6 @@ import { Text } from '#src/components/text';
 import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel } from '#src/domains/library/management.ts';
-
-const Selection = <T extends string>({
-  label,
-  selected,
-  options,
-  onSelect,
-  enabled,
-}: {
-  readonly label: string;
-  readonly selected: T;
-  readonly options: ReadonlyArray<{ readonly value: T; readonly label: string }>;
-  readonly onSelect: (value: T) => void;
-  readonly enabled: boolean;
-}) => {
-  const [expanded, setExpanded] = useState(false);
-  const selectedLabel = Option.match(
-    Array.findFirst(options, (option) => option.value === selected),
-    { onNone: () => '', onSome: (option) => option.label }
-  );
-  const value = useNativeState(selectedLabel);
-  useEffect(() => {
-    value.set(selectedLabel);
-  }, [value, selectedLabel]);
-  return (
-    <ExposedDropdownMenuBox
-      expanded={expanded}
-      onExpandedChange={(next) => {
-        if (enabled) {
-          setExpanded(next);
-        }
-      }}>
-      <OutlinedTextField
-        value={value}
-        readOnly
-        enabled={enabled}
-        modifiers={[menuAnchor('primaryNotEditable', enabled), fillMaxWidth()]}>
-        <OutlinedTextField.Label>
-          <Text>{label}</Text>
-        </OutlinedTextField.Label>
-        <OutlinedTextField.TrailingIcon>
-          <Icon source={ArrowDropDown} />
-        </OutlinedTextField.TrailingIcon>
-      </OutlinedTextField>
-      <ExposedDropdownMenu
-        expanded={expanded}
-        onDismissRequest={() => {
-          setExpanded(false);
-        }}>
-        {Array.map(options, (option) => (
-          <DropdownMenuItem
-            key={option.value}
-            onClick={() => {
-              onSelect(option.value);
-              setExpanded(false);
-            }}>
-            <DropdownMenuItem.Text>
-              <Text>{option.label}</Text>
-            </DropdownMenuItem.Text>
-          </DropdownMenuItem>
-        ))}
-      </ExposedDropdownMenu>
-    </ExposedDropdownMenuBox>
-  );
-};
 
 export const LibraryForm = ({
   source,
@@ -117,38 +47,56 @@ export const LibraryForm = ({
               label="Library name"
               placeholder="Library name"
               purpose="name"
-              platformProps={{ android: { variant: 'outlined', modifiers: [fillMaxWidth()] } }}
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
             />
           )}
         </form.AppField>
         <form.AppField name="type">
           {(field) => (
-            <Selection
-              label="Media type"
-              selected={field.state.value}
-              enabled={!editor.submitting}
-              onSelect={field.handleChange}
-              options={Array.map(['audiobook', 'movie', 'show'] as const, (type) => ({
-                value: type,
-                label: mediaTypeLabel({ type: Library.fields.type.make(type) }),
-              }))}
-            />
+            <>
+              <Text>Media type</Text>
+              <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+                {Array.map(['audiobook', 'movie', 'show'] as const, (type) => (
+                  <SegmentedButton
+                    key={type}
+                    selected={field.state.value === type}
+                    enabled={!editor.submitting}
+                    onClick={() => {
+                      field.handleChange(type);
+                    }}>
+                    <SegmentedButton.Label>
+                      <Text>{mediaTypeLabel({ type: Library.fields.type.make(type) })}</Text>
+                    </SegmentedButton.Label>
+                  </SegmentedButton>
+                ))}
+              </SingleChoiceSegmentedButtonRow>
+            </>
           )}
         </form.AppField>
         <HorizontalDivider />
         <Text variant="h4">Storage</Text>
-        <Selection<'local' | 'custom'>
-          label="Provider"
-          selected={provider}
-          enabled={!editor.submitting}
-          onSelect={(value) => {
-            editor.selectProvider({ provider: value });
-          }}
-          options={[
-            { value: 'local', label: 'Local folders' },
-            { value: 'custom', label: 'Custom plugin' },
-          ]}
-        />
+        <Text>Provider</Text>
+        <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+          {Array.map(
+            [
+              { value: 'local', label: 'Local folders' },
+              { value: 'custom', label: 'Custom plugin' },
+            ] as const,
+            (option) => (
+              <SegmentedButton
+                key={option.value}
+                selected={provider === option.value}
+                enabled={!editor.submitting}
+                onClick={() => {
+                  editor.selectProvider({ provider: option.value });
+                }}>
+                <SegmentedButton.Label>
+                  <Text>{option.label}</Text>
+                </SegmentedButton.Label>
+              </SegmentedButton>
+            )
+          )}
+        </SingleChoiceSegmentedButtonRow>
         {provider === 'custom' ? (
           <form.AppField name="storagePluginId">
             {(field) => (
@@ -158,7 +106,6 @@ export const LibraryForm = ({
                 purpose="text"
                 platformProps={{
                   android: {
-                    variant: 'outlined',
                     modifiers: [fillMaxWidth()],
                   },
                 }}
