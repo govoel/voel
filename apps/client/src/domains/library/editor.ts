@@ -9,16 +9,12 @@ import { ApiClientMap } from '#src/api-client.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-export const LibraryEditorMetadata = Library.jsonCreate.mapFields(
+export class LibraryEditorMetadata extends Library.jsonCreate.mapFields(
   Struct.pick(['name', 'type', 'storagePluginId'])
-);
-
-export const libraryFormDefaults: typeof libraryFormSchema.Encoded = {
-  name: '',
-  type: 'audiobook',
-  storagePluginId: 'builtin:local',
-  storagePluginSettings: {},
-};
+) {
+  public static readonly decodeUnknownOption = Schema.decodeUnknownOption(this);
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+}
 
 export type LibraryEditorSource = Data.TaggedEnum<{
   // oxlint-disable-next-line typescript/no-generated-empty-object-type -- Create intentionally has no payload.
@@ -59,21 +55,23 @@ export const storageSettingsSchema = (fields: typeof StoragePluginSettingsForm.T
     )
   );
 
-export const libraryFormSchema = Library.jsonCreate.pipe(
+export class LibraryEditorInput extends Library.jsonCreate.pipe(
   Schema.fieldsAssign({
     storagePluginSettings: Schema.Record(
       Schema.String,
       Schema.Union(Record.values(storageFieldSchemas))
     ).pipe(Schema.decodeTo(Library.jsonCreate.fields.storagePluginSettings)),
   })
-);
+) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+}
 
 export const settingsDefaults = ({
   fields,
   previous,
 }: {
   readonly fields: typeof StoragePluginSettingsForm.Type;
-  readonly previous: ReturnType<typeof storageSettingsSchema>['Encoded'];
+  readonly previous: (typeof LibraryEditorInput.Encoded)['storagePluginSettings'];
 }) =>
   Record.fromEntries(
     Array.map(fields, (field) => {

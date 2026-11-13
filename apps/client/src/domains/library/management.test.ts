@@ -1,6 +1,6 @@
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Cause, Effect, Layer, Option, Schema, Stream } from 'effect';
+import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
@@ -10,9 +10,9 @@ import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import {
+  LibraryEditorInput,
   LibraryEditorMetadata,
   LibraryEditorSource,
-  libraryFormSchema,
   libraryStorageSettingsAtom,
   saveLibrary,
   settingsDefaults,
@@ -215,12 +215,12 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const query = listLibrariesAtom(account.key);
         yield* Atom.mount(query);
         yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
-        const request = yield* Schema.decodeEffect(LibraryEditorMetadata)({
+        const request = yield* LibraryEditorMetadata.decodeEffect({
           name: 'Audiobooks',
           type: 'audiobook',
           storagePluginId: 'builtin:local',
         });
-        const values = yield* Schema.decodeEffect(libraryFormSchema)({
+        const values = yield* LibraryEditorInput.decodeEffect({
           ...request,
           storagePluginSettings: { roots: ['/media/first'] },
         });
@@ -244,7 +244,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           }),
           { suspendOnWaiting: true }
         );
-        const updated = yield* Schema.decodeEffect(libraryFormSchema)({
+        const updated = yield* LibraryEditorInput.decodeEffect({
           ...request,
           name: 'Renamed',
           storagePluginSettings: settingsDefaults({ fields: editingFields, previous: {} }),
