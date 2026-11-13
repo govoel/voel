@@ -1,7 +1,7 @@
 import { RegistryContext } from '@effect/atom-react';
 import { useField } from '@tanstack/react-form';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect, String as EffectString, Option } from 'effect';
+import { Deferred, Effect, String as EffectString } from 'effect';
 import type { Layer as EffectLayer } from 'effect';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { PropsWithChildren } from 'react';
@@ -150,7 +150,6 @@ describe('library editor', () => {
     await act(() => {
       editor.result.current.handleLoad();
     });
-    expect(Option.isSome(editor.result.current.pending)).toBe(true);
     await act(async () => editor.result.current.form.handleSubmit());
     await act(() => {
       editor.result.current.handleCancelConsent();
@@ -172,7 +171,6 @@ describe('library editor', () => {
     await act(() => {
       fresh.result.current.handleLoad();
     });
-    expect(Option.isSome(fresh.result.current.pending)).toBe(true);
     expect(loadSettings).toHaveBeenCalledTimes(1);
   });
 
@@ -188,7 +186,6 @@ describe('library editor', () => {
     await act(() => {
       editor.result.current.handleLoad();
     });
-    expect(Option.isSome(editor.result.current.pending)).toBe(true);
     await act(async () => editor.result.current.form.handleSubmit());
     expect(loadSettings).toHaveBeenCalledTimes(1);
     expect(save).not.toHaveBeenCalled();
@@ -316,30 +313,58 @@ describe('library editor', () => {
     );
   });
 
-  it('requires reloading storage settings before saving changed library details', async () => {
+  it('keeps compatible edits and saves only current fields after library details change', async () => {
+    const textField = {
+      kind: 'TextField',
+      name: 'folder',
+      label: 'Folder',
+      placeholder: '',
+      purpose: 'text',
+      initialValue: 'default',
+    } as const;
+    loadSettings.mockResolvedValueOnce(
+      Response.json([
+        textField,
+        { ...textField, name: 'changed' },
+        { ...textField, name: 'removed' },
+      ])
+    );
     const editor = await setup(LibraryEditorSource.Edit({ library: original }));
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
     await act(() => {
+      editor.result.current.form.setFieldValue('storagePluginSettings', {
+        folder: 'user edit',
+        changed: 'old shape',
+        removed: 'old value',
+      });
       editor.result.current.form.setFieldValue('name', 'Renamed');
     });
     await act(async () => editor.result.current.form.handleSubmit());
     expect(save).not.toHaveBeenCalled();
+    loadSettings.mockResolvedValueOnce(
+      Response.json([
+        textField,
+        { ...textField, name: 'constructor', initialValue: 'safe default' },
+        { ...descriptors[0], name: 'changed', initialValue: ['new shape'] },
+      ])
+    );
     await act(() => {
       editor.result.current.handleLoad();
     });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
-    await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/changed']);
-    });
     await act(async () => editor.result.current.form.handleSubmit());
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Renamed',
-        storagePluginSettings: { roots: ['/media/changed'] },
+        storagePluginSettings: {
+          folder: 'user edit',
+          constructor: 'safe default',
+          changed: ['new shape'],
+        },
       })
     );
   });
