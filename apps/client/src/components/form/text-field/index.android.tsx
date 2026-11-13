@@ -13,15 +13,21 @@ import { Text } from '#src/components/text';
 import { materialInputTextStyle } from '#src/constants/material.ts';
 
 export const TextField = (({ label, placeholder, purpose, platformProps = {} }) => {
-  const { field, isSubmitting, errorMessage, onFocusChange } = useTextFieldState();
-  const value = useNativeState(field.state.value);
-  const lastNativeChange = useRef(field.state.value);
+  const {
+    field,
+    value: fieldValue,
+    isSubmitting,
+    errorMessage,
+    onFocusChange,
+  } = useTextFieldState();
+  const value = useNativeState(fieldValue);
+  const lastNativeChange = useRef(fieldValue);
   useEffect(() => {
-    if (lastNativeChange.current !== field.state.value) {
-      value.set(field.state.value);
-      lastNativeChange.current = field.state.value;
+    if (lastNativeChange.current !== fieldValue) {
+      value.set(fieldValue);
+      lastNativeChange.current = fieldValue;
     }
-  }, [value, field.state.value]);
+  }, [value, fieldValue]);
   const handleChange = (text: string) => {
     lastNativeChange.current = text;
     field.handleChange(text);

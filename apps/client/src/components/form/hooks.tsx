@@ -355,12 +355,16 @@ export const createEffectSchemaFormHook = <
 export const useTextFieldState = () => {
   const field = useFieldContext<string>();
   const form = useFormContext();
+  const value = useSelector(field.store, (state) => state.value);
+  const isTouched = useSelector(field.store, (state) => state.meta.isTouched);
+  const errors = useSelector(field.store, () => field.state.meta.errors);
   const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
   const hasFocused = useRef(false);
   return {
     field,
+    value,
     isSubmitting,
-    errorMessage: field.state.meta.isTouched ? Array.head(field.state.meta.errors) : Option.none(),
+    errorMessage: isTouched ? Array.head(errors) : Option.none(),
     onFocusChange: (focused: boolean) => {
       // Native controls can emit an initial unfocused event. Only real blur marks a field touched.
       if (focused) {
