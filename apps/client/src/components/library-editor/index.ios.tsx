@@ -33,7 +33,7 @@ import { useSubmitState } from '#src/components/form/hooks.tsx';
 import { useLibraryForm, useStorageListField } from '#src/components/library-editor/use-form.ts';
 import type { LibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
-import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
+import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel } from '#src/domains/library/management.ts';
 
@@ -206,7 +206,7 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
   const { form } = editor;
   const [path, setPath] = useState<Array<string>>([]);
   const external = Option.isSome(editor.pending);
-  const title = source._tag === 'Create' ? 'New Library' : 'Edit Library';
+  const title = LibraryEditorSource.$is('Create')(source) ? 'New Library' : 'Edit Library';
   if (Option.isSome(savedId)) {
     return (
       <Redirect
@@ -292,7 +292,7 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
                           void form.handleSubmit();
                         }}
                         modifiers={[disabled(!editor.ready || editor.submitting)]}>
-                        <Text>{source._tag === 'Create' ? 'Create' : 'Save'}</Text>
+                        <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create' : 'Save'}</Text>
                       </Button>
                     </ToolbarItem>
                   </Toolbar.Content>

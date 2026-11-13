@@ -8,12 +8,13 @@ import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
+import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import type { ApiClient as ApiClientService } from '#src/api-client.ts';
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
-import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
+import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 
 vi.mock('#src/runtime/index.ts', async () => {
   const { Context, Effect: effect, Layer, LayerMap } = await import('effect');
@@ -93,7 +94,7 @@ const descriptors = [
 const loadSettings = vi.fn<() => Promise<Response>>();
 const save = vi.fn<(payload: unknown) => Promise<Response>>();
 const registries = new Set<AtomRegistry.AtomRegistry>();
-const createSource = { _tag: 'Create' } as const;
+const createSource = LibraryEditorSource.Create();
 
 const setup = async (source: LibraryEditorSource = createSource) => {
   const registry = AtomRegistry.make();
@@ -176,7 +177,7 @@ describe('library editor', () => {
   });
 
   it('loads the saved plugin without consent and keeps edited settings when a plugin change is cancelled', async () => {
-    const editor = await setup({ _tag: 'Edit', library: original });
+    const editor = await setup(LibraryEditorSource.Edit({ library: original }));
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
@@ -207,7 +208,7 @@ describe('library editor', () => {
   });
 
   it('uses the new plugin defaults rather than another plugin’s edited settings', async () => {
-    const editor = await setup({ _tag: 'Edit', library: original });
+    const editor = await setup(LibraryEditorSource.Edit({ library: original }));
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
@@ -290,10 +291,9 @@ describe('library editor', () => {
     const editor = await setup();
     await enterCustom(editor);
     loadSettings.mockResolvedValueOnce(
-      Response.json(
-        { _tag: 'PluginLoadError', message: 'Failed to install or load plugin' },
-        { status: 500 }
-      )
+      Response.json(PluginLoadError.make({ message: 'Failed to install or load plugin' }), {
+        status: 500,
+      })
     );
     await act(() => {
       editor.result.current.handleLoad();
@@ -317,7 +317,7 @@ describe('library editor', () => {
   });
 
   it('requires reloading storage settings before saving changed library details', async () => {
-    const editor = await setup({ _tag: 'Edit', library: original });
+    const editor = await setup(LibraryEditorSource.Edit({ library: original }));
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });

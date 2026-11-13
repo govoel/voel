@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { useSelector } from '@tanstack/react-form';
-import { Array, Effect, Option, Order, Schema } from 'effect';
+import { Array, Effect, Equal, Match, Option, Order, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
@@ -11,14 +11,13 @@ import { useFieldContext } from '#src/components/form/hooks.tsx';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import {
   LibraryEditorMetadata,
+  LibraryEditorSource,
   libraryFormSchema,
   libraryStorageSettingsAtom,
   requiresPluginConsent,
-  sameSettingsRequest,
   saveLibrary,
   settingsDefaults,
 } from '#src/domains/library/editor.ts';
-import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 
 const decodeMetadata = Schema.decodeUnknownOption(LibraryEditorMetadata);
@@ -37,7 +36,7 @@ export const useLibraryForm = ({
 }) => {
   const account = useSelectedAccount();
   const [requested, setRequested] = useState(() =>
-    source._tag === 'Edit'
+    LibraryEditorSource.$is('Edit')(source)
       ? decodeMetadata(source.library)
       : Option.none<typeof LibraryEditorMetadata.Type>()
   );
@@ -45,38 +44,44 @@ export const useLibraryForm = ({
     Option.none()
   );
   const approved = useRef<Option.Option<typeof LibraryEditorMetadata.Type.storagePluginId>>(
-    source._tag === 'Edit' ? Option.some(source.library.storagePluginId) : Option.none()
+    LibraryEditorSource.$is('Edit')(source)
+      ? Option.some(source.library.storagePluginId)
+      : Option.none()
   );
   const query = Option.match(requested, {
     onNone: () => noSettings,
     onSome: (request) =>
       libraryStorageSettingsAtom({
         account,
-        id: source._tag === 'Edit' ? Option.some(source.library.id) : Option.none(),
+        id: LibraryEditorSource.$is('Edit')(source)
+          ? Option.some(source.library.id)
+          : Option.none(),
         request,
       }),
   });
   const settings = useAtomValue(query);
   const refresh = useAtomRefresh(query);
   const schema = libraryFormSchema(Option.getOrElse(AsyncResult.value(settings), () => []));
-  const currentFields = (value: typeof schema.Encoded) =>
+  const currentFields = (value: typeof Library.jsonCreate.Encoded) =>
     Option.filter(
       AsyncResult.value(settings),
       () =>
         AsyncResult.isSuccess(settings) &&
         !settings.waiting &&
         Option.isNone(pending) &&
-        Schema.is(schema.fields.storagePluginSettings)(value.storagePluginSettings) &&
-        Option.exists(requested, (request) =>
-          sameSettingsRequest({ first: request, second: value })
-        )
+        Schema.is(Schema.toEncoded(schema.fields.storagePluginSettings))(
+          value.storagePluginSettings
+        ) &&
+        Equal.equals(requested, decodeMetadata(value))
     );
   const form = useAppForm({
     schema,
     defaultValues: {
-      name: source._tag === 'Edit' ? source.library.name : '',
-      type: source._tag === 'Edit' ? source.library.type : 'audiobook',
-      storagePluginId: source._tag === 'Edit' ? source.library.storagePluginId : 'builtin:local',
+      name: LibraryEditorSource.$is('Edit')(source) ? source.library.name : '',
+      type: LibraryEditorSource.$is('Edit')(source) ? source.library.type : 'audiobook',
+      storagePluginId: LibraryEditorSource.$is('Edit')(source)
+        ? source.library.storagePluginId
+        : 'builtin:local',
       storagePluginSettings: {},
     },
     listeners: {
@@ -105,9 +110,10 @@ export const useLibraryForm = ({
         Effect.flatMap(() => saveLibrary({ account, source, values: value }))
       ),
     onFailure: ({ error }) =>
-      error._tag === 'NoSuchElementError'
-        ? 'Load storage settings before saving.'
-        : libraryFailureMessage({ error }),
+      Match.value(error).pipe(
+        Match.tag('NoSuchElementError', () => 'Load storage settings before saving.'),
+        Match.orElse((failure) => libraryFailureMessage({ error: failure }))
+      ),
     onSuccess: async ({ result }) => onSuccess(result),
   });
   const values = useSelector(form.store, (state) => state.values);
@@ -138,11 +144,7 @@ export const useLibraryForm = ({
       form.setFieldValue('storagePluginSettings', {}, { dontUpdateMeta: true });
     }
     approved.current = Option.some(input.storagePluginId);
-    if (
-      Option.exists(requested, (previous) =>
-        sameSettingsRequest({ first: previous, second: input })
-      )
-    ) {
+    if (Option.contains(requested, input)) {
       refresh();
     } else {
       setRequested(Option.some(input));

@@ -32,7 +32,7 @@ import { useLibraryForm, useStorageListField } from '#src/components/library-edi
 import type { LibraryForm } from '#src/components/library-editor/use-form.ts';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import type { LibraryEditorSource } from '#src/domains/library/editor.ts';
+import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel } from '#src/domains/library/management.ts';
 
@@ -205,12 +205,12 @@ export const LibraryEditorScreen = ({ source }: { readonly source: LibraryEditor
     <AndroidAccountsSheet ref={sheetRef}>
       <form.AppForm>
         <FormLayout
-          title={source._tag === 'Create' ? 'New library' : 'Edit library'}
+          title={LibraryEditorSource.$is('Create')(source) ? 'New library' : 'Edit library'}
           footer={
             <form.SubmitButton
               disabled={!editor.ready}
               platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
-              <Text>{source._tag === 'Create' ? 'Create library' : 'Save'}</Text>
+              <Text>{LibraryEditorSource.$is('Create')(source) ? 'Create library' : 'Save'}</Text>
             </form.SubmitButton>
           }>
           <form.AppField name="name">

@@ -1,5 +1,5 @@
-import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
-import { Array, Effect, Match, Option, Predicate, Record, Schema } from 'effect';
+import { StoragePluginSettingsForm } from '@govoel/plugins/storage';
+import { Array, Data, Effect, Match, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
@@ -9,29 +9,19 @@ import { ApiClientMap } from '#src/api-client.ts';
 import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-export class LibraryEditorMetadata extends Schema.Struct({
-  name: Library.jsonCreate.fields.name.check(Schema.isPattern(/\S/u)),
-  type: Library.jsonCreate.fields.type,
-  storagePluginId: Library.jsonCreate.fields.storagePluginId,
-}) {}
+export const LibraryEditorMetadata = Library.jsonCreate.mapFields(
+  Struct.pick(['name', 'type', 'storagePluginId'])
+);
 
-export type LibraryEditorSource =
-  | { readonly _tag: 'Create' }
-  | {
-      readonly _tag: 'Edit';
-      readonly library: Pick<typeof Library.json.Type, 'id' | 'name' | 'type' | 'storagePluginId'>;
-    };
+export type LibraryEditorSource = Data.TaggedEnum<{
+  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- Create intentionally has no payload.
+  Create: Record<never, never>;
+  Edit: {
+    readonly library: Pick<typeof Library.json.Type, 'id' | 'name' | 'type' | 'storagePluginId'>;
+  };
+}>;
 
-export const sameSettingsRequest = ({
-  first,
-  second,
-}: {
-  readonly first: typeof LibraryEditorMetadata.Encoded;
-  readonly second: typeof LibraryEditorMetadata.Encoded;
-}) =>
-  first.name === second.name &&
-  first.type === second.type &&
-  first.storagePluginId === second.storagePluginId;
+export const LibraryEditorSource = Data.taggedEnum<LibraryEditorSource>();
 
 export const requiresPluginConsent = ({
   source,
@@ -43,35 +33,33 @@ export const requiresPluginConsent = ({
   readonly approved: Option.Option<typeof LibraryEditorMetadata.Type.storagePluginId>;
 }) =>
   NpmPluginId.is(storagePluginId) &&
-  !(source._tag === 'Edit' && source.library.storagePluginId === storagePluginId) &&
+  !(
+    LibraryEditorSource.$is('Edit')(source) && source.library.storagePluginId === storagePluginId
+  ) &&
   !Option.contains(approved, storagePluginId);
+
+const storageFieldSchemas = {
+  TextField: StoragePluginSettingsForm.value.cases.TextField.fields.initialValue,
+  TextListField: Schema.mutable(
+    StoragePluginSettingsForm.value.cases.TextListField.fields.initialValue
+  ),
+} satisfies Record<(typeof StoragePluginSettingsForm.Type)[number]['kind'], Schema.Top>;
 
 const storageSettingsSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
   Schema.Struct(
     Record.fromEntries(
-      Array.map(
-        fields,
-        (field) =>
-          [
-            String(field.name),
-            Match.value(field).pipe(
-              Match.when({ kind: 'TextField' }, () => Schema.String),
-              Match.when({ kind: 'TextListField' }, () =>
-                Schema.mutable(Schema.Array(Schema.String))
-              ),
-              Match.exhaustive
-            ),
-          ] as const
-      )
+      Array.map(fields, (field) => [String(field.name), storageFieldSchemas[field.kind]] as const)
     )
   );
 
 export const libraryFormSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
-  Schema.Struct({
-    ...Library.jsonCreate.fields,
-    name: LibraryEditorMetadata.fields.name,
-    storagePluginSettings: storageSettingsSchema(fields),
-  });
+  Library.jsonCreate.pipe(
+    Schema.fieldsAssign({
+      storagePluginSettings: storageSettingsSchema(fields).pipe(
+        Schema.decodeTo(Library.jsonCreate.fields.storagePluginSettings)
+      ),
+    })
+  );
 
 export const settingsDefaults = ({
   fields,
@@ -103,27 +91,24 @@ export const settingsDefaults = ({
     })
   );
 
-export const fetchLibrarySettings = Effect.fnUntraced(function* ({
-  account,
-  id,
-  request,
-}: {
-  readonly account: AccountKey;
-  readonly id: Option.Option<typeof Library.fields.id.Type>;
-  readonly request: typeof LibraryEditorMetadata.Type;
-}) {
-  const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-  return yield* client.library.getDraftStoragePluginSettingsForm({
-    payload: {
-      ...request,
-      id,
-    },
-  });
-});
-
 export const libraryStorageSettingsAtom = Atom.family(
-  (input: Parameters<typeof fetchLibrarySettings>[0]) =>
-    AppRuntime.atom(fetchLibrarySettings(input)).pipe(Atom.withLabel('libraryStorageSettingsAtom'))
+  ({
+    account,
+    id,
+    request,
+  }: {
+    readonly account: AccountKey;
+    readonly id: Option.Option<typeof Library.fields.id.Type>;
+    readonly request: typeof LibraryEditorMetadata.Type;
+  }) =>
+    AppRuntime.atom(
+      Effect.fnUntraced(function* () {
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        return yield* client.library.getDraftStoragePluginSettingsForm({
+          payload: { ...request, id },
+        });
+      })
+    ).pipe(Atom.withLabel('libraryStorageSettingsAtom'))
 );
 
 export const saveLibrary = Effect.fnUntraced(
@@ -134,17 +119,13 @@ export const saveLibrary = Effect.fnUntraced(
   }: {
     readonly account: AccountKey;
     readonly source: LibraryEditorSource;
-    readonly values: typeof Library.jsonCreate.Encoded;
+    readonly values: typeof Library.jsonCreate.Type;
   }) {
     const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-    const payload = yield* Schema.decodeEffect(Library.jsonCreate)(values);
-    return yield* Match.value(source).pipe(
-      Match.when({ _tag: 'Create' }, () => client.library.create({ payload })),
-      Match.when({ _tag: 'Edit' }, ({ library }) =>
-        client.library.update({ params: { id: library.id }, payload })
-      ),
-      Match.exhaustive
-    );
+    return yield* LibraryEditorSource.$match(source, {
+      Create: () => client.library.create({ payload: values }),
+      Edit: ({ library }) => client.library.update({ params: { id: library.id }, payload: values }),
+    });
   },
   Reactivity.mutation(['library'])
 );

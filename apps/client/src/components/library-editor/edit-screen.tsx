@@ -8,6 +8,7 @@ import { LibraryEditorScreen } from '#src/components/library-editor';
 import { ListState } from '#src/components/list-state';
 import { SafeScrollView } from '#src/components/safe-scroll-view';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
+import { LibraryEditorSource } from '#src/domains/library/editor.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { serverLibraryAtom } from '#src/domains/library/management.ts';
 import { useRouteParams } from '#src/hooks/use-route-params.ts';
@@ -44,7 +45,7 @@ const EditLibrary = ({ id }: typeof LibraryParams.Type) => {
       </SafeScrollView>
     ),
     onSuccess: ({ value }) => (
-      <LibraryEditorScreen key={value.id} source={{ _tag: 'Edit', library: value }} />
+      <LibraryEditorScreen key={value.id} source={LibraryEditorSource.Edit({ library: value })} />
     ),
   });
 };

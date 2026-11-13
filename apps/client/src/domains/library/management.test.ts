@@ -11,8 +11,9 @@ import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import {
   LibraryEditorMetadata,
-  fetchLibrarySettings,
+  LibraryEditorSource,
   libraryFormSchema,
+  libraryStorageSettingsAtom,
   saveLibrary,
   settingsDefaults,
 } from '#src/domains/library/editor.ts';
@@ -219,18 +220,21 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           type: 'audiobook',
           storagePluginId: 'builtin:local',
         });
-        const fields = yield* fetchLibrarySettings({
-          account: account.key,
-          id: Option.none(),
-          request,
-        });
+        const fields = yield* Atom.getResult(
+          libraryStorageSettingsAtom({
+            account: account.key,
+            id: Option.none(),
+            request,
+          }),
+          { suspendOnWaiting: true }
+        );
         const values = yield* Schema.decodeEffect(libraryFormSchema(fields))({
           ...request,
           storagePluginSettings: { roots: ['/media/first'] },
         });
         const created = yield* saveLibrary({
           account: account.key,
-          source: { _tag: 'Create' },
+          source: LibraryEditorSource.Create(),
           values,
         });
         expect((yield* Atom.getResult(query, { suspendOnWaiting: true })).items).toMatchObject([
@@ -239,12 +243,15 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const detail = serverLibraryAtom({ account: account.key, id: created.id });
         yield* Atom.mount(detail);
         const library = yield* Atom.getResult(detail, { suspendOnWaiting: true });
-        const editSource = { _tag: 'Edit', library } as const;
-        const editingFields = yield* fetchLibrarySettings({
-          account: account.key,
-          id: Option.some(created.id),
-          request,
-        });
+        const editSource = LibraryEditorSource.Edit({ library });
+        const editingFields = yield* Atom.getResult(
+          libraryStorageSettingsAtom({
+            account: account.key,
+            id: Option.some(created.id),
+            request,
+          }),
+          { suspendOnWaiting: true }
+        );
         const updated = yield* Schema.decodeEffect(libraryFormSchema(editingFields))({
           ...request,
           name: 'Renamed',
