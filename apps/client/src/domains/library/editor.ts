@@ -13,6 +13,13 @@ export const LibraryEditorMetadata = Library.jsonCreate.mapFields(
   Struct.pick(['name', 'type', 'storagePluginId'])
 );
 
+export const libraryFormDefaults: typeof libraryFormSchema.Encoded = {
+  name: '',
+  type: 'audiobook',
+  storagePluginId: 'builtin:local',
+  storagePluginSettings: {},
+};
+
 export type LibraryEditorSource = Data.TaggedEnum<{
   // oxlint-disable-next-line typescript/no-generated-empty-object-type -- Create intentionally has no payload.
   Create: Record<never, never>;
@@ -45,21 +52,21 @@ const storageFieldSchemas = {
   ),
 } satisfies Record<(typeof StoragePluginSettingsForm.Type)[number]['kind'], Schema.Top>;
 
-const storageSettingsSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
+export const storageSettingsSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
   Schema.Struct(
     Record.fromEntries(
       Array.map(fields, (field) => [String(field.name), storageFieldSchemas[field.kind]] as const)
     )
   );
 
-export const libraryFormSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
-  Library.jsonCreate.pipe(
-    Schema.fieldsAssign({
-      storagePluginSettings: storageSettingsSchema(fields).pipe(
-        Schema.decodeTo(Library.jsonCreate.fields.storagePluginSettings)
-      ),
-    })
-  );
+export const libraryFormSchema = Library.jsonCreate.pipe(
+  Schema.fieldsAssign({
+    storagePluginSettings: Schema.Record(
+      Schema.String,
+      Schema.Union(Record.values(storageFieldSchemas))
+    ).pipe(Schema.decodeTo(Library.jsonCreate.fields.storagePluginSettings)),
+  })
+);
 
 export const settingsDefaults = ({
   fields,

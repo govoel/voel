@@ -220,15 +220,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           type: 'audiobook',
           storagePluginId: 'builtin:local',
         });
-        const fields = yield* Atom.getResult(
-          libraryStorageSettingsAtom({
-            account: account.key,
-            id: Option.none(),
-            request,
-          }),
-          { suspendOnWaiting: true }
-        );
-        const values = yield* Schema.decodeEffect(libraryFormSchema(fields))({
+        const values = yield* Schema.decodeEffect(libraryFormSchema)({
           ...request,
           storagePluginSettings: { roots: ['/media/first'] },
         });
@@ -252,7 +244,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           }),
           { suspendOnWaiting: true }
         );
-        const updated = yield* Schema.decodeEffect(libraryFormSchema(editingFields))({
+        const updated = yield* Schema.decodeEffect(libraryFormSchema)({
           ...request,
           name: 'Renamed',
           storagePluginSettings: settingsDefaults({ fields: editingFields, previous: {} }),

@@ -1,16 +1,19 @@
 import { RegistryContext } from '@effect/atom-react';
-import { useField } from '@tanstack/react-form';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect, String as EffectString } from 'effect';
+import { useField, useFormGroup } from '@tanstack/react-form';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
+import { Array, Deferred, Effect, String as EffectString, Option } from 'effect';
 import type { Layer as EffectLayer } from 'effect';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import type { ApiClient as ApiClientService } from '#src/api-client.ts';
+import { StorageFields as AndroidStorageFields } from '#src/components/library-editor/storage-fields/index.android.tsx';
+import { StorageFields as IOSStorageFields } from '#src/components/library-editor/storage-fields/index.ios.tsx';
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
@@ -51,17 +54,70 @@ vi.mock('#src/runtime/index.ts', async () => {
 });
 vi.mock('#src/components/form', async () => {
   const { AppRuntime: runtime } = await import('#src/runtime/index.ts');
-  const { createEffectSchemaFormHook, fieldContext, formContext } =
+  const { createEffectSchemaFormHook, fieldContext, formContext, useTextFieldState } =
     await import('#src/components/form/hooks.tsx');
   const { Fragment } = await import('react');
+  const TextField = ({ label }: { readonly label: string }) => {
+    const { field, value } = useTextFieldState();
+    return <TextInput accessibilityLabel={label} value={value} onChangeText={field.handleChange} />;
+  };
   return createEffectSchemaFormHook({
     runtime,
     fieldContext,
     formContext,
-    fieldComponents: { TextField: Fragment, SecureField: Fragment },
+    fieldComponents: { TextField, SecureField: Fragment },
     formComponents: { SubmitButton: Fragment },
   });
 });
+vi.mock('#src/components/text', () => ({ Text }));
+vi.mock('@expo/material-symbols/delete.xml', () => ({ default: 0 }));
+vi.mock('@expo/ui/swift-ui', () => ({
+  Section: View,
+  Button: ({ children, onPress }: PropsWithChildren<{ readonly onPress: () => void }>) => (
+    <Pressable role="button" onPress={onPress}>
+      {children}
+    </Pressable>
+  ),
+  List: {
+    ForEach: ({
+      data,
+      children,
+      onDelete,
+    }: {
+      readonly data: ReadonlyArray<number>;
+      readonly children: (item: { readonly index: number }) => ReactElement;
+      readonly onDelete?: (indices: Array<number>) => void;
+    }) => (
+      <View testID="storage-list" {...{ onDelete }}>
+        {Array.map(data, (key, index) => (
+          <View key={key}>{children({ index })}</View>
+        ))}
+      </View>
+    ),
+  },
+}));
+vi.mock('@expo/ui/swift-ui/modifiers', () => ({ disabled: () => ({}) }));
+vi.mock('@expo/ui/jetpack-compose', () => ({
+  Column: View,
+  Row: View,
+  Icon: ({ contentDescription }: { readonly contentDescription: string }) => (
+    <Text>{contentDescription}</Text>
+  ),
+  IconButton: ({ children, onClick }: PropsWithChildren<{ readonly onClick: () => void }>) => (
+    <Pressable role="button" onPress={onClick}>
+      {children}
+    </Pressable>
+  ),
+  TextButton: ({ children, onClick }: PropsWithChildren<{ readonly onClick: () => void }>) => (
+    <Pressable role="button" onPress={onClick}>
+      {children}
+    </Pressable>
+  ),
+}));
+vi.mock('@expo/ui/jetpack-compose/modifiers', () => ({
+  fillMaxWidth: () => ({}),
+  weight: () => ({}),
+}));
 vi.mock('expo-device', () => ({ deviceName: 'Test phone', modelName: 'Test phone' }));
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { scheme: 'voel' }, platform: { scheme: 'voel' } },
@@ -95,9 +151,15 @@ const loadSettings = vi.fn<() => Promise<Response>>();
 const save = vi.fn<(payload: unknown) => Promise<Response>>();
 const registries = new Set<AtomRegistry.AtomRegistry>();
 const createSource = LibraryEditorSource.Create();
+const editSource = LibraryEditorSource.Edit({ library: original });
 
-const setup = async (source: LibraryEditorSource = createSource) => {
-  const registry = AtomRegistry.make();
+const setup = async ({
+  source = createSource,
+  registry = AtomRegistry.make(),
+}: {
+  readonly source?: LibraryEditorSource;
+  readonly registry?: AtomRegistry.AtomRegistry;
+} = {}) => {
   registries.add(registry);
   const wrapper = ({ children }: PropsWithChildren) => (
     <RegistryContext.Provider value={registry}>
@@ -107,6 +169,11 @@ const setup = async (source: LibraryEditorSource = createSource) => {
   return renderHook(
     () => {
       const editor = useLibraryForm({ source, onSuccess: () => void 0 });
+      useFormGroup({
+        form: editor.form,
+        name: 'storagePluginSettings',
+        ...Option.getOrElse(editor.storage, () => ({})),
+      });
       useField({ form: editor.form, name: 'name' });
       useField({ form: editor.form, name: 'type' });
       useField({ form: editor.form, name: 'storagePluginId' });
@@ -143,7 +210,111 @@ const enterCustom = async (editor: Awaited<ReturnType<typeof setup>>) => {
   });
 };
 
+const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSStorageFields }) => {
+  const editor = useLibraryForm({
+    source: editSource,
+    onSuccess: () => void 0,
+  });
+  return (
+    <editor.form.AppForm>
+      <editor.form.AppField name="name">
+        {(field) => <field.TextField label="Name" placeholder="" />}
+      </editor.form.AppField>
+      {Option.match(editor.storage, {
+        onNone: () => null,
+        onSome: (storage) => (
+          <editor.form.FormGroup
+            key={storage.key}
+            name="storagePluginSettings"
+            defaultValue={storage.defaultValue}
+            validators={storage.validators}>
+            {() => (
+              <StorageFields
+                form={editor.form}
+                fields="storagePluginSettings"
+                descriptors={storage.descriptors}
+                defaults={storage.defaultValue}
+              />
+            )}
+          </editor.form.FormGroup>
+        ),
+      })}
+      <Pressable role="button" disabled={!editor.canLoad} onPress={editor.handleLoad}>
+        <Text>Load settings</Text>
+      </Pressable>
+      <Pressable
+        role="button"
+        disabled={!editor.ready}
+        onPress={() => void editor.form.handleSubmit()}>
+        <Text>Save</Text>
+      </Pressable>
+    </editor.form.AppForm>
+  );
+};
+
 describe('library editor', () => {
+  it.each([
+    { platform: 'iOS', StorageFields: IOSStorageFields },
+    { platform: 'Android', StorageFields: AndroidStorageFields },
+  ])(
+    'keeps edited text and list fields when reloading settings on $platform',
+    async ({ platform, StorageFields }) => {
+      const textField = {
+        kind: 'TextField',
+        name: 'folder',
+        label: 'Folder',
+        placeholder: '',
+        purpose: 'text',
+        initialValue: '/default',
+      };
+      loadSettings.mockResolvedValueOnce(
+        Response.json([{ ...descriptors[0], initialValue: ['/same', '/same'] }, textField])
+      );
+      const registry = AtomRegistry.make();
+      registries.add(registry);
+      await render(
+        <RegistryContext.Provider value={registry}>
+          <SelectedAccountContext.Provider value={account}>
+            <StorageEditor StorageFields={StorageFields} />
+          </SelectedAccountContext.Provider>
+        </RegistryContext.Provider>
+      );
+      const roots = await screen.findAllByLabelText('Directories');
+      await fireEvent.changeText(Array.getUnsafe(roots, 1), '/kept');
+      await (platform === 'iOS'
+        ? fireEvent(screen.getByTestId('storage-list'), 'delete', [0])
+        : fireEvent.press(screen.getByRole('button', { name: 'Remove Directories 1' })));
+      await fireEvent.press(screen.getByRole('button', { name: 'Add entry' }));
+      await fireEvent.changeText(
+        Array.getUnsafe(screen.getAllByLabelText('Directories'), 1),
+        '/new'
+      );
+      await fireEvent.changeText(screen.getByLabelText('Folder'), '/edited');
+      loadSettings.mockResolvedValueOnce(
+        Response.json([
+          descriptors[0],
+          textField,
+          { ...textField, name: 'new', label: 'New location', initialValue: '/fresh' },
+        ])
+      );
+      await fireEvent.changeText(screen.getByLabelText('Name'), 'Renamed');
+      await fireEvent.press(screen.getByRole('button', { name: 'Load settings' }));
+      await screen.findByLabelText('New location');
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+      });
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => {
+        expect(save).toHaveBeenCalledWith({
+          name: 'Renamed',
+          type: original.type,
+          storagePluginId: plugin,
+          storagePluginSettings: { roots: ['/kept', '/new'], folder: '/edited', new: '/fresh' },
+        });
+      });
+    }
+  );
+
   it('requires consent before loading an external plugin for each new library', async () => {
     const editor = await setup();
     await enterCustom(editor);
@@ -174,8 +345,8 @@ describe('library editor', () => {
     expect(loadSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('loads the saved plugin without consent and keeps edited settings when a plugin change is cancelled', async () => {
-    const editor = await setup(LibraryEditorSource.Edit({ library: original }));
+  it('cancels loading without reverting the plugin ID and retains the original draft if selected again', async () => {
+    const editor = await setup({ source: editSource });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
@@ -192,6 +363,13 @@ describe('library editor', () => {
     await act(() => {
       editor.result.current.handleCancelConsent();
     });
+    expect(editor.result.current.form.state.values.storagePluginId).toBe(otherPlugin);
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(loadSettings).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalled();
+    await act(() => {
+      editor.result.current.form.setFieldValue('storagePluginId', plugin);
+    });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
@@ -205,7 +383,7 @@ describe('library editor', () => {
   });
 
   it('uses the new plugin defaults rather than another plugin’s edited settings', async () => {
-    const editor = await setup(LibraryEditorSource.Edit({ library: original }));
+    const editor = await setup({ source: editSource });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
@@ -232,6 +410,88 @@ describe('library editor', () => {
         storagePluginSettings: { roots: ['/media/new'] },
       })
     );
+  });
+
+  it('keeps the loaded draft when metadata is changed and then restored', async () => {
+    const editor = await setup({ source: editSource });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
+    });
+    await act(() => {
+      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/edited']);
+      editor.result.current.form.setFieldValue('name', 'Another name');
+    });
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).not.toHaveBeenCalled();
+    await act(() => {
+      editor.result.current.form.setFieldValue('name', original.name);
+    });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
+    });
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: original.name,
+        storagePluginSettings: { roots: ['/media/edited'] },
+      })
+    );
+    expect(loadSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('initializes each form independently when descriptors come from a shared cached query', async () => {
+    const registry = AtomRegistry.make();
+    const first = await setup({ source: editSource, registry });
+    await waitFor(() => {
+      expect(first.result.current.ready).toBe(true);
+    });
+    await act(() => {
+      first.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/first']);
+    });
+    const second = await setup({ source: editSource, registry });
+    await waitFor(() => {
+      expect(second.result.current.ready).toBe(true);
+    });
+    await act(async () => first.result.current.form.handleSubmit());
+    await act(async () => second.result.current.form.handleSubmit());
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ storagePluginSettings: { roots: ['/media/first'] } })
+    );
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ storagePluginSettings: { roots: ['/media/original'] } })
+    );
+    expect(loadSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('can use an in-flight load after returning to its metadata', async () => {
+    const delayed = await Effect.runPromise(Deferred.make<Response>());
+    loadSettings.mockImplementationOnce(async () => Effect.runPromise(Deferred.await(delayed)));
+    const editor = await setup({ source: editSource });
+    await waitFor(() => {
+      expect(loadSettings).toHaveBeenCalledTimes(1);
+    });
+    await act(() => {
+      editor.result.current.form.setFieldValue('type', 'movie');
+    });
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(delayed, Response.json(descriptors)));
+    });
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).not.toHaveBeenCalled();
+    await act(() => {
+      editor.result.current.form.setFieldValue('type', original.type);
+    });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
+    });
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: original.type,
+        storagePluginSettings: { roots: ['/media/original'] },
+      })
+    );
+    expect(loadSettings).toHaveBeenCalledTimes(1);
   });
 
   it('saves only the latest plugin settings when an older load finishes late', async () => {
@@ -329,7 +589,7 @@ describe('library editor', () => {
         { ...textField, name: 'removed' },
       ])
     );
-    const editor = await setup(LibraryEditorSource.Edit({ library: original }));
+    const editor = await setup({ source: editSource });
     await waitFor(() => {
       expect(editor.result.current.ready).toBe(true);
     });
