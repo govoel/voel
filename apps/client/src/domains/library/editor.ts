@@ -13,7 +13,6 @@ export class LibraryEditorMetadata extends Library.jsonCreate.mapFields(
   Struct.pick(['name', 'type', 'storagePluginId'])
 ) {
   public static readonly decodeUnknownOption = Schema.decodeUnknownOption(this);
-  public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
 export type LibraryEditorSource = Data.TaggedEnum<{
@@ -63,9 +62,7 @@ export class LibraryEditorInput extends Library.jsonCreate.pipe(
       Schema.Union(Record.values(storageFieldSchemas))
     ).pipe(Schema.decodeTo(Library.jsonCreate.fields.storagePluginSettings)),
   })
-) {
-  public static readonly decodeEffect = Schema.decodeEffect(this);
-}
+) {}
 
 export const settingsDefaults = ({
   fields,

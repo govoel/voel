@@ -1,6 +1,6 @@
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
+import { Array, Cause, Effect, Layer, Option, Schema, Stream, Struct } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
@@ -215,15 +215,13 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const query = listLibrariesAtom(account.key);
         yield* Atom.mount(query);
         yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
-        const request = yield* LibraryEditorMetadata.decodeEffect({
+        const values = yield* Schema.decodeEffect(LibraryEditorInput)({
           name: 'Audiobooks',
           type: 'audiobook',
           storagePluginId: 'builtin:local',
-        });
-        const values = yield* LibraryEditorInput.decodeEffect({
-          ...request,
           storagePluginSettings: { roots: ['/media/first'] },
         });
+        const request = Struct.pick(values, Struct.keys(LibraryEditorMetadata.fields));
         const created = yield* saveLibrary({
           account: account.key,
           source: LibraryEditorSource.Create(),
@@ -244,7 +242,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           }),
           { suspendOnWaiting: true }
         );
-        const updated = yield* LibraryEditorInput.decodeEffect({
+        const updated = yield* Schema.decodeEffect(LibraryEditorInput)({
           ...request,
           name: 'Renamed',
           storagePluginSettings: settingsDefaults({ fields: editingFields }),
