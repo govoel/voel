@@ -1,4 +1,5 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
+import { semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 import { useCallback, useRef } from 'react';
 
@@ -8,7 +9,13 @@ import type { TextFieldComponent } from '#src/components/form/text-field/index.t
 import { Text } from '#src/components/text';
 import { materialInputTextStyle } from '#src/constants/material.ts';
 
-export const TextField = (({ label, placeholder, purpose, platformProps = {} }) => {
+export const TextField = (({
+  label,
+  labelVisibility = 'visible',
+  placeholder,
+  purpose,
+  platformProps = {},
+}) => {
   const {
     field,
     value: fieldValue,
@@ -41,6 +48,10 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
   return (
     <ComposeTextField
       {...('android' in platformProps ? platformProps.android : {})}
+      modifiers={[
+        ...(labelVisibility === 'hidden' ? [semantics({ contentDescription: label })] : []),
+        ...('android' in platformProps ? (platformProps.android.modifiers ?? []) : []),
+      ]}
       ref={attach}
       textStyle={{
         ...materialInputTextStyle,
@@ -59,9 +70,11 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
       }
       singleLine={'android' in platformProps ? (platformProps.android.singleLine ?? true) : true}
       isError={Option.isSome(errorMessage)}>
-      <ComposeTextField.Label>
-        <Text>{label}</Text>
-      </ComposeTextField.Label>
+      {labelVisibility === 'visible' ? (
+        <ComposeTextField.Label>
+          <Text>{label}</Text>
+        </ComposeTextField.Label>
+      ) : null}
 
       <ComposeTextField.Placeholder>
         <Text>{placeholder}</Text>

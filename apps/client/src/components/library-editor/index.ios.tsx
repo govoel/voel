@@ -162,32 +162,44 @@ export const LibraryForm = ({
                   modifiers={[disabled(editor.submitting), buttonStyle('borderedProminent')]}>
                   <Text modifiers={[frame({ maxWidth: Infinity })]}>Done</Text>
                 </Button>
-              }>
-              {editor.settings.waiting ? (
-                <ListState kind="loading" />
-              ) : (
-                AsyncResult.matchWithError(editor.settings, {
-                  onInitial: () => <ListState kind="loading" />,
-                  onSuccess: () => <StorageFields form={form} storage={editor.storage} />,
-                  onError: (error) => (
-                    <ListState
-                      kind="error"
-                      message={libraryFailureMessage({ error })}
-                      onRetry={editor.handleRetry}
-                      retrying={editor.settings.waiting}
-                    />
-                  ),
-                  onDefect: () => (
-                    <ListState
-                      kind="error"
-                      message="Unable to load storage settings."
-                      onRetry={editor.handleRetry}
-                      retrying={editor.settings.waiting}
-                    />
-                  ),
-                })
-              )}
-            </FormLayout>
+              }
+              sections={
+                editor.settings.waiting ? (
+                  <Section>
+                    <ListState kind="loading" />
+                  </Section>
+                ) : (
+                  AsyncResult.matchWithError(editor.settings, {
+                    onInitial: () => (
+                      <Section>
+                        <ListState kind="loading" />
+                      </Section>
+                    ),
+                    onSuccess: () => <StorageFields form={form} storage={editor.storage} />,
+                    onError: (error) => (
+                      <Section>
+                        <ListState
+                          kind="error"
+                          message={libraryFailureMessage({ error })}
+                          onRetry={editor.handleRetry}
+                          retrying={editor.settings.waiting}
+                        />
+                      </Section>
+                    ),
+                    onDefect: () => (
+                      <Section>
+                        <ListState
+                          kind="error"
+                          message="Unable to load storage settings."
+                          onRetry={editor.handleRetry}
+                          retrying={editor.settings.waiting}
+                        />
+                      </Section>
+                    ),
+                  })
+                )
+              }
+            />
           )}
         </Sheet>
       ) : null}

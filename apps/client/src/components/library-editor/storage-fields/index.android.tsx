@@ -1,5 +1,5 @@
 import Delete from '@expo/material-symbols/delete.xml';
-import { Column, Icon, IconButton, Row, TextButton } from '@expo/ui/jetpack-compose';
+import { Column, Icon, IconButton, OutlinedButton, Row } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, weight } from '@expo/ui/jetpack-compose/modifiers';
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
 import { Array, Match, Option, Record } from 'effect';
@@ -23,6 +23,7 @@ const StorageList = ({
   const list = useStorageList();
   return (
     <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+      <Text>{descriptor.label}</Text>
       {Array.map(list.field.state.value, (value, index) => (
         <Row key={index} verticalAlignment="center">
           <form.AppField
@@ -31,6 +32,7 @@ const StorageList = ({
             {(input) => (
               <input.TextField
                 label={descriptor.label}
+                labelVisibility="hidden"
                 placeholder={descriptor.placeholder}
                 purpose={descriptor.purpose}
                 platformProps={{ android: { modifiers: [weight(1)] } }}
@@ -46,14 +48,14 @@ const StorageList = ({
           </IconButton>
         </Row>
       ))}
-      <TextButton
+      <OutlinedButton
         modifiers={[fillMaxWidth()]}
         enabled={!list.submitting}
         onClick={() => {
           list.field.pushValue('');
         }}>
         <Text>Add entry</Text>
-      </TextButton>
+      </OutlinedButton>
     </Column>
   );
 };

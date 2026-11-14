@@ -1,11 +1,19 @@
 import { RegistryContext } from '@effect/atom-react';
 import { useField } from '@tanstack/react-form';
-import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react-native';
 import { Array, Deferred, Effect, String as EffectString, Option } from 'effect';
 import type { Layer as EffectLayer } from 'effect';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import { useState } from 'react';
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { ComponentProps, PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +21,7 @@ import { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import type { ApiClient as ApiClientService } from '#src/api-client.ts';
+import type { TextFieldComponent } from '#src/components/form/text-field/index.tsx';
 import { StorageFields as AndroidStorageFields } from '#src/components/library-editor/storage-fields/index.android.tsx';
 import { StorageFields as IOSStorageFields } from '#src/components/library-editor/storage-fields/index.ios.tsx';
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
@@ -58,9 +67,17 @@ vi.mock('#src/components/form', async () => {
   const { createEffectSchemaFormHook, fieldContext, formContext, useTextFieldState } =
     await import('#src/components/form/hooks.tsx');
   const { Fragment } = await import('react');
-  const TextField = ({ label }: { readonly label: string }) => {
+  const TextField = ({
+    label,
+    labelVisibility = 'visible',
+  }: ComponentProps<TextFieldComponent>) => {
     const { field, value } = useTextFieldState();
-    return <TextInput accessibilityLabel={label} value={value} onChangeText={field.handleChange} />;
+    return (
+      <View>
+        {labelVisibility === 'visible' ? <Text>{label}</Text> : null}
+        <TextInput accessibilityLabel={label} value={value} onChangeText={field.handleChange} />
+      </View>
+    );
   };
   return createEffectSchemaFormHook({
     runtime,
@@ -76,7 +93,12 @@ vi.mock('#src/components/list-state', () => ({
 }));
 vi.mock('@expo/material-symbols/delete.xml', () => ({ default: 0 }));
 vi.mock('@expo/ui/swift-ui', () => ({
-  Section: View,
+  Section: ({ header, children }: PropsWithChildren<{ readonly header?: ReactNode }>) => (
+    <View testID="storage-section">
+      {header}
+      {children}
+    </View>
+  ),
   Button: ({ children, onPress }: PropsWithChildren<{ readonly onPress: () => void }>) => (
     <Pressable role="button" onPress={onPress}>
       {children}
@@ -114,7 +136,7 @@ vi.mock('@expo/ui/jetpack-compose', () => ({
       {children}
     </Pressable>
   ),
-  TextButton: ({ children, onClick }: PropsWithChildren<{ readonly onClick: () => void }>) => (
+  OutlinedButton: ({ children, onClick }: PropsWithChildren<{ readonly onClick: () => void }>) => (
     <Pressable role="button" onPress={onClick}>
       {children}
     </Pressable>
@@ -253,6 +275,60 @@ const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSSt
 };
 
 describe('library editor', () => {
+  it.each([
+    { platform: 'iOS', StorageFields: IOSStorageFields },
+    { platform: 'Android', StorageFields: AndroidStorageFields },
+  ])('composes named lists with text fields on $platform', async ({ platform, StorageFields }) => {
+    const textField = {
+      kind: 'TextField',
+      name: 'server',
+      label: 'Server URL',
+      placeholder: '',
+      purpose: 'url',
+      initialValue: 'https://storage.example.test',
+    };
+    loadSettings.mockResolvedValueOnce(
+      Response.json([
+        textField,
+        { ...textField, name: 'displayName', label: 'Display name', purpose: 'name' },
+        { ...descriptors[0], initialValue: ['/one', '/two'] },
+        { ...textField, name: 'username', label: 'Username', purpose: 'username' },
+        { ...descriptors[0], name: 'excluded', label: 'Excluded folders', initialValue: [] },
+      ])
+    );
+    const registry = AtomRegistry.make();
+    registries.add(registry);
+    await render(
+      <RegistryContext.Provider value={registry}>
+        <SelectedAccountContext.Provider value={account}>
+          <StorageEditor StorageFields={StorageFields} />
+        </SelectedAccountContext.Provider>
+      </RegistryContext.Provider>
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+    expect(screen.getAllByText('Directories')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Directories')).toHaveLength(2);
+    expect(screen.getAllByText('Excluded folders')).toHaveLength(1);
+    expect(screen.queryByLabelText('Excluded folders')).toBeNull();
+    if (platform === 'iOS') {
+      const sections = screen.getAllByTestId('storage-section');
+      expect(sections).toHaveLength(4);
+      expect(within(Array.getUnsafe(sections, 0)).getByLabelText('Server URL')).toBeOnTheScreen();
+      expect(within(Array.getUnsafe(sections, 0)).getByLabelText('Display name')).toBeOnTheScreen();
+      expect(within(Array.getUnsafe(sections, 1)).getByText('Directories')).toBeOnTheScreen();
+      expect(within(Array.getUnsafe(sections, 2)).getByLabelText('Username')).toBeOnTheScreen();
+      expect(within(Array.getUnsafe(sections, 3)).getByText('Excluded folders')).toBeOnTheScreen();
+    }
+    const addEntries = screen.getAllByRole('button', { name: 'Add entry' });
+    expect(addEntries).toHaveLength(2);
+    await fireEvent.press(Array.getUnsafe(addEntries, 1));
+    expect(screen.getByLabelText('Excluded folders')).toHaveProp('value', '');
+    expect(screen.getAllByText('Excluded folders')).toHaveLength(1);
+  });
+
   it.each([
     { platform: 'iOS', StorageFields: IOSStorageFields },
     { platform: 'Android', StorageFields: AndroidStorageFields },

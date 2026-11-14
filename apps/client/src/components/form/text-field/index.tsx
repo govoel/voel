@@ -6,6 +6,7 @@ import type { TextInputPurpose } from '#src/components/form/input-presets/index.
 
 export type TextFieldComponent = ComponentType<{
   label: string;
+  labelVisibility?: 'visible' | 'hidden';
   purpose?: TextInputPurpose;
   placeholder: string;
   platformProps?:
