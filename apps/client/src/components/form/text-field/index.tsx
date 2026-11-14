@@ -6,11 +6,12 @@ import type { TextInputPurpose } from '#src/components/form/input-presets/index.
 
 export type TextFieldComponent = ComponentType<{
   label: string;
+  labelVisibility?: 'visible' | 'hidden';
   purpose?: TextInputPurpose;
   placeholder: string;
   platformProps?:
-    | { ios: Omit<SwiftTextFieldProps, 'placeholder'> }
-    | { android: Omit<ComposeTextFieldProps, 'visualTransformation'> };
+    | { ios: Omit<SwiftTextFieldProps, 'placeholder' | 'ref'> }
+    | { android: Omit<ComposeTextFieldProps, 'visualTransformation' | 'ref'> };
 }>;
 
 export declare const TextField: TextFieldComponent;

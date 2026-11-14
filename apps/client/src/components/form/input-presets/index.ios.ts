@@ -12,6 +12,7 @@ import type {
 } from '#src/components/form/input-presets/index.ts';
 
 export const textInputPresets = {
+  text: [textInputAutocapitalization('never'), autocorrectionDisabled()],
   name: [textContentType('name')],
   username: [
     keyboardType('ascii-capable'),

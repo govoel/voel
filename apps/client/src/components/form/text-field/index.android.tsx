@@ -1,5 +1,7 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
+import { semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
+import { useCallback, useRef } from 'react';
 
 import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { textInputPresets } from '#src/components/form/input-presets/index.android.ts';
@@ -7,13 +9,50 @@ import type { TextFieldComponent } from '#src/components/form/text-field/index.t
 import { Text } from '#src/components/text';
 import { materialInputTextStyle } from '#src/constants/material.ts';
 
-export const TextField = (({ label, placeholder, purpose, platformProps = {} }) => {
-  const { field, isSubmitting, errorMessage, onFocusChange } = useTextFieldState();
-  const value = useNativeState(field.state.value);
+export const TextField = (({
+  label,
+  labelVisibility = 'visible',
+  placeholder,
+  purpose,
+  platformProps = {},
+}) => {
+  const {
+    field,
+    value: fieldValue,
+    isSubmitting,
+    errorMessage,
+    onFocusChange,
+  } = useTextFieldState();
+  const value = useNativeState(fieldValue);
+  const lastSyncedText = useRef(fieldValue);
+  const { store } = field;
+  const attach = useCallback(() => {
+    const syncToNative = () => {
+      const text = store.state.value;
+      if (lastSyncedText.current !== text) {
+        lastSyncedText.current = text;
+        value.set(text);
+      }
+    };
+    const subscription = store.subscribe(syncToNative);
+    syncToNative();
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [store, value]);
+  const handleChange = (text: string) => {
+    lastSyncedText.current = text;
+    field.handleChange(text);
+  };
 
   return (
     <ComposeTextField
       {...('android' in platformProps ? platformProps.android : {})}
+      modifiers={[
+        ...(labelVisibility === 'hidden' ? [semantics({ contentDescription: label })] : []),
+        ...('android' in platformProps ? (platformProps.android.modifiers ?? []) : []),
+      ]}
+      ref={attach}
       textStyle={{
         ...materialInputTextStyle,
         ...('android' in platformProps ? platformProps.android.textStyle : {}),
@@ -23,7 +62,7 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
         ...('android' in platformProps ? platformProps.android.keyboardOptions : {}),
       }}
       value={value}
-      onValueChange={field.handleChange}
+      onValueChange={handleChange}
       onFocusChanged={onFocusChange}
       enabled={
         !isSubmitting &&
@@ -31,9 +70,11 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
       }
       singleLine={'android' in platformProps ? (platformProps.android.singleLine ?? true) : true}
       isError={Option.isSome(errorMessage)}>
-      <ComposeTextField.Label>
-        <Text>{label}</Text>
-      </ComposeTextField.Label>
+      {labelVisibility === 'visible' ? (
+        <ComposeTextField.Label>
+          <Text>{label}</Text>
+        </ComposeTextField.Label>
+      ) : null}
 
       <ComposeTextField.Placeholder>
         <Text>{placeholder}</Text>
