@@ -6,6 +6,7 @@ import { Array, Match, Option, Record } from 'effect';
 
 import { useStorageList } from '#src/components/library-editor/storage-fields/use-list.ts';
 import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 
@@ -22,7 +23,6 @@ const StorageList = ({
   const list = useStorageList();
   return (
     <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-      <Text>{descriptor.label}</Text>
       {Array.map(list.field.state.value, (value, index) => (
         <Row key={index} verticalAlignment="center">
           <form.AppField
@@ -47,6 +47,7 @@ const StorageList = ({
         </Row>
       ))}
       <TextButton
+        modifiers={[fillMaxWidth()]}
         enabled={!list.submitting}
         onClick={() => {
           list.field.pushValue('');
@@ -64,39 +65,45 @@ export const StorageFields = ({
   Option.match(storage, {
     onNone: () => null,
     onSome: ({ descriptors, defaultValue }) =>
-      Array.map(descriptors, (descriptor) => {
-        // Group defaults are installed on mount; native inputs need their first-render value too.
-        const initialValue =
-          form.state.values.storagePluginSettings[descriptor.name] ??
-          Option.getOrThrow(Record.get(defaultValue, descriptor.name));
-        return Match.value(descriptor).pipe(
-          Match.when({ kind: 'TextField' }, (field) => (
-            <form.AppField
-              key={field.name}
-              name={`storagePluginSettings.${field.name}`}
-              defaultValue={initialValue}>
-              {(input) => (
-                <input.TextField
-                  label={field.label}
-                  placeholder={field.placeholder}
-                  purpose={field.purpose}
-                  platformProps={{
-                    android: { modifiers: [fillMaxWidth()] },
-                  }}
-                />
-              )}
-            </form.AppField>
-          )),
-          Match.when({ kind: 'TextListField' }, (field) => (
-            <form.AppField
-              key={field.name}
-              name={`storagePluginSettings.${field.name}`}
-              mode="array"
-              defaultValue={initialValue}>
-              {() => <StorageList form={form} descriptor={field} />}
-            </form.AppField>
-          )),
-          Match.exhaustive
-        );
+      Array.match(descriptors, {
+        onEmpty: () => (
+          <ListState kind="empty" message="No settings are required for this plugin." />
+        ),
+        onNonEmpty: (fields) =>
+          Array.map(fields, (descriptor) => {
+            // Group defaults are installed on mount; native inputs need their first-render value too.
+            const initialValue =
+              form.state.values.storagePluginSettings[descriptor.name] ??
+              Option.getOrThrow(Record.get(defaultValue, descriptor.name));
+            return Match.value(descriptor).pipe(
+              Match.when({ kind: 'TextField' }, (field) => (
+                <form.AppField
+                  key={field.name}
+                  name={`storagePluginSettings.${field.name}`}
+                  defaultValue={initialValue}>
+                  {(input) => (
+                    <input.TextField
+                      label={field.label}
+                      placeholder={field.placeholder}
+                      purpose={field.purpose}
+                      platformProps={{
+                        android: { modifiers: [fillMaxWidth()] },
+                      }}
+                    />
+                  )}
+                </form.AppField>
+              )),
+              Match.when({ kind: 'TextListField' }, (field) => (
+                <form.AppField
+                  key={field.name}
+                  name={`storagePluginSettings.${field.name}`}
+                  mode="array"
+                  defaultValue={initialValue}>
+                  {() => <StorageList form={form} descriptor={field} />}
+                </form.AppField>
+              )),
+              Match.exhaustive
+            );
+          }),
       }),
   });

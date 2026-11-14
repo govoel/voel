@@ -71,6 +71,9 @@ vi.mock('#src/components/form', async () => {
   });
 });
 vi.mock('#src/components/text', () => ({ Text }));
+vi.mock('#src/components/list-state', () => ({
+  ListState: ({ message }: { readonly message: string }) => <Text>{message}</Text>,
+}));
 vi.mock('@expo/material-symbols/delete.xml', () => ({ default: 0 }));
 vi.mock('@expo/ui/swift-ui', () => ({
   Section: View,
@@ -82,16 +85,18 @@ vi.mock('@expo/ui/swift-ui', () => ({
   List: {
     ForEach: ({
       data,
+      keyExtractor,
       children,
       onDelete,
     }: {
-      readonly data: ReadonlyArray<number>;
-      readonly children: (item: { readonly index: number }) => ReactElement;
+      readonly data: ReadonlyArray<string>;
+      readonly keyExtractor: (item: string, index: number) => string;
+      readonly children: (info: { readonly item: string; readonly index: number }) => ReactElement;
       readonly onDelete?: (indices: Array<number>) => void;
     }) => (
       <View testID="storage-list" {...{ onDelete }}>
-        {Array.map(data, (key, index) => (
-          <View key={key}>{children({ index })}</View>
+        {Array.map(data, (item, index) => (
+          <View key={keyExtractor(item, index)}>{children({ item, index })}</View>
         ))}
       </View>
     ),
@@ -248,6 +253,38 @@ const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSSt
 };
 
 describe('library editor', () => {
+  it.each([
+    { platform: 'iOS', StorageFields: IOSStorageFields },
+    { platform: 'Android', StorageFields: AndroidStorageFields },
+  ])('explains that a plugin needs no settings on $platform', async ({ StorageFields }) => {
+    loadSettings.mockResolvedValueOnce(Response.json([]));
+    const registry = AtomRegistry.make();
+    registries.add(registry);
+    await render(
+      <RegistryContext.Provider value={registry}>
+        <SelectedAccountContext.Provider value={account}>
+          <StorageEditor StorageFields={StorageFields} />
+        </SelectedAccountContext.Provider>
+      </RegistryContext.Provider>
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+    expect(screen.getByText('No settings are required for this plugin.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Add entry' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledWith({
+        name: original.name,
+        type: original.type,
+        storagePluginId: plugin,
+        storagePluginSettings: {},
+      });
+    });
+  });
+
   it.each([
     { platform: 'iOS', StorageFields: IOSStorageFields },
     { platform: 'Android', StorageFields: AndroidStorageFields },

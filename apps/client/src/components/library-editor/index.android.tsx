@@ -1,7 +1,8 @@
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import {
   AlertDialog,
   Button,
-  HorizontalDivider,
+  Icon,
   SegmentedButton,
   SingleChoiceSegmentedButtonRow,
   TextButton,
@@ -17,6 +18,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { StorageFields } from '#src/components/library-editor/storage-fields';
 import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { ListState } from '#src/components/list-state';
+import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { LibraryEditorSource } from '#src/domains/library/editor.ts';
@@ -37,7 +39,7 @@ export const LibraryForm = ({
     <form.AppForm>
       <FormLayout
         title={LibraryEditorSource.$match(source, {
-          Create: () => 'New library',
+          Create: () => 'Create library',
           Edit: () => 'Edit library',
         })}
         footer={
@@ -47,7 +49,7 @@ export const LibraryForm = ({
             <Text>
               {LibraryEditorSource.$match(source, {
                 Create: () => 'Create library',
-                Edit: () => 'Save',
+                Edit: () => 'Save changes',
               })}
             </Text>
           </form.SubmitButton>
@@ -84,9 +86,7 @@ export const LibraryForm = ({
             </>
           )}
         </form.AppField>
-        <HorizontalDivider />
-        <Text variant="h4">Storage</Text>
-        <Text>Provider</Text>
+        <Text>Storage provider</Text>
         <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
           {Array.map(
             [
@@ -124,18 +124,27 @@ export const LibraryForm = ({
             )}
           </form.AppField>
         ) : null}
-        <Button
-          enabled={editor.canOpenStorage}
-          onClick={() => {
-            if (editor.needsConsent) {
-              editor.handleRequestConsent();
-            } else {
-              editor.resetStorage();
-              setStorageOpen(true);
-            }
-          }}>
-          <Text>Storage settings</Text>
-        </Button>
+        <SegmentedList>
+          <SegmentedListItem
+            index={0}
+            count={1}
+            enabled={editor.canOpenStorage}
+            onClick={() => {
+              if (editor.needsConsent) {
+                editor.handleRequestConsent();
+              } else {
+                editor.resetStorage();
+                setStorageOpen(true);
+              }
+            }}>
+            <SegmentedListItem.HeadlineContent>
+              <Text>Storage settings</Text>
+            </SegmentedListItem.HeadlineContent>
+            <SegmentedListItem.TrailingContent>
+              <Icon source={ChevronRight} size={24} />
+            </SegmentedListItem.TrailingContent>
+          </SegmentedListItem>
+        </SegmentedList>
       </FormLayout>
       {storageOpen ? (
         <Sheet
