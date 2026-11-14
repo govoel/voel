@@ -2,10 +2,10 @@ import Delete from '@expo/material-symbols/delete.xml';
 import { Column, Icon, IconButton, OutlinedButton, Row } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, weight } from '@expo/ui/jetpack-compose/modifiers';
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
-import { Array, Match, Option, Record } from 'effect';
+import { Array, Match } from 'effect';
 
 import { useStorageList } from '#src/components/library-editor/storage-fields/use-list.ts';
-import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
+import type { useStorageForm } from '#src/components/library-editor/storage-form/use-form.ts';
 import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
@@ -14,7 +14,7 @@ const StorageList = ({
   form,
   descriptor,
 }: {
-  readonly form: ReturnType<typeof useLibraryForm>['form'];
+  readonly form: ReturnType<typeof useStorageForm>['form'];
   readonly descriptor: Extract<
     (typeof StoragePluginSettingsForm.Type)[number],
     { kind: 'TextListField' }
@@ -24,11 +24,9 @@ const StorageList = ({
   return (
     <Column verticalArrangement={{ spacedBy: Spacing.two }}>
       <Text>{descriptor.label}</Text>
-      {Array.map(list.field.state.value, (value, index) => (
+      {Array.map(list.field.state.value, (_, index) => (
         <Row key={index} verticalAlignment="center">
-          <form.AppField
-            name={`storagePluginSettings.${descriptor.name}[${index}]`}
-            defaultValue={value}>
+          <form.AppField name={`${descriptor.name}[${index}]`}>
             {(input) => (
               <input.TextField
                 label={descriptor.label}
@@ -60,52 +58,32 @@ const StorageList = ({
   );
 };
 
-export const StorageFields = ({
-  form,
-  storage,
-}: Pick<ReturnType<typeof useLibraryForm>, 'form' | 'storage'>) =>
-  Option.match(storage, {
-    onNone: () => null,
-    onSome: ({ descriptors, defaultValue }) =>
-      Array.match(descriptors, {
-        onEmpty: () => (
-          <ListState kind="empty" message="No settings are required for this plugin." />
-        ),
-        onNonEmpty: (fields) =>
-          Array.map(fields, (descriptor) => {
-            // Group defaults are installed on mount; native inputs need their first-render value too.
-            const initialValue =
-              form.state.values.storagePluginSettings[descriptor.name] ??
-              Option.getOrThrow(Record.get(defaultValue, descriptor.name));
-            return Match.value(descriptor).pipe(
-              Match.when({ kind: 'TextField' }, (field) => (
-                <form.AppField
-                  key={field.name}
-                  name={`storagePluginSettings.${field.name}`}
-                  defaultValue={initialValue}>
-                  {(input) => (
-                    <input.TextField
-                      label={field.label}
-                      placeholder={field.placeholder}
-                      purpose={field.purpose}
-                      platformProps={{
-                        android: { modifiers: [fillMaxWidth()] },
-                      }}
-                    />
-                  )}
-                </form.AppField>
-              )),
-              Match.when({ kind: 'TextListField' }, (field) => (
-                <form.AppField
-                  key={field.name}
-                  name={`storagePluginSettings.${field.name}`}
-                  mode="array"
-                  defaultValue={initialValue}>
-                  {() => <StorageList form={form} descriptor={field} />}
-                </form.AppField>
-              )),
-              Match.exhaustive
-            );
-          }),
-      }),
+export const StorageFields = ({ form, descriptors }: ReturnType<typeof useStorageForm>) =>
+  Array.match(descriptors, {
+    onEmpty: () => <ListState kind="empty" message="No settings are required for this plugin." />,
+    onNonEmpty: (fields) =>
+      Array.map(fields, (descriptor) =>
+        Match.value(descriptor).pipe(
+          Match.when({ kind: 'TextField' }, (field) => (
+            <form.AppField key={field.name} name={field.name}>
+              {(input) => (
+                <input.TextField
+                  label={field.label}
+                  placeholder={field.placeholder}
+                  purpose={field.purpose}
+                  platformProps={{
+                    android: { modifiers: [fillMaxWidth()] },
+                  }}
+                />
+              )}
+            </form.AppField>
+          )),
+          Match.when({ kind: 'TextListField' }, (field) => (
+            <form.AppField key={field.name} name={field.name} mode="array">
+              {() => <StorageList form={form} descriptor={field} />}
+            </form.AppField>
+          )),
+          Match.exhaustive
+        )
+      ),
   });

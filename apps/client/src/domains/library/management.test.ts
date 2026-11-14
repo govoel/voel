@@ -10,7 +10,6 @@ import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import {
-  LibraryEditorInput,
   LibraryEditorMetadata,
   LibraryEditorSource,
   libraryStorageSettingsAtom,
@@ -215,7 +214,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const query = listLibrariesAtom(account.key);
         yield* Atom.mount(query);
         yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
-        const values = yield* Schema.decodeEffect(LibraryEditorInput)({
+        const values = yield* Schema.decodeEffect(Library.jsonCreate)({
           name: 'Audiobooks',
           type: 'audiobook',
           storagePluginId: 'builtin:local',
@@ -242,7 +241,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           }),
           { suspendOnWaiting: true }
         );
-        const updated = yield* Schema.decodeEffect(LibraryEditorInput)({
+        const updated = yield* Schema.decodeEffect(Library.jsonCreate)({
           ...request,
           name: 'Renamed',
           storagePluginSettings: settingsDefaults({ fields: editingFields }),

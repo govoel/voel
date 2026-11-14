@@ -1,4 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
+import { StoragePluginSettingsFieldName } from '@govoel/plugins/storage';
 import { useField } from '@tanstack/react-form';
 import {
   act,
@@ -24,6 +25,7 @@ import type { ApiClient as ApiClientService } from '#src/api-client.ts';
 import type { TextFieldComponent } from '#src/components/form/text-field/index.tsx';
 import { StorageFields as AndroidStorageFields } from '#src/components/library-editor/storage-fields/index.android.tsx';
 import { StorageFields as IOSStorageFields } from '#src/components/library-editor/storage-fields/index.ios.tsx';
+import { useStorageForm } from '#src/components/library-editor/storage-form/use-form.ts';
 import { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
@@ -159,6 +161,7 @@ const account = AccountKey.make({
 });
 const plugin = Library.json.fields.storagePluginId.make('npm:@fixture/storage@1.0.0');
 const otherPlugin = Library.json.fields.storagePluginId.make('npm:@fixture/storage@2.0.0');
+const rootsName = StoragePluginSettingsFieldName.make('roots');
 const original = {
   id: Library.fields.id.make(7),
   name: Library.fields.name.make('Audiobooks'),
@@ -235,6 +238,21 @@ const enterCustom = async (editor: Awaited<ReturnType<typeof setup>>) => {
   });
 };
 
+const StorageDraft = ({
+  StorageFields,
+  ...props
+}: Parameters<typeof useStorageForm>[0] & { readonly StorageFields: typeof IOSStorageFields }) => {
+  const { form, descriptors: fields } = useStorageForm(props);
+  return (
+    <form.AppForm>
+      <StorageFields form={form} descriptors={fields} />
+      <Pressable role="button" onPress={() => void form.handleSubmit()}>
+        <Text>Done</Text>
+      </Pressable>
+    </form.AppForm>
+  );
+};
+
 const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSStorageFields }) => {
   const editor = useLibraryForm({ source: editSource, onSuccess: () => void 0 });
   const [storageOpen, setStorageOpen] = useState(false);
@@ -247,20 +265,32 @@ const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSSt
         role="button"
         disabled={!editor.canOpenStorage}
         onPress={() => {
-          editor.resetStorage();
           setStorageOpen(true);
         }}>
         <Text>Storage settings</Text>
       </Pressable>
       {storageOpen ? (
         <>
-          <StorageFields form={editor.form} storage={editor.storage} />
+          {Option.match(editor.storage, {
+            onNone: () => <Text>Loading settings</Text>,
+            onSome: (storage) => (
+              <StorageDraft
+                key={storage.key}
+                StorageFields={StorageFields}
+                storage={storage}
+                commitStorage={editor.commitStorage}
+                onSuccess={() => {
+                  setStorageOpen(false);
+                }}
+              />
+            ),
+          })}
           <Pressable
             role="button"
             onPress={() => {
               setStorageOpen(false);
             }}>
-            <Text>Done</Text>
+            <Text>Cancel</Text>
           </Pressable>
         </>
       ) : null}
@@ -275,6 +305,98 @@ const StorageEditor = ({ StorageFields }: { readonly StorageFields: typeof IOSSt
 };
 
 describe('library editor', () => {
+  it.each([
+    { platform: 'iOS', StorageFields: IOSStorageFields },
+    { platform: 'Android', StorageFields: AndroidStorageFields },
+  ])(
+    'initializes a complete settings form after a delayed shape change on $platform',
+    async ({ StorageFields }) => {
+      loadSettings.mockResolvedValueOnce(Response.json([{ ...descriptors[0], initialValue: [] }]));
+      const registry = AtomRegistry.make();
+      registries.add(registry);
+      await render(
+        <RegistryContext.Provider value={registry}>
+          <SelectedAccountContext.Provider value={account}>
+            <StorageEditor StorageFields={StorageFields} />
+          </SelectedAccountContext.Provider>
+        </RegistryContext.Provider>
+      );
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+      });
+      await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+      });
+      loadSettings.mockResolvedValueOnce(Response.json([]));
+      await fireEvent.changeText(screen.getByLabelText('Name'), 'No settings');
+      await waitFor(() => {
+        expect(loadSettings).toHaveBeenCalledTimes(2);
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+      });
+      await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+      expect(screen.getByText('No settings are required for this plugin.')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+      });
+      const pending = Promise.withResolvers<Response>();
+      loadSettings.mockReturnValueOnce(pending.promise);
+      await fireEvent.changeText(screen.getByLabelText('Name'), 'Populated settings');
+      await waitFor(() => {
+        expect(loadSettings).toHaveBeenCalledTimes(3);
+      });
+      await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+      expect(screen.getByText('Loading settings')).toBeOnTheScreen();
+      await act(() => {
+        pending.resolve(Response.json([{ ...descriptors[0], initialValue: ['/one', '/two'] }]));
+      });
+      const roots = await screen.findAllByLabelText('Directories');
+      expect(roots).toHaveLength(2);
+      expect(Array.getUnsafe(roots, 0)).toHaveProp('value', '/one');
+      expect(Array.getUnsafe(roots, 1)).toHaveProp('value', '/two');
+      await fireEvent.changeText(Array.getUnsafe(roots, 0), '/committed');
+      await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Directories')).toBeNull();
+      });
+      expect(save).not.toHaveBeenCalled();
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => {
+        expect(save).toHaveBeenCalledWith({
+          name: 'Populated settings',
+          type: original.type,
+          storagePluginId: plugin,
+          storagePluginSettings: { roots: ['/committed', '/two'] },
+        });
+      });
+    }
+  );
+
+  it('rejects committing a settings snapshot after its metadata changes', async () => {
+    const editor = await setup({ source: editSource });
+    await waitFor(() => {
+      expect(editor.result.current.ready).toBe(true);
+    });
+    const storage = Option.getOrThrow(editor.result.current.storage);
+    const commit = editor.result.current.commitStorage;
+    const pending = Promise.withResolvers<Response>();
+    loadSettings.mockReturnValueOnce(pending.promise);
+    await act(() => {
+      editor.result.current.form.setFieldValue('type', 'movie');
+    });
+    const failure = await Effect.runPromise(
+      Effect.flip(commit({ storage, values: storage.values }))
+    );
+    expect(failure).toMatchObject({ _tag: 'StorageSettingsNotLoaded' });
+    await act(async () => editor.result.current.form.handleSubmit());
+    expect(save).not.toHaveBeenCalled();
+    await act(() => {
+      pending.resolve(Response.json(descriptors));
+    });
+  });
+
   it.each([
     { platform: 'iOS', StorageFields: IOSStorageFields },
     { platform: 'Android', StorageFields: AndroidStorageFields },
@@ -365,7 +487,7 @@ describe('library editor', () => {
     { platform: 'iOS', StorageFields: IOSStorageFields },
     { platform: 'Android', StorageFields: AndroidStorageFields },
   ])(
-    'preloads settings, saves subpage edits, and resets a new visit on $platform',
+    'commits settings with Done and discards cancelled edits on $platform',
     async ({ platform, StorageFields }) => {
       const textField = {
         kind: 'TextField',
@@ -405,7 +527,10 @@ describe('library editor', () => {
       );
       await fireEvent.changeText(screen.getByLabelText('Folder'), '/edited');
       await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
-      expect(screen.queryByLabelText('Directories')).toBeNull();
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Directories')).toBeNull();
+      });
+      expect(save).not.toHaveBeenCalled();
       await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
       await waitFor(() => {
         expect(save).toHaveBeenCalledWith({
@@ -418,10 +543,17 @@ describe('library editor', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
       const resetRoots = screen.getAllByLabelText('Directories');
       expect(resetRoots).toHaveLength(2);
-      expect(Array.getUnsafe(resetRoots, 0)).toHaveProp('value', '/same');
-      expect(Array.getUnsafe(resetRoots, 1)).toHaveProp('value', '/same');
-      expect(screen.getByLabelText('Folder')).toHaveProp('value', '/default');
-      await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+      expect(Array.getUnsafe(resetRoots, 0)).toHaveProp('value', '/kept');
+      expect(Array.getUnsafe(resetRoots, 1)).toHaveProp('value', '/new');
+      expect(screen.getByLabelText('Folder')).toHaveProp('value', '/edited');
+      await fireEvent.changeText(Array.getUnsafe(resetRoots, 0), '/discarded');
+      await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Storage settings' }));
+      expect(Array.getUnsafe(screen.getAllByLabelText('Directories'), 0)).toHaveProp(
+        'value',
+        '/kept'
+      );
+      await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
       loadSettings.mockResolvedValueOnce(
         Response.json([
           descriptors[0],
@@ -550,8 +682,15 @@ describe('library editor', () => {
         { ...descriptors[0], name: 'constructor', initialValue: ['/safe'] },
       ])
     );
+    await act(async () => {
+      await Effect.runPromise(
+        editor.result.current.commitStorage({
+          storage: Option.getOrThrow(editor.result.current.storage),
+          values: { [rootsName]: ['/edited'] },
+        })
+      );
+    });
     await act(() => {
-      editor.result.current.form.setFieldValue('storagePluginSettings.roots', ['/edited']);
       editor.result.current.form.setFieldValue('type', 'movie');
     });
     await waitFor(() => {
@@ -576,8 +715,13 @@ describe('library editor', () => {
     await waitFor(() => {
       expect(first.result.current.ready).toBe(true);
     });
-    await act(() => {
-      first.result.current.form.setFieldValue('storagePluginSettings.roots', ['/media/first']);
+    await act(async () => {
+      await Effect.runPromise(
+        first.result.current.commitStorage({
+          storage: Option.getOrThrow(first.result.current.storage),
+          values: { [rootsName]: ['/media/first'] },
+        })
+      );
     });
     const second = await setup({ source: editSource, registry });
     await waitFor(() => {

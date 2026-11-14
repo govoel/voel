@@ -1,24 +1,15 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { useFormGroup, useSelector } from '@tanstack/react-form';
-import {
-  Array,
-  Effect,
-  String as EffectString,
-  Equal,
-  Match,
-  Option,
-  Schema,
-  Struct,
-} from 'effect';
+import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
+import { useSelector } from '@tanstack/react-form';
+import { Array, Effect, Equal, Match, Option, Schema } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { useState } from 'react';
 
-import type { Library } from '@repo/spec-api/domains/library/schema.ts';
+import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { useAppForm } from '#src/components/form';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import {
-  LibraryEditorInput,
   LibraryEditorMetadata,
   LibraryEditorSource,
   libraryStorageSettingsAtom,
@@ -41,6 +32,13 @@ const noSettings = Atom.make(
   AsyncResult.initial<Atom.Success<ReturnType<typeof libraryStorageSettingsAtom>>>()
 );
 
+interface StorageSnapshot {
+  readonly key: string;
+  readonly metadata: typeof LibraryEditorMetadata.Type;
+  readonly descriptors: typeof StoragePluginSettingsForm.Type;
+  readonly values: ReturnType<typeof settingsDefaults>;
+}
+
 export const useLibraryForm = ({
   source,
   onSuccess,
@@ -57,41 +55,47 @@ export const useLibraryForm = ({
   const [pending, setPending] = useState<Option.Option<typeof LibraryEditorMetadata.Type>>(
     Option.none()
   );
+  const [committed, setCommitted] = useState<Option.Option<StorageSnapshot>>(Option.none());
   const form = useAppForm({
-    schema: LibraryEditorInput,
+    schema: LibraryEditorMetadata,
     defaultValues: LibraryEditorSource.$match(source, {
       Create: () =>
         ({
           name: '',
           type: 'audiobook',
           storagePluginId: 'builtin:local',
-          storagePluginSettings: {},
-        }) satisfies typeof LibraryEditorInput.Encoded,
+        }) satisfies typeof LibraryEditorMetadata.Encoded,
       Edit: ({ library }) => ({
         name: library.name,
         type: library.type,
         storagePluginId: library.storagePluginId,
-        storagePluginSettings: {},
       }),
     }),
     listeners: {
-      onChange: ({ fieldApi }) => {
-        if (
-          Array.some(Struct.keys(LibraryEditorMetadata.fields), (name) => fieldApi.name === name)
-        ) {
-          setPending(Option.none());
-          resetStorage();
-        }
+      onChange: () => {
+        setPending(Option.none());
+        setCommitted(Option.none());
       },
     },
     onSubmit: ({ value }) =>
-      Effect.andThen(
-        AsyncResult.isSuccess(settings) &&
-          current(value) &&
-          Schema.is(storageSettingsSchema(settings.value))(value.storagePluginSettings)
-          ? Effect.void
+      Effect.flatMap(
+        current(value) && Option.isSome(storage)
+          ? Effect.succeed(storage.value)
           : Effect.fail(StorageSettingsNotLoaded.make({})),
-        () => saveLibrary({ account, source, values: value })
+        (snapshot) =>
+          Effect.flatMap(
+            Schema.decodeEffect(storageSettingsSchema(snapshot.descriptors))(snapshot.values),
+            (values) =>
+              saveLibrary({
+                account,
+                source,
+                values: {
+                  ...value,
+                  storagePluginSettings:
+                    Library.jsonCreate.fields.storagePluginSettings.make(values),
+                },
+              })
+          )
       ),
     onFailure: ({ error }) =>
       Match.value(error).pipe(
@@ -100,11 +104,7 @@ export const useLibraryForm = ({
       ),
     onSuccess: async ({ result }) => onSuccess(result),
   });
-  const metadata = useSelector(
-    form.store,
-    (state) => Struct.pick(state.values, Struct.keys(LibraryEditorMetadata.fields)),
-    { compare: Equal.equals }
-  );
+  const metadata = useSelector(form.store, (state) => state.values, { compare: Equal.equals });
   const [canSubmit, submitting] = useSelector(
     form.store,
     (state) => [state.canSubmit, state.isSubmitting] as const
@@ -134,43 +134,34 @@ export const useLibraryForm = ({
     !settings.waiting &&
     Option.isSome(request) &&
     Equal.equals(request, LibraryEditorMetadata.decodeUnknownOption(value));
-  const storage = Option.map(
-    Option.filter(AsyncResult.value(settings), () => current(metadata)),
-    (descriptors) => ({
-      descriptors,
-      defaultValue: settingsDefaults({ fields: descriptors }),
-      validators: {
-        onChangeAsync: Schema.toStandardSchemaV1(storageSettingsSchema(descriptors)),
-      },
-    })
+  const storage: Option.Option<StorageSnapshot> = Option.flatMap(
+    Option.filter(request, () => current(metadata)),
+    (requestMetadata) =>
+      Option.map(AsyncResult.value(settings), (descriptors) => ({
+        key: Array.join(
+          Array.map(
+            [requestMetadata.name, requestMetadata.type, requestMetadata.storagePluginId],
+            (part) => `${part.length}:${part}`
+          ),
+          ''
+        ),
+        metadata: requestMetadata,
+        descriptors,
+        // Loaded defaults are usable without opening the settings form.
+        values: Option.match(
+          Option.filter(
+            committed,
+            (snapshot) =>
+              Equal.equals(snapshot.metadata, requestMetadata) &&
+              snapshot.descriptors === descriptors
+          ),
+          {
+            onNone: () => settingsDefaults({ fields: descriptors }),
+            onSome: (snapshot) => snapshot.values,
+          }
+        ),
+      }))
   );
-  useFormGroup({
-    form,
-    name: 'storagePluginSettings',
-    ...Option.match(storage, {
-      onNone: () => ({ defaultValue: {} }),
-      onSome: ({ defaultValue, validators }) => ({ defaultValue, validators }),
-    }),
-  });
-  const resetStorage = ({
-    defaultValue = {},
-  }: {
-    readonly defaultValue?: (typeof LibraryEditorInput.Encoded)['storagePluginSettings'];
-  } = {}) => {
-    for (const name of Struct.keys(form.state.fieldMeta)) {
-      if (
-        name === 'storagePluginSettings' ||
-        EffectString.startsWith('storagePluginSettings.')(name)
-      ) {
-        form.resetField(name);
-      }
-    }
-    form.setFieldValue('storagePluginSettings', defaultValue, {
-      dontUpdateMeta: true,
-      dontValidate: true,
-      dontRunListeners: true,
-    });
-  };
   return {
     form,
     metadata,
@@ -182,14 +173,31 @@ export const useLibraryForm = ({
     canOpenStorage: Option.isSome(input) && !submitting,
     needsConsent: Option.isSome(input) && Option.isNone(request),
     handleRetry: refresh,
-    resetStorage: () => {
-      resetStorage({
-        defaultValue: Option.match(storage, {
-          onNone: () => ({}),
-          onSome: ({ defaultValue }) => defaultValue,
-        }),
-      });
-    },
+    commitStorage: ({
+      storage: snapshot,
+      values,
+    }: {
+      readonly storage: Option.Option.Value<typeof storage>;
+      readonly values: ReturnType<typeof settingsDefaults>;
+    }) =>
+      Effect.andThen(
+        current(form.state.values) &&
+          Equal.equals(
+            LibraryEditorMetadata.decodeUnknownOption(form.state.values),
+            Option.some(snapshot.metadata)
+          ) &&
+          AsyncResult.isSuccess(settings) &&
+          settings.value === snapshot.descriptors
+          ? Effect.void
+          : Effect.fail(StorageSettingsNotLoaded.make({})),
+        () =>
+          Effect.map(
+            Schema.decodeEffect(storageSettingsSchema(snapshot.descriptors))(values),
+            (validated) => {
+              setCommitted(Option.some({ ...snapshot, values: validated }));
+            }
+          )
+      ),
     handleRequestConsent: () => {
       if (Option.isSome(input) && !submitting) {
         setPending(input);

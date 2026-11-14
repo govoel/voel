@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { FormLayout } from '#src/components/form/layout';
-import { StorageFields } from '#src/components/library-editor/storage-fields';
+import { StorageForm } from '#src/components/library-editor/storage-form';
 import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { ListState } from '#src/components/list-state';
 import { Sheet } from '#src/components/sheet';
@@ -83,7 +83,6 @@ export const LibraryForm = ({
                     if (editor.needsConsent) {
                       editor.handleRequestConsent();
                     } else {
-                      editor.resetStorage();
                       setStorageOpen(true);
                     }
                   }}>
@@ -139,7 +138,6 @@ export const LibraryForm = ({
           <Button
             onPress={() => {
               editor.handleApprove();
-              editor.resetStorage();
               setStorageOpen(true);
             }}>
             <Text>Load plugin</Text>
@@ -151,56 +149,72 @@ export const LibraryForm = ({
           onDismissed={() => {
             setStorageOpen(false);
           }}>
-          {({ dismiss }) => (
-            <FormLayout
-              title="Storage"
-              footer={
-                <Button
-                  onPress={() => {
-                    void dismiss();
-                  }}
-                  modifiers={[disabled(editor.submitting), buttonStyle('borderedProminent')]}>
-                  <Text modifiers={[frame({ maxWidth: Infinity })]}>Done</Text>
-                </Button>
-              }
-              sections={
-                editor.settings.waiting ? (
-                  <Section>
-                    <ListState kind="loading" />
-                  </Section>
-                ) : (
-                  AsyncResult.matchWithError(editor.settings, {
-                    onInitial: () => (
+          {({ dismiss }) =>
+            Option.match(editor.storage, {
+              onSome: (storage) => (
+                <StorageForm
+                  key={storage.key}
+                  storage={storage}
+                  commitStorage={editor.commitStorage}
+                  onSuccess={dismiss}
+                />
+              ),
+              onNone: () => (
+                <FormLayout
+                  title="Storage"
+                  footer={
+                    <Button
+                      onPress={() => {
+                        void dismiss();
+                      }}
+                      modifiers={[disabled(editor.submitting), buttonStyle('borderedProminent')]}>
+                      <Text modifiers={[frame({ maxWidth: Infinity })]}>Done</Text>
+                    </Button>
+                  }
+                  sections={
+                    editor.settings.waiting ? (
                       <Section>
                         <ListState kind="loading" />
                       </Section>
-                    ),
-                    onSuccess: () => <StorageFields form={form} storage={editor.storage} />,
-                    onError: (error) => (
-                      <Section>
-                        <ListState
-                          kind="error"
-                          message={libraryFailureMessage({ error })}
-                          onRetry={editor.handleRetry}
-                          retrying={editor.settings.waiting}
-                        />
-                      </Section>
-                    ),
-                    onDefect: () => (
-                      <Section>
-                        <ListState
-                          kind="error"
-                          message="Unable to load storage settings."
-                          onRetry={editor.handleRetry}
-                          retrying={editor.settings.waiting}
-                        />
-                      </Section>
-                    ),
-                  })
-                )
-              }
-            />
-          )}
+                    ) : (
+                      AsyncResult.matchWithError(editor.settings, {
+                        onInitial: () => (
+                          <Section>
+                            <ListState kind="loading" />
+                          </Section>
+                        ),
+                        onSuccess: () => (
+                          <Section>
+                            <ListState kind="loading" />
+                          </Section>
+                        ),
+                        onError: (error) => (
+                          <Section>
+                            <ListState
+                              kind="error"
+                              message={libraryFailureMessage({ error })}
+                              onRetry={editor.handleRetry}
+                              retrying={editor.settings.waiting}
+                            />
+                          </Section>
+                        ),
+                        onDefect: () => (
+                          <Section>
+                            <ListState
+                              kind="error"
+                              message="Unable to load storage settings."
+                              onRetry={editor.handleRetry}
+                              retrying={editor.settings.waiting}
+                            />
+                          </Section>
+                        ),
+                      })
+                    )
+                  }
+                />
+              ),
+            })
+          }
         </Sheet>
       ) : null}
     </form.AppForm>

@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { FormLayout } from '#src/components/form/layout';
-import { StorageFields } from '#src/components/library-editor/storage-fields';
+import { StorageForm } from '#src/components/library-editor/storage-form';
 import type { useLibraryForm } from '#src/components/library-editor/use-form.ts';
 import { ListState } from '#src/components/list-state';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
@@ -133,7 +133,6 @@ export const LibraryForm = ({
               if (editor.needsConsent) {
                 editor.handleRequestConsent();
               } else {
-                editor.resetStorage();
                 setStorageOpen(true);
               }
             }}>
@@ -151,45 +150,57 @@ export const LibraryForm = ({
           onDismissed={() => {
             setStorageOpen(false);
           }}>
-          {({ dismiss }) => (
-            <FormLayout
-              title="Storage"
-              footer={
-                <Button
-                  enabled={!editor.submitting}
-                  onClick={() => {
-                    void dismiss();
-                  }}
-                  modifiers={[fillMaxWidth()]}>
-                  <Text>Done</Text>
-                </Button>
-              }>
-              {editor.settings.waiting ? (
-                <ListState kind="loading" />
-              ) : (
-                AsyncResult.matchWithError(editor.settings, {
-                  onInitial: () => <ListState kind="loading" />,
-                  onSuccess: () => <StorageFields form={form} storage={editor.storage} />,
-                  onError: (error) => (
-                    <ListState
-                      kind="error"
-                      message={libraryFailureMessage({ error })}
-                      onRetry={editor.handleRetry}
-                      retrying={editor.settings.waiting}
-                    />
-                  ),
-                  onDefect: () => (
-                    <ListState
-                      kind="error"
-                      message="Unable to load storage settings."
-                      onRetry={editor.handleRetry}
-                      retrying={editor.settings.waiting}
-                    />
-                  ),
-                })
-              )}
-            </FormLayout>
-          )}
+          {({ dismiss }) =>
+            Option.match(editor.storage, {
+              onSome: (storage) => (
+                <StorageForm
+                  key={storage.key}
+                  storage={storage}
+                  commitStorage={editor.commitStorage}
+                  onSuccess={dismiss}
+                />
+              ),
+              onNone: () => (
+                <FormLayout
+                  title="Storage"
+                  footer={
+                    <Button
+                      enabled={!editor.submitting}
+                      onClick={() => {
+                        void dismiss();
+                      }}
+                      modifiers={[fillMaxWidth()]}>
+                      <Text>Done</Text>
+                    </Button>
+                  }>
+                  {editor.settings.waiting ? (
+                    <ListState kind="loading" />
+                  ) : (
+                    AsyncResult.matchWithError(editor.settings, {
+                      onInitial: () => <ListState kind="loading" />,
+                      onSuccess: () => <ListState kind="loading" />,
+                      onError: (error) => (
+                        <ListState
+                          kind="error"
+                          message={libraryFailureMessage({ error })}
+                          onRetry={editor.handleRetry}
+                          retrying={editor.settings.waiting}
+                        />
+                      ),
+                      onDefect: () => (
+                        <ListState
+                          kind="error"
+                          message="Unable to load storage settings."
+                          onRetry={editor.handleRetry}
+                          retrying={editor.settings.waiting}
+                        />
+                      ),
+                    })
+                  )}
+                </FormLayout>
+              ),
+            })
+          }
         </Sheet>
       ) : null}
       {Option.match(editor.pending, {
@@ -213,7 +224,6 @@ export const LibraryForm = ({
               <TextButton
                 onClick={() => {
                   editor.handleApprove();
-                  editor.resetStorage();
                   setStorageOpen(true);
                 }}>
                 <Text>Load plugin</Text>

@@ -51,18 +51,9 @@ const storageFieldSchemas = {
 export const storageSettingsSchema = (fields: typeof StoragePluginSettingsForm.Type) =>
   Schema.Struct(
     Record.fromEntries(
-      Array.map(fields, (field) => [field.name, storageFieldSchemas[field.kind]] as const)
+      Array.map(fields, (field) => [String(field.name), storageFieldSchemas[field.kind]] as const)
     )
   );
-
-export class LibraryEditorInput extends Library.jsonCreate.pipe(
-  Schema.fieldsAssign({
-    storagePluginSettings: Schema.Record(
-      Schema.String,
-      Schema.Union(Record.values(storageFieldSchemas))
-    ).pipe(Schema.decodeTo(Library.jsonCreate.fields.storagePluginSettings)),
-  })
-) {}
 
 export const settingsDefaults = ({
   fields,
@@ -74,7 +65,7 @@ export const settingsDefaults = ({
       fields,
       (field) =>
         [
-          field.name,
+          String(field.name),
           Match.value(field).pipe(
             Match.when({ kind: 'TextField' }, (descriptor) => descriptor.initialValue),
             Match.when({ kind: 'TextListField' }, (descriptor) =>
