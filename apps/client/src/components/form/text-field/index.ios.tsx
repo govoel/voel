@@ -1,7 +1,7 @@
 import { Label, TextField as SwiftTextField, VStack, useNativeState } from '@expo/ui/swift-ui';
 import { disabled, font, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
-import { useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { PlatformColor } from 'react-native';
 
 import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
@@ -19,15 +19,24 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
     onFocusChange,
   } = useTextFieldState();
   const value = useNativeState(fieldValue);
-  const lastNativeChange = useRef(fieldValue);
-  useEffect(() => {
-    if (lastNativeChange.current !== fieldValue) {
-      value.set(fieldValue);
-      lastNativeChange.current = fieldValue;
-    }
-  }, [value, fieldValue]);
+  const lastSyncedText = useRef(fieldValue);
+  const { store } = field;
+  const attach = useCallback(() => {
+    const syncToNative = () => {
+      const text = store.state.value;
+      if (lastSyncedText.current !== text) {
+        lastSyncedText.current = text;
+        value.set(text);
+      }
+    };
+    const subscription = store.subscribe(syncToNative);
+    syncToNative();
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [store, value]);
   const handleChange = (text: string) => {
-    lastNativeChange.current = text;
+    lastSyncedText.current = text;
     field.handleChange(text);
   };
 
@@ -37,6 +46,7 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
 
       <SwiftTextField
         {...('ios' in platformProps ? platformProps.ios : {})}
+        ref={attach}
         placeholder={placeholder}
         modifiers={[
           ...(purpose !== void 0 ? textInputPresets[purpose] : []),

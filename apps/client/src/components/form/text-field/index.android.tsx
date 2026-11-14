@@ -1,6 +1,6 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
-import { useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { textInputPresets } from '#src/components/form/input-presets/index.android.ts';
@@ -17,21 +17,31 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
     onFocusChange,
   } = useTextFieldState();
   const value = useNativeState(fieldValue);
-  const lastNativeChange = useRef(fieldValue);
-  useEffect(() => {
-    if (lastNativeChange.current !== fieldValue) {
-      value.set(fieldValue);
-      lastNativeChange.current = fieldValue;
-    }
-  }, [value, fieldValue]);
+  const lastSyncedText = useRef(fieldValue);
+  const { store } = field;
+  const attach = useCallback(() => {
+    const syncToNative = () => {
+      const text = store.state.value;
+      if (lastSyncedText.current !== text) {
+        lastSyncedText.current = text;
+        value.set(text);
+      }
+    };
+    const subscription = store.subscribe(syncToNative);
+    syncToNative();
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [store, value]);
   const handleChange = (text: string) => {
-    lastNativeChange.current = text;
+    lastSyncedText.current = text;
     field.handleChange(text);
   };
 
   return (
     <ComposeTextField
       {...('android' in platformProps ? platformProps.android : {})}
+      ref={attach}
       textStyle={{
         ...materialInputTextStyle,
         ...('android' in platformProps ? platformProps.android.textStyle : {}),
