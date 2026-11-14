@@ -23,11 +23,11 @@ const StorageList = ({
   return (
     <Column verticalArrangement={{ spacedBy: Spacing.two }}>
       <Text>{descriptor.label}</Text>
-      {Array.map(list.keys, (key, index) => (
-        <Row key={key} verticalAlignment="center">
+      {Array.map(list.field.state.value, (value, index) => (
+        <Row key={index} verticalAlignment="center">
           <form.AppField
             name={`storagePluginSettings.${descriptor.name}[${index}]`}
-            defaultValue={Array.getUnsafe(list.field.state.value, index)}>
+            defaultValue={value}>
             {(input) => (
               <input.TextField
                 label={descriptor.label}
@@ -46,7 +46,11 @@ const StorageList = ({
           </IconButton>
         </Row>
       ))}
-      <TextButton enabled={!list.submitting} onClick={list.handleAdd}>
+      <TextButton
+        enabled={!list.submitting}
+        onClick={() => {
+          list.field.pushValue('');
+        }}>
         <Text>Add entry</Text>
       </TextButton>
     </Column>

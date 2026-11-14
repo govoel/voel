@@ -21,8 +21,8 @@ const StorageList = ({
   return (
     <>
       <List.ForEach
-        data={list.keys}
-        keyExtractor={String}
+        data={list.field.state.value}
+        keyExtractor={(_, index) => String(index)}
         recycling={false}
         {...(list.submitting
           ? {}
@@ -31,10 +31,10 @@ const StorageList = ({
                 list.handleRemove({ indices });
               },
             })}>
-        {({ index }) => (
+        {({ item, index }) => (
           <form.AppField
             name={`storagePluginSettings.${descriptor.name}[${index}]`}
-            defaultValue={Array.getUnsafe(list.field.state.value, index)}>
+            defaultValue={item}>
             {(input) => (
               <input.TextField
                 label={descriptor.label}
@@ -45,7 +45,11 @@ const StorageList = ({
           </form.AppField>
         )}
       </List.ForEach>
-      <Button onPress={list.handleAdd} modifiers={[disabled(list.submitting)]}>
+      <Button
+        onPress={() => {
+          list.field.pushValue('');
+        }}
+        modifiers={[disabled(list.submitting)]}>
         <Text>Add entry</Text>
       </Button>
     </>
