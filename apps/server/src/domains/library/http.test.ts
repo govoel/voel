@@ -96,15 +96,20 @@ it.layer(testLayer)('library lifecycle', (iit) => {
           roots: ['/books/../audio', '/audio/./', '/movies'],
         }),
       };
-      const draft = yield* client.library.getDraftStoragePluginSettingsForm({
-        payload: { ...input, id: Option.none() },
+      const draft = yield* client.library.getStoragePluginSettingsForms({
+        payload: { id: Option.none(), storagePluginId: input.storagePluginId },
       });
-      expect(draft).toMatchObject([{ kind: 'TextListField', name: 'roots', initialValue: [] }]);
+      expect(draft).toMatchObject({
+        audiobook: [{ kind: 'TextListField', name: 'roots', initialValue: [] }],
+        movie: [{ kind: 'TextListField', name: 'roots', initialValue: [] }],
+        show: [{ kind: 'TextListField', name: 'roots', initialValue: [] }],
+      });
       const library = yield* client.library.create({ payload: input });
       const created = yield* client.library.get({ params: library });
       expect(created.storagePluginSettings).toEqual({ roots: ['/audio', '/movies'] });
-      const form = yield* client.library.getStoragePluginSettingsForm({ params: library });
-      expect(form).toMatchObject([
+      const saved = { id: Option.some(library.id), storagePluginId: input.storagePluginId };
+      const form = yield* client.library.getStoragePluginSettingsForms({ payload: saved });
+      expect(form.movie).toMatchObject([
         { kind: 'TextListField', name: 'roots', initialValue: ['/audio', '/movies'] },
       ]);
       yield* client.library.update({
@@ -117,7 +122,7 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect((yield* client.library.get({ params: library })).storagePluginSettings).toEqual({
         roots: [],
       });
-      const clearedForm = yield* client.library.getStoragePluginSettingsForm({ params: library });
+      const clearedForm = yield* client.library.getStoragePluginSettingsForms({ payload: saved });
       expect(clearedForm).toEqual(draft);
     })
   );
@@ -135,7 +140,12 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       const initial = yield* client.library.get({ params: library });
       expect(initial.storagePluginHealth).toEqual({ status: 'unknown' });
       const formError = yield* client.library
-        .getStoragePluginSettingsForm({ params: library })
+        .getStoragePluginSettingsForms({
+          payload: {
+            id: Option.some(library.id),
+            storagePluginId: record.storageKey.storagePluginId,
+          },
+        })
         .pipe(Effect.flip);
       expect(formError).toMatchObject({ _tag: 'PluginLoadError' });
       const failed = yield* client.library.get({ params: library });
@@ -280,12 +290,10 @@ it.layer(testLayer)('library lifecycle', (iit) => {
       expect(started.isOpen()).toBe(true);
       expect(finished.isOpen()).toBe(false);
       expect((yield* client.library.get({ params: library })).name).toBe('Background renamed');
-      const getStoragePluginSettingsFormResult = yield* client.library.getStoragePluginSettingsForm(
-        { params: library }
-      );
-      expect(getStoragePluginSettingsFormResult).toMatchObject([
-        { label: 'Background renamed', initialValue: '/background' },
-      ]);
+      const forms = yield* client.library.getStoragePluginSettingsForms({
+        payload: { id: Option.some(library.id), storagePluginId: payload.storagePluginId },
+      });
+      expect(forms.movie).toMatchObject([{ initialValue: '/background' }]);
       yield* release.open;
       yield* finished.await;
     })
@@ -445,7 +453,7 @@ const makeWireTransport = Effect.fnUntraced(function* (
 
 it.layer(wireTestLayer)('library HTTP transport', (iit) => {
   iit.effect(
-    'previews persisted settings with draft metadata across plugin versions without saving',
+    'previews persisted settings across plugin versions without saving',
     Effect.fnUntraced(function* () {
       const { client, http } = yield* makeWireTransport(
         Option.some({ username: 'wire_version_draft', role: 'admin' })
@@ -453,17 +461,14 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const input = createInput('Plugin version draft', 'npm:test@1');
       const library = yield* client.library.create({ payload: input });
       const before = yield* client.library.get({ params: library });
-      const draft = {
-        ...input,
-        id: Option.some(library.id),
-        name: Library.fields.name.make('Renamed plugin version draft'),
-        type: Library.fields.type.make('audiobook'),
-      };
       for (const pluginId of ['npm:test@1', 'npm:test@2'] as const) {
-        const form = yield* client.library.getDraftStoragePluginSettingsForm({
-          payload: { ...draft, storagePluginId: Library.fields.storagePluginId.make(pluginId) },
+        const forms = yield* client.library.getStoragePluginSettingsForms({
+          payload: {
+            id: Option.some(library.id),
+            storagePluginId: Library.fields.storagePluginId.make(pluginId),
+          },
         });
-        expect(form).toMatchObject([{ label: draft.name, initialValue: '/initial' }]);
+        expect(forms.audiobook).toMatchObject([{ label: 'Root', initialValue: '/initial' }]);
       }
       const afterPreview = yield* client.library.get({ params: library });
       expect(afterPreview).toEqual(before);
@@ -475,14 +480,22 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
           storagePluginSettings: StoragePluginSettingsInput.make({ root: '/updated' }),
         },
       });
-      const updatedForm = yield* client.library.getDraftStoragePluginSettingsForm({
-        payload: { ...draft, storagePluginId: Library.fields.storagePluginId.make('npm:test@2') },
+      const updatedForms = yield* client.library.getStoragePluginSettingsForms({
+        payload: {
+          id: Option.some(library.id),
+          storagePluginId: Library.fields.storagePluginId.make('npm:test@2'),
+        },
       });
-      expect(updatedForm).toMatchObject([{ label: draft.name, initialValue: '/updated' }]);
+      expect(updatedForms.audiobook).toMatchObject([{ label: 'Root', initialValue: '/updated' }]);
       yield* client.library.delete({ params: library });
       const missing = yield* http.execute(
-        HttpClientRequest.post('http://localhost/api/libraries/plugins/storage/settings-form').pipe(
-          HttpClientRequest.bodyJsonUnsafe({ ...input, id: library.id })
+        HttpClientRequest.post(
+          'http://localhost/api/libraries/plugins/storage/settings-forms'
+        ).pipe(
+          HttpClientRequest.bodyJsonUnsafe({
+            id: library.id,
+            storagePluginId: input.storagePluginId,
+          })
         )
       );
       expect(missing.status).toBe(404);
@@ -498,10 +511,10 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
         Option.some({ username: 'wire_draft', role: 'admin' })
       );
       const input = createInput('Draft HTTP', 'npm:test');
-      const draftForm = yield* client.library.getDraftStoragePluginSettingsForm({
-        payload: { ...input, id: Option.none() },
+      const draftForms = yield* client.library.getStoragePluginSettingsForms({
+        payload: { id: Option.none(), storagePluginId: input.storagePluginId },
       });
-      expect(draftForm).toMatchObject([{ label: 'Draft HTTP', initialValue: '' }]);
+      expect(draftForms.movie).toMatchObject([{ label: 'Root', initialValue: '' }]);
       for (const payload of [
         { ...input, storagePluginSettings: StoragePluginSettingsInput.make({ root: 123 }) },
         { ...input, storagePluginSettings: StoragePluginSettingsInput.make({}) },
@@ -680,18 +693,73 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       };
       const original = StoragePluginSettingsPersisted.make({ prefix: '/another-plugin' });
       const library = yield* repository.create({ ...input, storagePluginSettings: original });
-      const savedForm = yield* client.library.getStoragePluginSettingsForm({ params: library });
-      const draftForm = yield* client.library.getDraftStoragePluginSettingsForm({
-        payload: { ...input, id: Option.some(library.id) },
+      const forms = yield* client.library.getStoragePluginSettingsForms({
+        payload: { id: Option.some(library.id), storagePluginId: input.storagePluginId },
       });
-      expect(savedForm).toMatchObject([{ name: 'roots', initialValue: [] }]);
-      expect(draftForm).toEqual(savedForm);
+      expect(forms.movie).toMatchObject([{ name: 'roots', initialValue: [] }]);
       const afterPreview = yield* repository.getById(library);
       expect(afterPreview).toEqual(library);
       yield* client.library.update({ params: library, payload: input });
       const updated = yield* client.library.get({ params: library });
       expect(updated.storagePluginSettings).toEqual({ roots: ['/replacement'] });
       yield* client.library.delete({ params: library });
+    })
+  );
+
+  iit.effect(
+    'rejects media types the plugin has no form for before decoding settings',
+    Effect.fnUntraced(function* () {
+      const { client, http } = yield* makeWireTransport(
+        Option.some({ username: 'wire_unsupported_type', role: 'admin' })
+      );
+      const fixture = yield* PluginFixture;
+      const input = createInput('Unsupported type', 'npm:test');
+      const library = yield* Effect.acquireRelease(
+        client.library.create({ payload: input }),
+        (created) => client.library.delete({ params: created }).pipe(Effect.orDie)
+      );
+      const before = yield* client.library.get({ params: library });
+      const { supportedTypes, beforeDecode } = fixture.controls;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          Object.assign(fixture.controls, { supportedTypes, beforeDecode });
+        })
+      );
+      fixture.controls.supportedTypes = [Library.fields.type.make('movie')];
+      let decoded = 0;
+      fixture.controls.beforeDecode = () =>
+        Effect.sync(() => {
+          decoded += 1;
+        });
+      const forms = yield* client.library.getStoragePluginSettingsForms({
+        payload: { id: Option.none(), storagePluginId: input.storagePluginId },
+      });
+      expect(forms).toMatchObject({ movie: [{ name: 'root' }] });
+      expect(forms.show).toBeUndefined();
+      const payload = { ...input, type: Library.fields.type.make('show') };
+      const createError = yield* client.library
+        .create({ payload: { ...payload, name: Library.fields.name.make('Unsupported create') } })
+        .pipe(Effect.flip);
+      expect(createError).toMatchObject({
+        _tag: 'StoragePluginUnsupportedMediaTypeError',
+        storagePluginId: input.storagePluginId,
+        type: 'show',
+      });
+      const response = yield* http.execute(
+        HttpClientRequest.put(`http://localhost/api/libraries/${library.id}`).pipe(
+          HttpClientRequest.bodyJsonUnsafe(payload)
+        )
+      );
+      expect(response.status).toBe(422);
+      const body = yield* response.json;
+      expect(body).toEqual({
+        _tag: 'StoragePluginUnsupportedMediaTypeError',
+        storagePluginId: input.storagePluginId,
+        type: 'show',
+      });
+      expect(decoded).toBe(0);
+      const after = yield* client.library.get({ params: library });
+      expect(after).toEqual(before);
     })
   );
 
@@ -770,7 +838,11 @@ it.layer(wireTestLayer)('library HTTP transport', (iit) => {
       const path = `http://localhost/api/libraries/${library.id}`;
       const response = yield* http.execute(
         scenario === 'malformed form output'
-          ? HttpClientRequest.get(`${path}/plugins/storage/settings-form`)
+          ? HttpClientRequest.post(
+              'http://localhost/api/libraries/plugins/storage/settings-forms'
+            ).pipe(
+              HttpClientRequest.bodyJsonUnsafe({ id: library.id, storagePluginId: 'npm:test' })
+            )
           : HttpClientRequest.put(path).pipe(
               HttpClientRequest.bodyJsonUnsafe({
                 ...createInput(`HTTP settings ${scenario}`, 'npm:test'),

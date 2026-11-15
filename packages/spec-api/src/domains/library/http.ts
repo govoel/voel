@@ -2,7 +2,7 @@ import {
   StoragePluginInvalidSettingsError,
   StoragePluginSettingsConstructionError,
   StoragePluginSettingsError,
-  StoragePluginSettingsForm,
+  StoragePluginSettingsForms,
 } from '@govoel/plugins/storage';
 import { Schema } from 'effect';
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from 'effect/http-api';
@@ -16,7 +16,10 @@ import {
   StoragePluginStatus,
 } from '#src/domains/library/schema.ts';
 import { PluginLoadError } from '#src/domains/plugins/schema.ts';
-import { StoragePluginLoadError } from '#src/domains/plugins/storage.ts';
+import {
+  StoragePluginLoadError,
+  StoragePluginUnsupportedMediaTypeError,
+} from '#src/domains/plugins/storage.ts';
 
 class LibraryResponse extends Schema.Struct({
   id: Library.json.fields.id,
@@ -62,6 +65,7 @@ export const LibraryApi = HttpApiGroup.make('library')
         LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
         StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
         StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginUnsupportedMediaTypeError.pipe(HttpApiSchema.status(422)),
         StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
         PluginLoadError.pipe(HttpApiSchema.status(500)),
         StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
@@ -82,6 +86,7 @@ export const LibraryApi = HttpApiGroup.make('library')
         LibraryNameConflictError.pipe(HttpApiSchema.status(409)),
         StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
         StoragePluginInvalidSettingsError.pipe(HttpApiSchema.status(422)),
+        StoragePluginUnsupportedMediaTypeError.pipe(HttpApiSchema.status(422)),
         StoragePluginSettingsError.pipe(HttpApiSchema.status(500)),
         PluginLoadError.pipe(HttpApiSchema.status(500)),
         StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
@@ -89,31 +94,15 @@ export const LibraryApi = HttpApiGroup.make('library')
     }),
 
     HttpApiEndpoint.post(
-      'getDraftStoragePluginSettingsForm',
-      '/api/libraries/plugins/storage/settings-form',
+      'getStoragePluginSettingsForms',
+      '/api/libraries/plugins/storage/settings-forms',
       {
         payload: Schema.Struct({
+          /** Seeds the forms with this library's saved settings. */
           id: Schema.OptionFromOptionalKey(Library.json.fields.id),
-          name: Library.jsonCreate.fields.name,
-          type: Library.jsonCreate.fields.type,
           storagePluginId: Library.jsonCreate.fields.storagePluginId,
         }),
-        success: StoragePluginSettingsForm,
-        error: [
-          LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
-          StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),
-          PluginLoadError.pipe(HttpApiSchema.status(500)),
-          StoragePluginLoadError.pipe(HttpApiSchema.status(500)),
-        ],
-      }
-    ),
-
-    HttpApiEndpoint.get(
-      'getStoragePluginSettingsForm',
-      '/api/libraries/:id/plugins/storage/settings-form',
-      {
-        params: Schema.Struct({ id: Library.json.fields.id }),
-        success: StoragePluginSettingsForm,
+        success: StoragePluginSettingsForms,
         error: [
           LibraryNotFoundError.pipe(HttpApiSchema.status(404)),
           StoragePluginSettingsConstructionError.pipe(HttpApiSchema.status(500)),

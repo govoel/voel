@@ -1,5 +1,9 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import type { StoragePluginModule, StoragePluginSettingsForm } from '@govoel/plugins/storage';
+import type {
+  StoragePluginModule,
+  StoragePluginSettingsForm,
+  StoragePluginSettingsForms,
+} from '@govoel/plugins/storage';
 import {
   StorageMediaFileLocation,
   StoragePlugin,
@@ -8,7 +12,7 @@ import {
   StoragePluginSettings,
   StoragePluginSettingsError,
 } from '@govoel/plugins/storage';
-import { Context, Effect, Layer, Option, Scheduler, Schema, String } from 'effect';
+import { Array, Context, Effect, Layer, Option, Record, Scheduler, Schema, String } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
@@ -68,6 +72,9 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
         ): Effect.Effect<void> => Effect.void,
         invalidForm: false,
         invalidPersisted: false,
+        supportedTypes: Array.map(Library.fields.type.schema.literals, (type) =>
+          Library.fields.type.make(type)
+        ),
         settingsError: false,
       };
       const module = {
@@ -105,7 +112,7 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
             StoragePluginSettings,
             Effect.sync(() =>
               StoragePluginSettings.of({
-                getForm: Effect.fnUntraced(function* ({ library, current }) {
+                getForm: Effect.fnUntraced(function* ({ current }) {
                   const settings = Option.isSome(current)
                     ? yield* Persisted.decodeUnknownEffect(current.value).pipe(
                         Effect.catchTags({
@@ -117,11 +124,14 @@ export class PluginFixture extends Context.Service<PluginFixture>()(
                     kind: 'TextField',
                     purpose: 'text',
                     name: 'root',
-                    label: library.name,
+                    label: 'Root',
                     placeholder: '',
                     initialValue: settings.prefix,
                   } satisfies (typeof StoragePluginSettingsForm.Encoded)[number];
-                  return controls.invalidForm ? [field, field] : [field];
+                  const form = controls.invalidForm ? [field, field] : [field];
+                  return Record.fromEntries(
+                    Array.map(controls.supportedTypes, (type) => [type, form] as const)
+                  ) satisfies typeof StoragePluginSettingsForms.Encoded;
                 }),
                 decodeFormSubmission: (request) =>
                   controls.beforeDecode(request).pipe(

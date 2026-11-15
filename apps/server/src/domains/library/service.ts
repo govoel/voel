@@ -88,8 +88,8 @@ export class LibraryService extends Context.Service<LibraryService>()(
                 : Option.none(),
           };
         }),
-        getDraftStoragePluginSettingsForm: Effect.fnUntraced(function* (
-          request: Pick<Library, 'name' | 'type' | 'storagePluginId'> & {
+        getStoragePluginSettingsForms: Effect.fnUntraced(function* (
+          request: Pick<Library, 'storagePluginId'> & {
             readonly id: Option.Option<Library['id']>;
           }
         ) {
@@ -101,10 +101,7 @@ export class LibraryService extends Context.Service<LibraryService>()(
                 .pipe(Effect.map((row) => Option.some(row.storageKey.settings))),
           });
           const editor = yield* editors.acquire(request.storagePluginId);
-          return yield* editor.getForm({
-            library: { name: request.name, type: request.type },
-            current,
-          });
+          return yield* editor.getForm({ current });
         }, Effect.scoped),
         create: Effect.fnUntraced(
           function* (request: typeof Library.jsonCreate.Type) {
@@ -126,14 +123,6 @@ export class LibraryService extends Context.Service<LibraryService>()(
           Effect.catchTags({ SqlError: Effect.die }),
           Effect.scoped
         ),
-        getStoragePluginSettingsForm: Effect.fnUntraced(function* ({ id }: Pick<Library, 'id'>) {
-          const row = yield* repository.getById({ id });
-          const editor = yield* editors.acquire(row.storageKey.storagePluginId);
-          return yield* editor.getForm({
-            library: { type: row.type, name: row.name },
-            current: Option.some(row.storageKey.settings),
-          });
-        }, Effect.scoped),
         update: Effect.fnUntraced(
           function* (request: typeof Library.jsonUpdate.Type & Pick<Library, 'id'>) {
             const row = yield* repository.getById({ id: request.id });

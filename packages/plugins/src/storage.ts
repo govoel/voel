@@ -3,6 +3,7 @@ import type { Effect, FileSystem, Layer, Option, Path } from 'effect';
 import type { HttpClient } from 'effect/http';
 
 import type { Library } from '#src/library.ts';
+import { MediaType } from '#src/library.ts';
 
 export class StoragePluginSettingsFieldName extends Schema.String.check(
   Schema.isPattern(/^[A-Za-z][A-Za-z0-9_]*$/u)
@@ -41,6 +42,19 @@ export class StoragePluginSettingsForm extends Schema.Array(
     { message: 'Settings field names must be unique' }
   )
 ) {
+  public static readonly decodeEffect = Schema.decodeEffect(this);
+}
+
+/**
+ * A settings form per supported media type. A missing type means the plugin doesn't support it,
+ * so at least one is required. Types the host doesn't know are dropped, so a plugin built for a
+ * newer host keeps working for the types this host knows.
+ */
+export class StoragePluginSettingsForms extends Schema.Record(
+  // Branded keys don't survive TypeScript's mapped types, so key by the plain literals.
+  Schema.toEncoded(MediaType),
+  Schema.optionalKey(StoragePluginSettingsForm)
+).check(Schema.isMinProperties(1)) {
   public static readonly decodeEffect = Schema.decodeEffect(this);
 }
 
@@ -155,19 +169,19 @@ export class StoragePluginSettings extends Context.Service<
   // oxlint-disable-next-line effect-conventions/no-context-service-second-type-argument -- plugins implement this contract
   {
     /**
-     * Unbranded UI descriptors and secret-free initial values; no validation rules.
-     * The host validates the form and brands its field names.
+     * A form for every supported media type: unbranded UI descriptors and secret-free initial
+     * values; no validation rules. The host validates the forms and brands their field names.
      * Infallible: populate compatible current values and use defaults otherwise.
      * Incompatible saved settings must not prevent users from opening the form to replace them.
      */
     readonly getForm: (request: {
-      readonly library: Pick<typeof Library.Type, 'name' | 'type'>;
       readonly current: Option.Option<typeof StoragePluginSettingsPersisted.Type>;
-    }) => Effect.Effect<typeof StoragePluginSettingsForm.Encoded>;
+    }) => Effect.Effect<typeof StoragePluginSettingsForms.Encoded>;
 
     /**
      * Schema-validate input, using current as needed, into complete, secret-free JSON.
-     * Input and persisted shapes may differ. The host validates and brands JSON before saving.
+     * Input and persisted shapes may differ. The host validates and brands JSON before saving,
+     * and only calls this for a media type that `getForm` supports.
      * Reject submitted input with StoragePluginInvalidSettingsError; invalid current
      * settings and operational failures use StoragePluginSettingsError.
      */
