@@ -1,4 +1,8 @@
-import type { StoragePluginModule, StoragePluginSettingsForm } from '@govoel/plugins/storage';
+import type {
+  StoragePluginModule,
+  StoragePluginSettingsForm,
+  StoragePluginSettingsForms,
+} from '@govoel/plugins/storage';
 import {
   StorageLocationValidationError,
   StorageMediaFileLocation,
@@ -110,7 +114,7 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
                 })
               )
             : { roots: [] };
-          return [
+          const form = [
             {
               kind: 'TextListField',
               purpose: 'text',
@@ -120,6 +124,11 @@ class LocalStoragePluginSettings extends Context.Service<LocalStoragePluginSetti
               initialValue: settings.roots,
             },
           ] satisfies typeof StoragePluginSettingsForm.Encoded;
+          return {
+            audiobook: form,
+            movie: form,
+            show: form,
+          } satisfies typeof StoragePluginSettingsForms.Encoded;
         }),
         decodeFormSubmission: ({ input }) =>
           LocalStorageSettings.decodeUnknownEffect(input).pipe(

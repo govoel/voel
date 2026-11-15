@@ -1,3 +1,4 @@
+import { MediaType } from '@govoel/plugins/library';
 import { Schema } from 'effect';
 
 import { NpmPluginId } from '#src/domains/plugins/schema.ts';
@@ -15,3 +16,12 @@ export class StoragePluginLoadError extends Schema.TaggedError<
 >('@repo/spec-api/domains/plugins/storage/StoragePluginLoadError')('StoragePluginLoadError', {
   message: Schema.String,
 }) {}
+
+/** The storage plugin has no settings form for the library's media type. */
+export class StoragePluginUnsupportedMediaTypeError extends Schema.TaggedError<
+  StoragePluginUnsupportedMediaTypeError,
+  { readonly brand: unique symbol }
+>('@repo/spec-api/domains/plugins/storage/StoragePluginUnsupportedMediaTypeError')(
+  'StoragePluginUnsupportedMediaTypeError',
+  { storagePluginId: StoragePluginId, type: MediaType }
+) {}

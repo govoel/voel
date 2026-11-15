@@ -1,6 +1,10 @@
 import { expect, it } from '@effect/vitest';
 import { Library } from '@govoel/plugins/library';
-import type { StoragePluginModule, StoragePluginSettingsForm } from '@govoel/plugins/storage';
+import type {
+  StoragePluginModule,
+  StoragePluginSettingsForm,
+  StoragePluginSettingsForms,
+} from '@govoel/plugins/storage';
 import {
   StorageLocationValidationError,
   StorageMediaFileLocation,
@@ -26,6 +30,7 @@ import {
   Option,
   Order,
   Path,
+  Predicate,
   References,
   Schema,
   Scope,
@@ -70,16 +75,18 @@ const storageLayer = Layer.succeed(StoragePlugin, {
 
 const settingsLayer = Layer.succeed(StoragePluginSettings, {
   getForm: () =>
-    Effect.succeed([
-      {
-        kind: 'TextField',
-        purpose: 'text',
-        name: 'directory',
-        label: 'Directory',
-        placeholder: '',
-        initialValue: '/library',
-      },
-    ]),
+    Effect.succeed({
+      movie: [
+        {
+          kind: 'TextField',
+          purpose: 'text',
+          name: 'directory',
+          label: 'Directory',
+          placeholder: '',
+          initialValue: '/library',
+        },
+      ],
+    }),
   decodeFormSubmission: () => Effect.succeed(request.settings),
 });
 
@@ -162,18 +169,15 @@ it.effect(
         expect(released).toBe(0);
         const location = yield* firstStorage.decodeMediaFileLocation({ location: '/held' });
         expect(location).toBe('/held');
-        const form = yield* firstSettings.getForm({
-          library: libraryMetadata,
-          current: Option.none(),
-        });
-        expect(form).toMatchObject([{ name: 'directory' }]);
+        const forms = yield* firstSettings.getForm({ current: Option.none() });
+        expect(forms).toMatchObject({ movie: [{ name: 'directory' }] });
       }).pipe(Effect.scoped);
       expect(released).toBe(2);
     }).pipe(Effect.provide(makeMaps(module)));
   }
 );
 
-it.effect('shares a settings editor per plugin while keeping library inputs per invocation', () => {
+it.effect('shares a settings editor per plugin while keeping inputs per invocation', () => {
   let built = 0;
   const module = {
     storage: {
@@ -183,22 +187,24 @@ it.effect('shares a settings editor per plugin while keeping library inputs per 
         Effect.sync(() => {
           built += 1;
           return StoragePluginSettings.of({
-            getForm: Effect.fnUntraced(function* ({ library, current }) {
+            getForm: Effect.fnUntraced(function* ({ current }) {
               const settings = Option.isSome(current)
                 ? yield* Schema.decodeUnknownEffect(Schema.Struct({ directory: Schema.String }))(
                     current.value
                   ).pipe(Effect.orDie)
                 : { directory: '' };
-              return [
-                {
-                  kind: 'TextField',
-                  purpose: 'text',
-                  name: 'directory',
-                  label: library.name,
-                  placeholder: '',
-                  initialValue: settings.directory,
-                },
-              ];
+              return {
+                movie: [
+                  {
+                    kind: 'TextField',
+                    purpose: 'text',
+                    name: 'directory',
+                    label: 'Directory',
+                    placeholder: '',
+                    initialValue: settings.directory,
+                  },
+                ],
+              };
             }),
             decodeFormSubmission: ({ library, input }) =>
               Effect.succeed({ name: library.name, input }),
@@ -214,14 +220,14 @@ it.effect('shares a settings editor per plugin while keeping library inputs per 
     const otherLibrary = { ...libraryMetadata, name: Library.fields.name.make('Other library') };
     const forms = yield* Effect.all(
       [
-        first.getForm({ library: libraryMetadata, current: Option.none() }),
-        second.getForm({ library: otherLibrary, current: Option.some(request.settings) }),
+        first.getForm({ current: Option.none() }),
+        second.getForm({ current: Option.some(request.settings) }),
       ],
       { concurrency: 'unbounded' }
     );
     expect(forms).toMatchObject([
-      [{ label: 'Movies', initialValue: '' }],
-      [{ label: 'Other library', initialValue: '/library' }],
+      { movie: [{ initialValue: '' }] },
+      { movie: [{ initialValue: '/library' }] },
     ]);
     const settings = yield* second.decodeFormSubmission({
       library: otherLibrary,
@@ -254,9 +260,9 @@ it.effect(
       const form = yield* Effect.gen(function* () {
         const editors = yield* StoragePluginSettingsMap;
         const settings = yield* editors.acquire(request.storagePluginId);
-        return yield* settings.getForm({ library: libraryMetadata, current: Option.none() });
+        return yield* settings.getForm({ current: Option.none() });
       }).pipe(Effect.provide(StoragePluginSettingsMap.layer));
-      expect(form).toEqual([
+      const roots = [
         {
           kind: 'TextListField',
           purpose: 'text',
@@ -265,7 +271,8 @@ it.effect(
           placeholder: '/path/to/media',
           initialValue: [],
         },
-      ]);
+      ];
+      expect(form).toEqual({ audiobook: roots, movie: roots, show: roots });
     },
     Effect.scoped,
     Effect.provide([StoragePluginMap.layer, StoragePluginModuleMap.layerNoDeps]),
@@ -334,7 +341,7 @@ it.effect(
       const editors = yield* StoragePluginSettingsMap;
       const settings = yield* editors.acquire(request.storagePluginId);
       const formExit = yield* settings
-        .getForm({ library: libraryMetadata, current: Option.none() })
+        .getForm({ current: Option.some(request.settings) })
         .pipe(Effect.exit);
       expect(Exit.findDefect(formExit)).toMatchObject({
         _tag: 'Success',
@@ -358,7 +365,8 @@ it.effect(
         storage: {
           layer: () => storageLayer,
           layerSettings: Layer.succeed(StoragePluginSettings, {
-            getForm: () => {
+            // Only the form for saved settings is malformed, so submissions reach the plugin.
+            getForm: ({ current }) => {
               const field = {
                 kind: 'TextField',
                 purpose: 'text',
@@ -367,17 +375,21 @@ it.effect(
                 placeholder: '',
                 initialValue: '',
               } satisfies (typeof StoragePluginSettingsForm.Encoded)[number];
-              return Effect.succeed([
-                field,
-                {
-                  kind: 'TextListField',
-                  purpose: 'text',
-                  name: field.name,
-                  label: 'Directories',
-                  placeholder: '',
-                  initialValue: [],
-                },
-              ]);
+              return Effect.succeed({
+                movie: Option.isSome(current)
+                  ? [
+                      field,
+                      {
+                        kind: 'TextListField',
+                        purpose: 'text',
+                        name: field.name,
+                        label: 'Directories',
+                        placeholder: '',
+                        initialValue: [],
+                      },
+                    ]
+                  : [field],
+              });
             },
             decodeFormSubmission: () => Effect.succeed({ value: Number.NaN }),
           }),
@@ -393,9 +405,7 @@ it.effect(
     function* () {
       const editors = yield* StoragePluginSettingsMap;
       const settings = yield* editors.acquire(request.storagePluginId);
-      const exit = yield* settings
-        .getForm({ library: libraryMetadata, current: Option.none() })
-        .pipe(Effect.exit);
+      const exit = yield* settings.getForm({ current: Option.none() }).pipe(Effect.exit);
       expect(Exit.findDefect(exit)).toMatchObject({
         _tag: 'Success',
         success: { _tag: 'SchemaError' },
@@ -408,16 +418,18 @@ it.effect(
           layer: () => storageLayer,
           layerSettings: Layer.succeed(StoragePluginSettings, {
             getForm: () =>
-              Effect.succeed([
-                {
-                  kind: 'TextField',
-                  purpose: 'text',
-                  name: 'directory.path',
-                  label: 'Directory',
-                  placeholder: '',
-                  initialValue: '',
-                },
-              ]),
+              Effect.succeed({
+                movie: [
+                  {
+                    kind: 'TextField',
+                    purpose: 'text',
+                    name: 'directory.path',
+                    label: 'Directory',
+                    placeholder: '',
+                    initialValue: '',
+                  },
+                ],
+              }),
             decodeFormSubmission: () => Effect.succeed({}),
           }),
         },
@@ -558,7 +570,7 @@ it.effect(
     const current = Option.some(StoragePluginSettingsPersisted.make({ directory: '/previous' }));
     const inputs = {
       file: { location: '/library/file' },
-      form: { library: request.library, current },
+      form: { current },
       submission: {
         library: request.library,
         current,
@@ -618,12 +630,9 @@ it.effect(
               StoragePluginSettings,
               StoragePluginSettings.of({
                 getForm: (input) => {
-                  expect(input).toEqual({
-                    library: libraryMetadata,
-                    current: Option.some({ directory: '/previous' }),
-                  });
+                  expect(input).toEqual({ current: Option.some({ directory: '/previous' }) });
                   inspect();
-                  return execute({ value: [] });
+                  return execute({ value: { movie: [] } });
                 },
                 decodeFormSubmission: (input) => {
                   expect(input).toEqual({
@@ -655,7 +664,7 @@ it.effect(
         const decodeMediaFileLocationResult = yield* storage.decodeMediaFileLocation(inputs.file);
         expect(decodeMediaFileLocationResult).toBe('/library/file');
         const getFormResult = yield* settings.getForm(inputs.form);
-        expect(getFormResult).toEqual([]);
+        expect(getFormResult).toEqual({ movie: [] });
         const decodeFormSubmissionResult = yield* settings.decodeFormSubmission(inputs.submission);
         expect(decodeFormSubmissionResult).toEqual({
           directory: '/library',
@@ -763,7 +772,7 @@ it.effect(
         layerSettings: Layer.succeed(
           StoragePluginSettings,
           StoragePluginSettings.of({
-            getForm: Effect.fnUntraced(function* ({ library }) {
+            getForm: Effect.fnUntraced(function* ({ current }) {
               const snapshotContext2 = yield* snapshotContext;
               observed.push(snapshotContext2);
               arrivals += 1;
@@ -773,16 +782,21 @@ it.effect(
               yield* resume.await;
               const snapshotContext3 = yield* snapshotContext;
               observed.push(snapshotContext3);
-              return [
-                {
-                  kind: 'TextField',
-                  purpose: 'text',
-                  name: 'directory',
-                  label: library.name,
-                  placeholder: '',
-                  initialValue: '',
-                },
-              ] satisfies typeof StoragePluginSettingsForm.Encoded;
+              return {
+                movie: [
+                  {
+                    kind: 'TextField',
+                    purpose: 'text',
+                    name: 'directory',
+                    label: 'Directory',
+                    placeholder: '',
+                    initialValue: Option.match(Option.filter(current, Predicate.isString), {
+                      onNone: () => '',
+                      onSome: (value) => value,
+                    }),
+                  },
+                ],
+              } satisfies typeof StoragePluginSettingsForms.Encoded;
             }),
             decodeFormSubmission: () => Effect.succeed(request.settings),
           })
@@ -812,11 +826,10 @@ it.effect(
           readonly privateValue: string;
         }) {
           const before = yield* snapshotContext;
-          const form = yield* settings.getForm({
-            library: { ...libraryMetadata, name: Library.fields.name.make(privateValue) },
-            current: Option.none(),
+          const forms = yield* settings.getForm({
+            current: Option.some(StoragePluginSettingsPersisted.make(privateValue)),
           });
-          expect(form[0]?.label).toBe(privateValue);
+          expect(forms.movie?.[0]?.initialValue).toBe(privateValue);
           const snapshotContext4 = yield* snapshotContext;
           expect(snapshotContext4).toEqual(before);
         },
@@ -933,8 +946,12 @@ it.effect(
         layerSettings: Layer.succeed(
           StoragePluginSettings,
           StoragePluginSettings.of({
-            getForm: () => {
-              throw defect;
+            // Submissions read the form for unsaved settings first, so only saved settings throw.
+            getForm: ({ current }) => {
+              if (Option.isSome(current)) {
+                throw defect;
+              }
+              return Effect.succeed({ movie: [] });
             },
             decodeFormSubmission: () => error,
           })
@@ -959,7 +976,7 @@ it.effect(
         expect(afterSubmission).toEqual(before);
 
         const form = yield* settings
-          .getForm({ library: libraryMetadata, current: Option.none() })
+          .getForm({ current: Option.some(request.settings) })
           .pipe(Effect.exit);
         expect(form).toEqual(Exit.die(defect));
         const afterForm = yield* snapshotContext;

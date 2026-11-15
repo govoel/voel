@@ -4,7 +4,7 @@ import {
   StorageMediaFileLocation,
   StoragePlugin,
   StoragePluginSettings,
-  StoragePluginSettingsForm,
+  StoragePluginSettingsForms,
   StoragePluginSettingsPersisted,
 } from '@govoel/plugins/storage';
 import {
@@ -28,7 +28,10 @@ import { FetchHttpClient, HttpClient } from 'effect/http';
 
 import type { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
-import { StoragePluginLoadError } from '@repo/spec-api/domains/plugins/storage.ts';
+import {
+  StoragePluginLoadError,
+  StoragePluginUnsupportedMediaTypeError,
+} from '@repo/spec-api/domains/plugins/storage.ts';
 
 import { PluginModuleMap } from '#src/domains/plugins/index.ts';
 import local from '#src/domains/plugins/storage/local/index.ts';
@@ -160,28 +163,34 @@ class StoragePluginSettingsEditor extends Context.Service<StoragePluginSettingsE
         makeLayer: (module) => module.storage.layerSettings,
       });
       const settings = Context.get(context, StoragePluginSettings);
-      return {
-        getForm: ({ library, current }: Parameters<typeof settings.getForm>[0]) =>
-          invoke(() =>
-            settings
-              .getForm({
-                library: { name: library.name, type: library.type },
-                current,
-              })
-              .pipe(
-                Effect.flatMap((form) =>
-                  StoragePluginSettingsForm.decodeEffect(form).pipe(
-                    Effect.catchTags({ SchemaError: Effect.die })
-                  )
+      const getForm = ({ current }: Parameters<typeof settings.getForm>[0]) =>
+        invoke(() =>
+          settings
+            .getForm({ current })
+            .pipe(
+              Effect.flatMap((forms) =>
+                StoragePluginSettingsForms.decodeEffect(forms).pipe(
+                  Effect.catchTags({ SchemaError: Effect.die })
                 )
               )
-          ),
-        decodeFormSubmission: ({
+            )
+        );
+      return {
+        getForm,
+        /** Rejects a media type the plugin has no form for before the plugin sees the input. */
+        decodeFormSubmission: Effect.fnUntraced(function* ({
           library,
           current,
           input,
-        }: Parameters<typeof settings.decodeFormSubmission>[0]) =>
-          invoke(() =>
+        }: Parameters<typeof settings.decodeFormSubmission>[0]) {
+          const forms = yield* getForm({ current });
+          if (!Predicate.hasProperty(forms, library.type)) {
+            return yield* StoragePluginUnsupportedMediaTypeError.make({
+              storagePluginId,
+              type: library.type,
+            });
+          }
+          return yield* invoke(() =>
             settings
               .decodeFormSubmission({
                 library: { name: library.name, type: library.type },
@@ -195,7 +204,8 @@ class StoragePluginSettingsEditor extends Context.Service<StoragePluginSettingsE
                   )
                 )
               )
-          ),
+          );
+        }),
       };
     }),
   }
