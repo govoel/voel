@@ -24,7 +24,8 @@ export const libraryFailureMessage = ({ error }: { readonly error: LibraryError 
       LibraryNameConflictError: () =>
         'A library with this name already exists. Choose another name.',
       StoragePluginSettingsConstructionError: () => 'Unable to load storage settings. Try again.',
-      StoragePluginInvalidSettingsError: () => 'Check the storage settings and try again.',
+      // The plugin's message explains what to fix and is client-safe by contract.
+      StoragePluginInvalidSettingsError: ({ message }) => message,
       StoragePluginUnsupportedMediaTypeError: () =>
         'This storage plugin doesn’t support the selected media type. Choose another type or plugin.',
       StoragePluginSettingsError: () => 'Unable to apply storage settings. Try again.',

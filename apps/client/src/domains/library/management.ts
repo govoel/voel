@@ -43,6 +43,51 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
+/**
+ * A storage plugin's settings form for each media type it supports. Not reactive, so saving a
+ * library can't reset an open editor.
+ */
+export const storagePluginSettingsFormsAtom = Atom.family(
+  ({
+    account,
+    id,
+    storagePluginId,
+  }: {
+    readonly account: AccountKey;
+    /** Seeds the forms with this library's saved settings. */
+    readonly id: Option.Option<typeof Library.fields.id.Type>;
+    readonly storagePluginId: typeof Library.jsonCreate.fields.storagePluginId.Type;
+  }) =>
+    AppRuntime.atom(
+      Effect.fnUntraced(function* () {
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        return yield* client.library.getStoragePluginSettingsForms({
+          payload: { id, storagePluginId },
+        });
+      })
+    ).pipe(Atom.withLabel('storagePluginSettingsFormsAtom'))
+);
+
+export const saveLibrary = Effect.fnUntraced(
+  function* ({
+    account,
+    id,
+    library,
+  }: {
+    readonly account: AccountKey;
+    /** The library to replace, or none to create one. */
+    readonly id: Option.Option<typeof Library.fields.id.Type>;
+    readonly library: typeof Library.jsonCreate.Type;
+  }) {
+    const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+    return yield* Option.match(id, {
+      onNone: () => client.library.create({ payload: library }),
+      onSome: (libraryId) => client.library.update({ params: { id: libraryId }, payload: library }),
+    });
+  },
+  Reactivity.mutation(['library'])
+);
+
 export const deleteLibrary = Effect.fnUntraced(
   function* ({
     account,
@@ -57,7 +102,11 @@ export const deleteLibrary = Effect.fnUntraced(
   Reactivity.mutation(['library'])
 );
 
-export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Type, 'type'>) =>
+export const mediaTypeLabel = ({
+  type,
+}: {
+  readonly type: typeof Library.json.fields.type.Encoded;
+}) =>
   Match.value(type).pipe(
     Match.when('movie', () => 'Movies'),
     Match.when('show', () => 'TV shows'),

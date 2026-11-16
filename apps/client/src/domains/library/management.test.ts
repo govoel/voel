@@ -1,6 +1,9 @@
 import { expect, it } from '@effect/vitest';
-import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
+import {
+  StoragePluginInvalidSettingsError,
+  StoragePluginSettingsInput,
+} from '@govoel/plugins/storage';
+import { Array, Cause, Effect, Layer, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
@@ -9,13 +12,20 @@ import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import {
+  LibraryEditorValues,
+  libraryEditorDefaults,
+  supportedMediaTypes,
+} from '#src/domains/library/editor/schema.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   deleteLibrary,
   libraryStorageDetails,
   libraryStorageErrors,
   listLibrariesAtom,
+  saveLibrary,
   serverLibraryAtom,
+  storagePluginSettingsFormsAtom,
 } from '#src/domains/library/management.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -192,6 +202,99 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(
           (yield* firstClient.library.list({ query: { limit: 20, cursor: Option.none() } })).items
         ).toEqual([]);
+      },
+      (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'creates and replaces libraries from editor values, and seeds forms with saved settings',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const storagePluginId = Library.jsonCreate.fields.storagePluginId.make('builtin:local');
+        const decode = Schema.decodeUnknownEffect(LibraryEditorValues);
+
+        const forms = yield* Atom.getResult(
+          storagePluginSettingsFormsAtom({
+            account: account.key,
+            id: Option.none(),
+            storagePluginId,
+          })
+        );
+        const mediaTypes = yield* Array.match(supportedMediaTypes(forms), {
+          onEmpty: () => Effect.die('The local plugin supports every media type'),
+          onNonEmpty: Effect.succeed,
+        });
+        expect(Array.map(mediaTypes, ({ type }) => type)).toEqual(['audiobook', 'movie', 'show']);
+        const defaults = libraryEditorDefaults({
+          draft: { name: '', type: Option.none() },
+          storagePluginId,
+          mediaTypes,
+        });
+        expect(defaults).toMatchObject({
+          type: 'audiobook',
+          storagePluginSettings: { audiobook: { roots: [] }, movie: { roots: [] } },
+        });
+
+        const list = listLibrariesAtom(account.key);
+        yield* Atom.mount(list);
+        yield* Atom.getResult(list, { suspendOnWaiting: true }).pipe(Effect.flip);
+        const movies = yield* decode({
+          ...defaults,
+          name: ' Movies ',
+          type: 'movie',
+          storagePluginSettings: { movie: { roots: ['/media/movies'] } },
+        });
+        const created = yield* saveLibrary({
+          account: account.key,
+          id: Option.none(),
+          library: movies,
+        });
+        const listed = yield* Atom.getResult(list, { suspendOnWaiting: true });
+        expect(listed.items).toMatchObject([{ id: created.id, name: 'Movies', type: 'movie' }]);
+
+        const saved = yield* Atom.getResult(
+          storagePluginSettingsFormsAtom({
+            account: account.key,
+            id: Option.some(created.id),
+            storagePluginId,
+          })
+        );
+        expect(saved.movie).toMatchObject([{ name: 'roots', initialValue: ['/media/movies'] }]);
+
+        const shows = yield* decode({
+          name: 'Shows',
+          type: 'show',
+          storagePluginId,
+          storagePluginSettings: { show: { roots: ['/media/shows'] } },
+        });
+        yield* saveLibrary({ account: account.key, id: Option.some(created.id), library: shows });
+        const detail = serverLibraryAtom({ account: account.key, id: created.id });
+        const replaced = yield* Atom.getResult(detail);
+        expect(replaced).toMatchObject({
+          name: 'Shows',
+          type: 'show',
+          storagePluginSettings: { roots: ['/media/shows'] },
+        });
+
+        const relative = yield* decode({
+          name: 'Shows',
+          type: 'show',
+          storagePluginId,
+          storagePluginSettings: { show: { roots: ['relative/shows'] } },
+        });
+        const invalid = yield* saveLibrary({
+          account: account.key,
+          id: Option.some(created.id),
+          library: relative,
+        }).pipe(Effect.flip);
+        expect(invalid).toBeInstanceOf(StoragePluginInvalidSettingsError);
+        expect(libraryFailureMessage({ error: invalid })).toBe(
+          'Directories must be non-empty absolute paths without NUL characters'
+        );
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )
