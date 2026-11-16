@@ -22,6 +22,7 @@ import AndroidCreateLibraryScreen from '#src/app/accounts/(selected)/server/libr
 import IosCreateLibraryScreen from '#src/app/accounts/(selected)/server/libraries/create/index.tsx';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
+import { npmPluginWarning } from '#src/domains/library/components/library-form/index.tsx';
 import type * as Management from '#src/domains/library/management.ts';
 
 const native = vi.hoisted(() => ({ hide: vi.fn<() => Promise<void>>() }));
@@ -98,7 +99,7 @@ vi.mock('#src/components/form', async () => {
               role="button"
               accessibilityLabel={`Remove ${label} ${index + 1}`}
               onPress={() => {
-                remove(index);
+                remove({ indices: [index] });
               }}
             />
           </View>
@@ -163,11 +164,17 @@ vi.mock('#src/components/form/layout', () => ({
   FormLayout: ({
     children,
     footer,
+    sections,
     title,
-  }: PropsWithChildren<{ readonly footer: ReactNode; readonly title?: string }>) => (
+  }: PropsWithChildren<{
+    readonly footer: ReactNode;
+    readonly sections?: ReactNode;
+    readonly title?: string;
+  }>) => (
     <View>
       <Text>{title}</Text>
       {children}
+      {sections}
       {footer}
     </View>
   ),
@@ -178,14 +185,43 @@ vi.mock('#src/components/list-state', () => ({
   ),
 }));
 vi.mock('#src/components/text', () => ({ Text }));
+vi.mock('#src/components/sheet', () => ({
+  // Opens as soon as it mounts, and stays open until `dismiss` reports it closed.
+  Sheet: ({
+    children,
+    onDismissed,
+  }: {
+    readonly children: (props: { readonly dismiss: () => void }) => ReactNode;
+    readonly onDismissed: () => void;
+  }) => <View>{children({ dismiss: onDismissed })}</View>,
+}));
 vi.mock('#src/components/invalid-link-screen', () => ({
   InvalidLinkScreen: () => <Text>This link is invalid.</Text>,
 }));
 vi.mock('#src/constants/material.ts', () => ({
   materialSeedColor: 'blue',
 }));
+vi.mock('@expo/ui', () => ({ Icon: () => null }));
 vi.mock('@expo/ui/swift-ui', () => ({
   Host: ({ children }: PropsWithChildren) => <View>{children}</View>,
+  HStack: ({ children }: PropsWithChildren) => <View>{children}</View>,
+  Section: ({ children }: PropsWithChildren) => <View>{children}</View>,
+  Spacer: () => null,
+  Button: ({
+    children,
+    modifiers = [],
+    onPress,
+  }: PropsWithChildren<{
+    readonly modifiers?: ReadonlyArray<{ readonly disabled?: boolean }>;
+    readonly onPress: () => void;
+  }>) => (
+    <Pressable
+      role="button"
+      disabled={Array.some(modifiers, (modifier) => modifier.disabled === true)}
+      onPress={onPress}>
+      {children}
+    </Pressable>
+  ),
   LabeledContent: ({ label, children }: PropsWithChildren<{ readonly label: string }>) => (
     <View>
       <Text>{label}</Text>
@@ -211,11 +247,14 @@ vi.mock('@expo/ui/swift-ui', () => ({
 }));
 vi.mock('@expo/ui/swift-ui/modifiers', () => ({
   buttonStyle: () => ({}),
-  disabled: () => ({}),
+  disabled: (disabled: boolean) => ({ disabled }),
+  environment: () => ({}),
+  font: () => ({}),
   foregroundStyle: () => ({}),
   frame: () => ({}),
   pickerStyle: () => ({}),
   tag: () => ({}),
+  tint: () => ({}),
 }));
 vi.mock('@expo/ui/jetpack-compose', () => ({
   Host: ({ children }: PropsWithChildren) => <View>{children}</View>,
@@ -304,6 +343,9 @@ const renderScreen = async (content: Parameters<typeof render>[0]) => {
     ),
   });
 };
+const editStorageSettings = async () => {
+  await submit({ label: 'Storage settings' });
+};
 const submit = async ({ label }: { readonly label: string }) => {
   const button = screen.getByRole('button', { name: label });
   await waitFor(() => {
@@ -344,6 +386,7 @@ describe.each([
     await renderScreen(<CreateLibraryScreen />);
 
     await fireEvent.changeText(await screen.findByLabelText('Name'), '  Films  ');
+    await editStorageSettings();
     await fireEvent.changeText(screen.getByLabelText('Directories 1'), '/media/old');
     await fireEvent.press(screen.getByRole('button', { name: 'Add to Directories' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Add to Directories' }));
@@ -351,6 +394,8 @@ describe.each([
     await fireEvent.press(screen.getByRole('button', { name: 'Remove Directories 1' }));
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('');
     expect(screen.getByLabelText('Directories 2')).toHaveDisplayValue('/media/films');
+    await submit({ label: 'Done' });
+    expect(screen.queryByLabelText('Directories 1')).toBeNull();
 
     await submit({ label: 'Create library' });
     await waitFor(() => {
@@ -384,6 +429,7 @@ describe.each([
   it('keeps settings per media type', async () => {
     await renderScreen(<CreateLibraryScreen />);
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Shows');
+    await editStorageSettings();
     await fireEvent.changeText(screen.getByLabelText('Directories 1'), '/media/movies');
     await fireEvent.changeText(screen.getByLabelText('Media type'), 'show');
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('');
@@ -436,13 +482,13 @@ describe.each([
     const message = 'A library with this name already exists. Choose another name.';
     expect(await screen.findByText(message)).toBeOnTheScreen();
 
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'npm');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     expect(screen.queryByText(message)).toBeNull();
   });
 
   it('needs a package name before loading an npm plugin', async () => {
     await renderScreen(<CreateLibraryScreen />);
-    await fireEvent.changeText(await screen.findByLabelText('Storage'), 'npm');
+    await fireEvent.changeText(await screen.findByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), '   ');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Load plugin' })).toBeDisabled();
@@ -464,9 +510,11 @@ describe.each([
   it('loads an npm plugin only when asked, and saves with its settings', async () => {
     await renderScreen(<CreateLibraryScreen />);
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'npm');
-    expect(screen.getByText('Load the plugin to show its settings.')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Directories 1')).toBeNull();
+    expect(screen.queryByText(npmPluginWarning)).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
+    expect(screen.getByText(npmPluginWarning)).toBeOnTheScreen();
+    expect(screen.getByText('Load the plugin to edit its settings.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Storage settings' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
 
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
@@ -485,9 +533,8 @@ describe.each([
     await act(async () => {
       await Effect.runPromise(Deferred.succeed(loading, void 0));
     });
-    await waitFor(() => {
-      expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
-    });
+    await editStorageSettings();
+    expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
     expect(screen.getByLabelText('Package')).toBeEnabled();
     expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
       account,
@@ -520,17 +567,18 @@ describe.each([
 
   it('loads local folders as soon as they’re chosen, starting their settings afresh', async () => {
     await renderScreen(<CreateLibraryScreen />);
+    await editStorageSettings();
     await fireEvent.changeText(await screen.findByLabelText('Directories 1'), '/media/films');
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'npm');
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'builtin:local');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
     expect(api.loadPlugin).not.toHaveBeenCalled();
 
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'npm');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await submit({ label: 'Load plugin' });
     await screen.findByLabelText('Bucket');
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'builtin:local');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
     await waitFor(() => {
       expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('');
     });
@@ -547,7 +595,7 @@ describe.each([
     );
     await renderScreen(<CreateLibraryScreen />);
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'npm');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'not-a-plugin');
     await submit({ label: 'Load plugin' });
     expect(
@@ -555,13 +603,14 @@ describe.each([
         'Unable to install or load this plugin. Check the package name and try again.'
       )
     ).toBeOnTheScreen();
-    expect(screen.getByText('Load the plugin to show its settings.')).toBeOnTheScreen();
+    expect(screen.getByText('Load the plugin to edit its settings.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
     await waitFor(() => {
       expect(screen.getByLabelText('Package')).toBeEnabled();
     });
 
-    await fireEvent.changeText(screen.getByLabelText('Storage'), 'builtin:local');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
+    await editStorageSettings();
     expect(screen.getByLabelText('Directories 1')).toBeOnTheScreen();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Create library' })).toBeEnabled();
@@ -596,11 +645,12 @@ describe.each([
     );
     await renderScreen(<EditLibraryScreen />);
     expect(await screen.findByLabelText('Name')).toHaveDisplayValue('Films');
+    await editStorageSettings();
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
     expect(api.load).toHaveBeenCalledWith({ account, id: Option.some(libraryId) });
 
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Movies');
-    await submit({ label: 'Save' });
+    await submit({ label: 'Save changes' });
     await waitFor(() => {
       expect(api.update).toHaveBeenCalledExactlyOnceWith({
         account,
@@ -648,18 +698,20 @@ describe.each([
     ).toBeOnTheScreen();
     expect(screen.getByText('Movies')).toBeOnTheScreen();
     expect(screen.getByText('TV shows')).toBeOnTheScreen();
-    expect(screen.queryByText('Audiobooks')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Audiobooks')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Storage settings' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
     // Settled: validation rejected the submission rather than still running it.
     await waitFor(() => {
       expect(screen.queryByText('Saving')).toBeNull();
-      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
     });
     expect(api.update).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText('Media type'), 'movie');
+    await editStorageSettings();
     expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
-    await submit({ label: 'Save' });
+    await submit({ label: 'Save changes' });
     await waitFor(() => {
       expect(api.update).toHaveBeenCalledWith({
         account,
@@ -676,9 +728,10 @@ describe.each([
 
   it('loads another plugin with the library’s saved settings', async () => {
     await renderScreen(<EditLibraryScreen />);
-    await fireEvent.changeText(await screen.findByLabelText('Storage'), 'npm');
+    await fireEvent.changeText(await screen.findByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await submit({ label: 'Load plugin' });
+    await editStorageSettings();
     await screen.findByLabelText('Bucket');
     expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
       account,

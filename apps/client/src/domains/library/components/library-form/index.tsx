@@ -300,27 +300,16 @@ export const useStoragePluginLoader = ({
   };
 };
 
+export const npmPluginWarning =
+  'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.';
+
 export const storagePluginSources = [
   { source: 'builtin:local', label: 'Local folders' },
-  { source: 'npm', label: 'npm package' },
+  { source: 'npm', label: 'Custom plugin' },
 ] as const satisfies ReadonlyArray<{
   readonly source: (typeof StoragePluginChoice.Encoded)['source'];
   readonly label: string;
 }>;
-
-/** Media types to offer: those the loaded plugin supports, plus the selected type if it doesn't. */
-export const useMediaTypeChoices = ({
-  form,
-}: {
-  readonly form: ReturnType<typeof useLibraryForm>;
-}) => {
-  const storage = useSelector(form.store, (state) => state.values.storage);
-  const selected = useSelector(form.store, (state) => state.values.type);
-  return Array.filter(
-    mediaTypes,
-    (type) => settingsFormFor({ storage, type }) !== void 0 || type === selected
-  );
-};
 
 /** The storage settings fields for the selected media type, each bound to its form value. */
 export const useStoragePluginSettingsFields = ({
@@ -333,7 +322,7 @@ export const useStoragePluginSettingsFields = ({
   const type = useSelector(form.store, (state) => state.values.type);
   const storage = useSelector(form.store, (state) => state.values.storage);
   if (pending) {
-    return { _tag: 'NotLoaded', message: 'Load the plugin to show its settings.' } as const;
+    return { _tag: 'NotLoaded', message: 'Load the plugin to edit its settings.' } as const;
   }
   const settingsForm = settingsFormFor({ storage, type });
   if (settingsForm === void 0) {

@@ -20,7 +20,7 @@ const EditLibrary = ({ id }: typeof LibraryParams.Type) => {
       <LibraryForm
         target={{ _tag: 'Edit', id }}
         title="Edit Library"
-        submitLabel="Save"
+        submitLabel="Save changes"
         onSaved={async () => {
           const sheet = sheetRef.current;
           if (sheet === null) {

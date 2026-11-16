@@ -18,7 +18,11 @@ const EditLibrary = ({ id }: typeof LibraryParams.Type) => {
     <>
       <Stack.Screen.Title>Edit Library</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
-        <LibraryForm target={{ _tag: 'Edit', id }} submitLabel="Save" onSaved={librarySaved} />
+        <LibraryForm
+          target={{ _tag: 'Edit', id }}
+          submitLabel="Save changes"
+          onSaved={librarySaved}
+        />
       </Host>
     </>
   );

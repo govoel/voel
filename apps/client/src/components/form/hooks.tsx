@@ -25,6 +25,7 @@ import {
   Effect,
   Exit,
   Option,
+  Order,
   Predicate,
   Record,
   Schema,
@@ -550,8 +551,11 @@ export const useTextListFieldState = () => {
     add: () => {
       field.pushValue('');
     },
-    remove: (index: number) => {
-      field.removeValue(index);
+    remove: ({ indices }: { readonly indices: Iterable<number> }) => {
+      // Last first, so each removal leaves the remaining indices pointing at the same entries.
+      for (const index of Array.sort(indices, Order.flip(Order.Number))) {
+        field.removeValue(index);
+      }
       field.handleBlur();
     },
   };

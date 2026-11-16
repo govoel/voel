@@ -16,10 +16,15 @@ const FormLayoutSlot = requireNativeView<
   PropsWithChildren<{ readonly name: 'content' | 'footer' }>
 >('FormLayoutInset', 'FormLayoutSlotView');
 
-export const FormLayout = (({ title, children, footer }) => (
+export const FormLayout = (({ title, children, footer, sections, platformProps }) => (
   <NativeFormLayoutInset>
     <FormLayoutSlot name="content">
-      <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
+      <List
+        modifiers={[
+          headerProminence('increased'),
+          frame({ maxHeight: Infinity }),
+          ...(platformProps?.ios.modifiers ?? []),
+        ]}>
         <Section
           header={
             title !== void 0 ? (
@@ -30,6 +35,7 @@ export const FormLayout = (({ title, children, footer }) => (
           }>
           {children}
         </Section>
+        {sections}
       </List>
     </FormLayoutSlot>
     <FormLayoutSlot name="footer">

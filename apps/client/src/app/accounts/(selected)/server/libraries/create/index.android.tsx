@@ -26,7 +26,7 @@ export default function CreateLibraryScreen() {
     <AndroidAccountsSheet ref={sheetRef}>
       <LibraryForm
         target={{ _tag: 'Create' }}
-        title="New Library"
+        title="Create Library"
         submitLabel="Create library"
         onSaved={async ({ id }) => {
           const sheet = sheetRef.current;

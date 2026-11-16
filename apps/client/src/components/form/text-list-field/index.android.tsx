@@ -1,7 +1,7 @@
 import Add from '@expo/material-symbols/add.xml';
-import Close from '@expo/material-symbols/close.xml';
+import Delete from '@expo/material-symbols/delete.xml';
 import { Column, Icon, IconButton, Row, TextButton } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, weight } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth } from '@expo/ui/jetpack-compose/modifiers';
 import { Array } from 'effect';
 
 import { TextListFieldEntry, useTextListFieldState } from '#src/components/form/hooks.tsx';
@@ -18,28 +18,32 @@ export const TextListField = (({ label, purpose, placeholder }) => {
 
       {Array.map(entries, (_, index) => (
         // Entries are positional: removing one shifts the rest, and each entry's text follows.
-        <Row
-          key={index}
-          modifiers={[fillMaxWidth()]}
-          verticalAlignment="center"
-          horizontalArrangement={{ spacedBy: Spacing.one }}>
-          <TextListFieldEntry index={index}>
-            <TextField
-              label={`${label} ${index + 1}`}
-              labelVisibility="hidden"
-              purpose={purpose}
-              placeholder={placeholder}
-              platformProps={{ android: { modifiers: [weight(1)] } }}
-            />
-          </TextListFieldEntry>
-          <IconButton
-            enabled={!isSubmitting}
-            onClick={() => {
-              remove(index);
-            }}>
-            <Icon source={Close} size={24} contentDescription={`Remove ${label} ${index + 1}`} />
-          </IconButton>
-        </Row>
+        <TextListFieldEntry key={index} index={index}>
+          <TextField
+            label={`${label} ${index + 1}`}
+            labelVisibility="hidden"
+            purpose={purpose}
+            placeholder={placeholder}
+            platformProps={{
+              android: {
+                modifiers: [fillMaxWidth()],
+                trailingIcon: (
+                  <IconButton
+                    enabled={!isSubmitting}
+                    onClick={() => {
+                      remove({ indices: [index] });
+                    }}>
+                    <Icon
+                      source={Delete}
+                      size={24}
+                      contentDescription={`Remove ${label} ${index + 1}`}
+                    />
+                  </IconButton>
+                ),
+              },
+            }}
+          />
+        </TextListFieldEntry>
       ))}
 
       <Row>

@@ -22,7 +22,7 @@ export default function CreateLibraryScreen() {
   }
   return (
     <>
-      <Stack.Screen.Title>New Library</Stack.Screen.Title>
+      <Stack.Screen.Title>Create Library</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <LibraryForm
           target={{ _tag: 'Create' }}
