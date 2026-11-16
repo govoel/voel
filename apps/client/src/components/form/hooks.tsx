@@ -356,7 +356,6 @@ export const createEffectSchemaFormHook = <
 export const useTextFieldState = () => {
   const field = useFieldContext<string>();
   const form = useFormContext();
-  // Selecting the shown message (compared by value) re-renders only when the visible error changes.
   const errorMessage = useSelector(
     field.store,
     (state) =>
