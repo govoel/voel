@@ -193,7 +193,8 @@ const LibraryFormFields = ({
                   <Text>Storage settings</Text>
                 </SegmentedListItem.HeadlineContent>
                 <SegmentedListItem.TrailingContent>
-                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                  {/* Untinted, so it takes the row's trailing color, which dims when disabled. */}
+                  <Icon source={ChevronRight} size={24} />
                 </SegmentedListItem.TrailingContent>
               </SegmentedListItem>
             </SegmentedList>

@@ -135,6 +135,7 @@ const LibraryFormFields = ({
   const isLoading = useSelector(loader.store, (state) => state.meta.isSubmitting);
   const settings = useStoragePluginSettingsFields({ form, pending });
   const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const canEditSettings = settings._tag === 'Supported' && !isSubmitting;
   return (
     <form.AppForm>
       <FormLayout
@@ -195,7 +196,7 @@ const LibraryFormFields = ({
               })
             )}
             <Button
-              modifiers={[tint('primary'), disabled(settings._tag !== 'Supported' || isSubmitting)]}
+              modifiers={[tint('primary'), disabled(!canEditSettings)]}
               onPress={() => {
                 setIsEditingSettings(true);
               }}>
@@ -204,7 +205,14 @@ const LibraryFormFields = ({
                 <Spacer />
                 <Icon
                   name="chevron.right"
-                  modifiers={[font({ textStyle: 'footnote', weight: 'semibold' }), secondary]}
+                  modifiers={[
+                    font({ textStyle: 'footnote', weight: 'semibold' }),
+                    // An explicit style isn't dimmed by `disabled`, so it dims along with the row.
+                    foregroundStyle({
+                      type: 'hierarchical',
+                      style: canEditSettings ? 'secondary' : 'quaternary',
+                    }),
+                  ]}
                 />
               </HStack>
             </Button>
