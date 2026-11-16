@@ -12,9 +12,22 @@ import {
   fieldContext,
   formContext,
   useSubmitState,
+  useTextFieldState,
 } from '#src/components/form/hooks.tsx';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
+
+const TestTextField = ({ label }: { readonly label: string }) => {
+  const { field, isSubmitting } = useTextFieldState();
+  return (
+    <TextInput
+      accessibilityLabel={label}
+      editable={!isSubmitting}
+      value={field.state.value}
+      onChangeText={field.handleChange}
+    />
+  );
+};
 
 const runtime = Atom.runtime(Layer.empty);
 class TestFormInput extends Schema.Class<TestFormInput, { readonly brand: unique symbol }>(
@@ -39,7 +52,7 @@ class Lookup extends Schema.Struct({ query: Schema.Trim }) {}
 
 const { useAppForm, useAppFormGroup } = createEffectSchemaFormHook({
   runtime,
-  fieldComponents: { EmptyComponent },
+  fieldComponents: { EmptyComponent, TestTextField },
   fieldContext,
   formComponents: { EmptyComponent },
   formContext,
@@ -371,15 +384,9 @@ describe('createEffectSchemaFormHook', () => {
       const name = useSelector(form.store, (state) => state.values.name);
       return (
         <form.AppForm>
-          <form.Field name="lookup.query">
-            {(field) => (
-              <TextInput
-                accessibilityLabel="Query"
-                value={field.state.value}
-                onChangeText={field.handleChange}
-              />
-            )}
-          </form.Field>
+          <form.AppField name="lookup.query">
+            {(field) => <field.TestTextField label="Query" />}
+          </form.AppField>
           <RetrySubmitButton group={group} />
           <ErrorProbe testID="group-error" group={group} />
           <ErrorProbe />
@@ -413,5 +420,49 @@ describe('createEffectSchemaFormHook', () => {
     expect(await screen.findByText('Name: Found films')).toBeOnTheScreen();
     expect(lookups.mock.calls).toEqual([['missing'], ['films']]);
     expect(saves).not.toHaveBeenCalled();
+  });
+
+  it('locks a form group’s fields, and only those, while the group is submitted', async () => {
+    const lookup = await Effect.runPromise(Deferred.make<string>());
+    const TestForm = () => {
+      const form = useAppForm({
+        defaultValues: { name: '', lookup: { query: 'films' } },
+        schema: LookupForm,
+        onSubmit: () => Effect.void,
+        onFailure: () => 'not saved',
+      });
+      const group = useAppFormGroup({
+        form,
+        name: 'lookup',
+        schema: Lookup,
+        onSubmit: () => Deferred.await(lookup),
+        onFailure: () => 'not found',
+      });
+      return (
+        <form.AppForm>
+          <form.AppField name="name">
+            {(field) => <field.TestTextField label="Name" />}
+          </form.AppField>
+          <form.AppField name="lookup.query">
+            {(field) => <field.TestTextField label="Query" />}
+          </form.AppField>
+          <RetrySubmitButton group={group} />
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Query')).toBeDisabled();
+    });
+    expect(screen.getByLabelText('Name')).toBeEnabled();
+
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(lookup, 'Found films'));
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Query')).toBeEnabled();
+    });
   });
 });

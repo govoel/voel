@@ -4,6 +4,7 @@ import {
   Field,
   createFormHook,
   createFormHookContexts,
+  isFieldInGroup,
   useFormGroup,
   useSelector,
 } from '@tanstack/react-form';
@@ -18,7 +19,18 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Array, Cause, Effect, Exit, Option, Predicate, Schema, String, Struct } from 'effect';
+import {
+  Array,
+  Cause,
+  Effect,
+  Exit,
+  Option,
+  Predicate,
+  Record,
+  Schema,
+  String,
+  Struct,
+} from 'effect';
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
@@ -456,6 +468,19 @@ export const createEffectSchemaFormHook = <
   return { ...formHook, useAppForm, useAppFormGroup };
 };
 
+/**
+ * Whether the field's form is saving, or a form group containing the field is being submitted
+ * (see `useAppFormGroup`). Either way, the field's value is about to be used, so it can't change.
+ */
+const useIsFieldSubmitting = () => {
+  const field = useFieldContext<unknown>();
+  const isFormSubmitting = useSelector(field.form.store, (state) => state.isSubmitting);
+  const isGroupSubmitting = useSelector(field.form.formGroupMetaDerived, (groups) =>
+    Record.some(groups, (meta, name) => meta.isSubmitting && isFieldInGroup(name, field.name))
+  );
+  return isFormSubmitting || isGroupSubmitting;
+};
+
 export const useTextFieldState = () => {
   const field = useFieldContext<string>();
   const errorMessage = useSelector(
@@ -466,7 +491,7 @@ export const useTextFieldState = () => {
         : Option.none(),
     { compare: Option.makeEquivalence(String.Equivalence) }
   );
-  const isSubmitting = useSelector(useFormContext().store, (state) => state.isSubmitting);
+  const isSubmitting = useIsFieldSubmitting();
   const hasFocused = useRef(false);
   return {
     field,
@@ -518,7 +543,7 @@ export const useNativeTextSync = ({
 
 export const useTextListFieldState = () => {
   const field = useFieldContext<Array<string>>();
-  const isSubmitting = useSelector(useFormContext().store, (state) => state.isSubmitting);
+  const isSubmitting = useIsFieldSubmitting();
   return {
     entries: field.state.value,
     isSubmitting,

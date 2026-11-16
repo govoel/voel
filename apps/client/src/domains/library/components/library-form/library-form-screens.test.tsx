@@ -70,15 +70,16 @@ vi.mock('#src/components/form', async () => {
     createEffectSchemaFormHook,
     fieldContext,
     formContext,
-    useFieldContext,
     useSubmitState,
+    useTextFieldState,
     useTextListFieldState,
   } = await import('#src/components/form/hooks.tsx');
   const TextField = ({ label }: { readonly label: string }) => {
-    const field = useFieldContext<string>();
+    const { field, isSubmitting } = useTextFieldState();
     return (
       <TextInput
         accessibilityLabel={label}
+        editable={!isSubmitting}
         value={field.state.value}
         onChangeText={field.handleChange}
       />
@@ -470,10 +471,24 @@ describe.each([
 
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     expect(api.loadPlugin).not.toHaveBeenCalled();
+    const loading = await Effect.runPromise(Deferred.make<undefined>());
+    api.loadPlugin.mockImplementationOnce(({ storagePluginId }) =>
+      Deferred.await(loading).pipe(
+        Effect.andThen(loadedStorage({ storagePluginId, forms: bucketForms }))
+      )
+    );
     await submit({ label: 'Load plugin' });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Package')).toBeDisabled();
+    });
+    expect(screen.getByLabelText('Name')).toBeEnabled();
+    await act(async () => {
+      await Effect.runPromise(Deferred.succeed(loading, void 0));
+    });
     await waitFor(() => {
       expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
     });
+    expect(screen.getByLabelText('Package')).toBeEnabled();
     expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
       account,
       id: Option.none(),
@@ -542,6 +557,9 @@ describe.each([
     ).toBeOnTheScreen();
     expect(screen.getByText('Load the plugin to show its settings.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Package')).toBeEnabled();
+    });
 
     await fireEvent.changeText(screen.getByLabelText('Storage'), 'builtin:local');
     expect(screen.getByLabelText('Directories 1')).toBeOnTheScreen();
