@@ -9,7 +9,7 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Array, Effect, Option, Predicate, Result, Schema, String, Struct } from 'effect';
+import { Array, Cause, Effect, Exit, Option, Predicate, Schema, String, Struct } from 'effect';
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
@@ -214,22 +214,6 @@ export const createEffectSchemaFormHook = <
     formContext: hookFormContext,
   });
 
-  /** Runs a submission, returning its typed failure and throwing defects. */
-  const runSubmission = async <TSuccess, TFailure>({
-    registry,
-    submit,
-  }: {
-    readonly registry: AtomRegistry.AtomRegistry;
-    readonly submit: () => Effect.Effect<
-      TSuccess,
-      TFailure,
-      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
-    >;
-  }) =>
-    Effect.runPromise(
-      Effect.result(AtomRegistry.getResult(registry, runtime.atom(Effect.suspend(submit))))
-    );
-
   function useAppForm<
     TType = void,
     TEncoded = Record<string, never>,
@@ -306,17 +290,37 @@ export const createEffectSchemaFormHook = <
           >;
           readonly value: Value;
         }) => {
-          const result = await runSubmission({
-            registry,
-            submit: () => callbacks.onSubmit({ ...submitProps, value }),
-          });
-          if (Result.isSuccess(result)) {
-            await callbacks.onSuccess?.({ ...submitProps, result: result.success, value });
-          } else {
-            setSubmissionError(
-              Option.some(callbacks.onFailure({ ...submitProps, error: result.failure, value }))
-            );
+          const submitExit = await Effect.runPromiseExit(
+            AtomRegistry.getResult(
+              registry,
+              runtime.atom(Effect.suspend(() => callbacks.onSubmit({ ...submitProps, value })))
+            )
+          );
+
+          if (Exit.isSuccess(submitExit)) {
+            await callbacks.onSuccess?.({
+              ...submitProps,
+              result: submitExit.value,
+              value,
+            });
+            return;
           }
+
+          const error = Exit.findErrorOption(submitExit);
+          if (Option.isSome(error)) {
+            setSubmissionError(
+              Option.some(
+                callbacks.onFailure({
+                  ...submitProps,
+                  error: error.value,
+                  value,
+                })
+              )
+            );
+            return;
+          }
+
+          throw Cause.squash(submitExit.cause);
         };
 
         if (options.schema === void 0) {
