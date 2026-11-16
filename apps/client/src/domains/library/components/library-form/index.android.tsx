@@ -2,9 +2,9 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import {
   Button,
-  CircularProgressIndicator,
   Column,
   Icon,
+  LoadingIndicator,
   SegmentedButton,
   SingleChoiceSegmentedButtonRow,
 } from '@expo/ui/jetpack-compose';
@@ -162,7 +162,7 @@ const StorageSection = ({
             </SegmentedListItem.HeadlineContent>
             <SegmentedListItem.TrailingContent>
               {row.isLoading ? (
-                <CircularProgressIndicator modifiers={[size(24, 24)]} strokeWidth={3} />
+                <LoadingIndicator modifiers={[size(24, 24)]} />
               ) : (
                 // Untinted, so it takes the row's trailing color, which dims when disabled.
                 <Icon source={ChevronRight} size={24} />
