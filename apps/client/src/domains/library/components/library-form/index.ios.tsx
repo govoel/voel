@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Icon } from '@expo/ui';
-import { Button, HStack, Picker, Section, Spacer } from '@expo/ui/swift-ui';
+import { Button, HStack, Picker, ProgressView, Section, Spacer, VStack } from '@expo/ui/swift-ui';
 import {
   buttonStyle,
   disabled,
@@ -22,6 +22,7 @@ import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
+import { Spacing } from '#src/constants/theme.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import type {
   LibraryFormComponent,
@@ -29,11 +30,11 @@ import type {
 } from '#src/domains/library/components/library-form/index.tsx';
 import {
   libraryFormQuery,
-  npmPluginWarning,
   storagePluginSources,
   useLibraryForm,
   useStoragePluginLoader,
   useStoragePluginSettingsFields,
+  useStorageSettingsRow,
 } from '#src/domains/library/components/library-form/index.tsx';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
@@ -120,7 +121,91 @@ const StorageSettings = ({
   </FormLayout>
 );
 
-const secondary = foregroundStyle({ type: 'hierarchical', style: 'secondary' });
+/** Where the library's files are kept, with the row that opens the plugin's settings. */
+const StorageSection = ({
+  form,
+  plugin,
+  settings,
+  onEdit,
+}: Parameters<typeof useStorageSettingsRow>[0]) => {
+  const row = useStorageSettingsRow({ form, plugin, settings, onEdit });
+  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
+  return (
+    <Section
+      title="Storage"
+      footer={Array.match(row.notes, {
+        onEmpty: () => null,
+        onNonEmpty: (notes) => (
+          <VStack alignment="leading" spacing={Spacing.two}>
+            {Array.map(notes, ({ tone, message }) => (
+              <Text
+                key={message}
+                variant="caption"
+                {...(tone === 'critical' ? { color: 'red' } : {})}>
+                {message}
+              </Text>
+            ))}
+          </VStack>
+        ),
+      })}>
+      <form.AppField name="storageChoice.source">
+        {(field) => (
+          <>
+            <Picker
+              label="Provider"
+              selection={field.state.value}
+              onSelectionChange={(source) => {
+                plugin.choose(source);
+              }}
+              modifiers={[pickerStyle('menu'), disabled(isSaving || row.isLoading)]}>
+              {Array.map(storagePluginSources, (option) => (
+                <Text key={option.source} modifiers={[tag(option.source)]}>
+                  {option.label}
+                </Text>
+              ))}
+            </Picker>
+            {field.state.value === 'npm' ? (
+              <form.AppField name="storageChoice.packageName">
+                {(packageField) => (
+                  <packageField.TextField
+                    purpose="text"
+                    label="Package"
+                    placeholder="voel-storage-plugin"
+                  />
+                )}
+              </form.AppField>
+            ) : null}
+          </>
+        )}
+      </form.AppField>
+      <Button
+        modifiers={[tint('primary'), disabled(!row.enabled)]}
+        onPress={() => {
+          void row.open();
+        }}>
+        <HStack>
+          <Text>{row.label}</Text>
+          <Spacer />
+          {row.isLoading ? (
+            <ProgressView />
+          ) : (
+            <Icon
+              name="chevron.right"
+              modifiers={[
+                font({ textStyle: 'footnote', weight: 'semibold' }),
+                // An explicit style isn't dimmed by `disabled`, so it dims along with the row.
+                foregroundStyle({
+                  type: 'hierarchical',
+                  style: row.enabled ? 'secondary' : 'quaternary',
+                }),
+              ]}
+            />
+          )}
+        </HStack>
+      </Button>
+    </Section>
+  );
+};
 
 const LibraryFormFields = ({
   loaded,
@@ -130,12 +215,10 @@ const LibraryFormFields = ({
   onSaved,
 }: ComponentProps<LibraryFormComponent> & { readonly loaded: LoadedLibraryForm }) => {
   const form = useLibraryForm({ loaded, target, onSaved });
-  const { loader, pending, choose } = useStoragePluginLoader({ form, target });
-  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
-  const isLoading = useSelector(loader.store, (state) => state.meta.isSubmitting);
-  const settings = useStoragePluginSettingsFields({ form, pending });
+  const plugin = useStoragePluginLoader({ form, target });
+  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
+  const settings = useStoragePluginSettingsFields({ form, pending: plugin.pending });
   const [isEditingSettings, setIsEditingSettings] = useState(false);
-  const canEditSettings = settings._tag === 'Supported' && !isSubmitting;
   return (
     <form.AppForm>
       <FormLayout
@@ -149,74 +232,14 @@ const LibraryFormFields = ({
           </form.SubmitButton>
         }
         sections={
-          <Section title="Storage">
-            <form.AppField name="storageChoice.source">
-              {(field) => (
-                <>
-                  <Picker
-                    label="Provider"
-                    selection={field.state.value}
-                    onSelectionChange={choose}
-                    modifiers={[pickerStyle('menu'), disabled(isSubmitting || isLoading)]}>
-                    {Array.map(storagePluginSources, (option) => (
-                      <Text key={option.source} modifiers={[tag(option.source)]}>
-                        {option.label}
-                      </Text>
-                    ))}
-                  </Picker>
-                  {field.state.value === 'npm' ? (
-                    <>
-                      <form.AppField name="storageChoice.packageName">
-                        {(packageField) => (
-                          <packageField.TextField
-                            purpose="text"
-                            label="Package"
-                            placeholder="voel-storage-plugin"
-                          />
-                        )}
-                      </form.AppField>
-                      <Text variant="caption" modifiers={[secondary]}>
-                        {npmPluginWarning}
-                      </Text>
-                    </>
-                  ) : null}
-                </>
-              )}
-            </form.AppField>
-            {pending ? (
-              <form.SubmitButton group={loader} disabled={isSubmitting}>
-                <Text>Load plugin</Text>
-              </form.SubmitButton>
-            ) : null}
-            {Match.value(settings).pipe(
-              Match.tagsExhaustive({
-                NotLoaded: ({ message }) => <Text modifiers={[secondary]}>{message}</Text>,
-                Unsupported: ({ message }) => <Text modifiers={[secondary]}>{message}</Text>,
-                Supported: () => null,
-              })
-            )}
-            <Button
-              modifiers={[tint('primary'), disabled(!canEditSettings)]}
-              onPress={() => {
-                setIsEditingSettings(true);
-              }}>
-              <HStack>
-                <Text>Storage settings</Text>
-                <Spacer />
-                <Icon
-                  name="chevron.right"
-                  modifiers={[
-                    font({ textStyle: 'footnote', weight: 'semibold' }),
-                    // An explicit style isn't dimmed by `disabled`, so it dims along with the row.
-                    foregroundStyle({
-                      type: 'hierarchical',
-                      style: canEditSettings ? 'secondary' : 'quaternary',
-                    }),
-                  ]}
-                />
-              </HStack>
-            </Button>
-          </Section>
+          <StorageSection
+            form={form}
+            plugin={plugin}
+            settings={settings}
+            onEdit={() => {
+              setIsEditingSettings(true);
+            }}
+          />
         }>
         <form.AppField name="name">
           {(field) => <field.TextField purpose="name" label="Name" placeholder="Library name" />}
@@ -230,7 +253,7 @@ const LibraryFormFields = ({
                 field.handleChange(type);
                 field.handleBlur();
               }}
-              modifiers={[pickerStyle('menu'), disabled(isSubmitting)]}>
+              modifiers={[pickerStyle('menu'), disabled(isSaving)]}>
               {Array.map(mediaTypes, (type) => (
                 <Text key={type} modifiers={[tag(type)]}>
                   {mediaTypeLabel({ type })}

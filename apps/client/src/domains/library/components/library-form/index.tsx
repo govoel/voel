@@ -9,6 +9,7 @@ import { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { useAppForm, useAppFormGroup } from '#src/components/form';
+import { useSubmitState } from '#src/components/form/hooks.tsx';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
@@ -297,10 +298,19 @@ export const useStoragePluginLoader = ({
         void loader.handleSubmit();
       }
     },
+    /** Loads the chosen plugin. Resolves with whether its settings for the media type are editable. */
+    load: async () => {
+      await loader.handleSubmit();
+      const { values } = form.state;
+      return (
+        chosenStoragePluginId(values.storageChoice) === values.storage.storagePluginId &&
+        settingsFormFor({ storage: values.storage, type: values.type }) !== void 0
+      );
+    },
   };
 };
 
-export const npmPluginWarning =
+const npmPluginWarning =
   'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.';
 
 export const storagePluginSources = [
@@ -322,7 +332,7 @@ export const useStoragePluginSettingsFields = ({
   const type = useSelector(form.store, (state) => state.values.type);
   const storage = useSelector(form.store, (state) => state.values.storage);
   if (pending) {
-    return { _tag: 'NotLoaded', message: 'Load the plugin to edit its settings.' } as const;
+    return { _tag: 'NotLoaded' } as const;
   }
   const settingsForm = settingsFormFor({ storage, type });
   if (settingsForm === void 0) {
@@ -350,6 +360,54 @@ export const useStoragePluginSettingsFields = ({
       )
     ),
   } as const;
+};
+
+/**
+ * The row that opens the storage settings, and the notes shown below it. Until the chosen plugin is
+ * loaded, the row loads it first, then opens its settings if they support the selected media type.
+ * Render inside the form's `AppForm`.
+ */
+export const useStorageSettingsRow = ({
+  form,
+  plugin,
+  settings,
+  onEdit,
+}: {
+  readonly form: ReturnType<typeof useLibraryForm>;
+  readonly plugin: ReturnType<typeof useStoragePluginLoader>;
+  readonly settings: ReturnType<typeof useStoragePluginSettingsFields>;
+  readonly onEdit: () => void;
+}) => {
+  const loading = useSubmitState({ group: plugin.loader });
+  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
+  const source = useSelector(form.store, (state) => state.values.storageChoice.source);
+  return {
+    label: settings._tag === 'NotLoaded' ? 'Load plugin & edit settings' : 'Storage settings',
+    isLoading: loading.isSubmitting,
+    enabled:
+      !isSaving &&
+      Match.value(settings).pipe(
+        Match.tagsExhaustive({
+          NotLoaded: () => loading.canSubmit && !loading.isSubmitting,
+          Unsupported: () => false,
+          Supported: () => true,
+        })
+      ),
+    open: async () => {
+      if (settings._tag === 'Supported' || (await plugin.load())) {
+        onEdit();
+      }
+    },
+    notes: Array.getSomes([
+      Option.map(loading.errorMessage, (message) => ({ tone: 'critical' as const, message })),
+      settings._tag === 'Unsupported'
+        ? Option.some({ tone: 'critical' as const, message: settings.message })
+        : Option.none(),
+      source === 'npm'
+        ? Option.some({ tone: 'secondary' as const, message: npmPluginWarning })
+        : Option.none(),
+    ]),
+  };
 };
 
 export type LibraryFormComponent = ComponentType<{

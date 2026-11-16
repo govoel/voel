@@ -2,11 +2,13 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import ChevronRight from '@expo/material-symbols/chevron_right.xml';
 import {
   Button,
+  CircularProgressIndicator,
+  Column,
   Icon,
   SegmentedButton,
   SingleChoiceSegmentedButtonRow,
 } from '@expo/ui/jetpack-compose';
-import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { useSelector } from '@tanstack/react-form';
 import { Array, Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
@@ -27,11 +29,11 @@ import type {
 } from '#src/domains/library/components/library-form/index.tsx';
 import {
   libraryFormQuery,
-  npmPluginWarning,
   storagePluginSources,
   useLibraryForm,
   useStoragePluginLoader,
   useStoragePluginSettingsFields,
+  useStorageSettingsRow,
 } from '#src/domains/library/components/library-form/index.tsx';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
@@ -98,6 +100,91 @@ const StorageSettings = ({
   </FormLayout>
 );
 
+/** Where the library's files are kept, with the row that opens the plugin's settings. */
+const StorageSection = ({
+  form,
+  plugin,
+  settings,
+  onEdit,
+}: Parameters<typeof useStorageSettingsRow>[0]) => {
+  const row = useStorageSettingsRow({ form, plugin, settings, onEdit });
+  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
+  const colors = useMaterialColors();
+  return (
+    <>
+      <Text variant="h4" modifiers={[padding(0, Spacing.two, 0, 0)]}>
+        Storage
+      </Text>
+      <form.AppField name="storageChoice.source">
+        {(field) => (
+          <>
+            <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+              {Array.map(storagePluginSources, (option) => (
+                <SegmentedButton
+                  key={option.source}
+                  selected={field.state.value === option.source}
+                  enabled={!isSaving && !row.isLoading}
+                  onClick={() => {
+                    plugin.choose(option.source);
+                  }}>
+                  <SegmentedButton.Label>
+                    <Text>{option.label}</Text>
+                  </SegmentedButton.Label>
+                </SegmentedButton>
+              ))}
+            </SingleChoiceSegmentedButtonRow>
+            {field.state.value === 'npm' ? (
+              <form.AppField name="storageChoice.packageName">
+                {(packageField) => (
+                  <packageField.TextField
+                    purpose="text"
+                    label="Package"
+                    placeholder="voel-storage-plugin"
+                    platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                  />
+                )}
+              </form.AppField>
+            ) : null}
+          </>
+        )}
+      </form.AppField>
+      <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+        <SegmentedList>
+          <SegmentedListItem
+            index={0}
+            count={1}
+            enabled={row.enabled}
+            onClick={() => {
+              void row.open();
+            }}>
+            <SegmentedListItem.HeadlineContent>
+              <Text>{row.label}</Text>
+            </SegmentedListItem.HeadlineContent>
+            <SegmentedListItem.TrailingContent>
+              {row.isLoading ? (
+                <CircularProgressIndicator modifiers={[size(24, 24)]} strokeWidth={3} />
+              ) : (
+                // Untinted, so it takes the row's trailing color, which dims when disabled.
+                <Icon source={ChevronRight} size={24} />
+              )}
+            </SegmentedListItem.TrailingContent>
+          </SegmentedListItem>
+        </SegmentedList>
+        {Array.map(row.notes, ({ tone, message }) => (
+          <Text
+            key={message}
+            variant="caption"
+            color={tone === 'critical' ? colors.error : colors.onSurfaceVariant}
+            // Lines up with the row's text, like a text field's supporting text.
+            modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
+            {message}
+          </Text>
+        ))}
+      </Column>
+    </>
+  );
+};
+
 const LibraryFormFields = ({
   loaded,
   target,
@@ -106,12 +193,10 @@ const LibraryFormFields = ({
   onSaved,
 }: ComponentProps<LibraryFormComponent> & { readonly loaded: LoadedLibraryForm }) => {
   const form = useLibraryForm({ loaded, target, onSaved });
-  const { loader, pending, choose } = useStoragePluginLoader({ form, target });
-  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
-  const isLoading = useSelector(loader.store, (state) => state.meta.isSubmitting);
-  const settings = useStoragePluginSettingsFields({ form, pending });
+  const plugin = useStoragePluginLoader({ form, target });
+  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
+  const settings = useStoragePluginSettingsFields({ form, pending: plugin.pending });
   const [isEditingSettings, setIsEditingSettings] = useState(false);
-  const colors = useMaterialColors();
   return (
     <form.AppForm>
       <FormLayout
@@ -124,81 +209,14 @@ const LibraryFormFields = ({
           </form.SubmitButton>
         }
         sections={
-          <>
-            <Text variant="h4" modifiers={[padding(0, Spacing.two, 0, 0)]}>
-              Storage
-            </Text>
-            <form.AppField name="storageChoice.source">
-              {(field) => (
-                <>
-                  <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-                    {Array.map(storagePluginSources, (option) => (
-                      <SegmentedButton
-                        key={option.source}
-                        selected={field.state.value === option.source}
-                        enabled={!isSubmitting && !isLoading}
-                        onClick={() => {
-                          choose(option.source);
-                        }}>
-                        <SegmentedButton.Label>
-                          <Text>{option.label}</Text>
-                        </SegmentedButton.Label>
-                      </SegmentedButton>
-                    ))}
-                  </SingleChoiceSegmentedButtonRow>
-                  {field.state.value === 'npm' ? (
-                    <>
-                      <form.AppField name="storageChoice.packageName">
-                        {(packageField) => (
-                          <packageField.TextField
-                            purpose="text"
-                            label="Package"
-                            placeholder="voel-storage-plugin"
-                            platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
-                          />
-                        )}
-                      </form.AppField>
-                      <Text variant="caption" color={colors.onSurfaceVariant}>
-                        {npmPluginWarning}
-                      </Text>
-                    </>
-                  ) : null}
-                </>
-              )}
-            </form.AppField>
-            {pending ? (
-              <form.SubmitButton
-                group={loader}
-                disabled={isSubmitting}
-                platformProps={{ android: { variant: 'text' } }}>
-                <Text>Load plugin</Text>
-              </form.SubmitButton>
-            ) : null}
-            {Match.value(settings).pipe(
-              Match.tagsExhaustive({
-                NotLoaded: ({ message }) => <Text color={colors.onSurfaceVariant}>{message}</Text>,
-                Unsupported: ({ message }) => <Text color={colors.error}>{message}</Text>,
-                Supported: () => null,
-              })
-            )}
-            <SegmentedList>
-              <SegmentedListItem
-                index={0}
-                count={1}
-                enabled={settings._tag === 'Supported' && !isSubmitting}
-                onClick={() => {
-                  setIsEditingSettings(true);
-                }}>
-                <SegmentedListItem.HeadlineContent>
-                  <Text>Storage settings</Text>
-                </SegmentedListItem.HeadlineContent>
-                <SegmentedListItem.TrailingContent>
-                  {/* Untinted, so it takes the row's trailing color, which dims when disabled. */}
-                  <Icon source={ChevronRight} size={24} />
-                </SegmentedListItem.TrailingContent>
-              </SegmentedListItem>
-            </SegmentedList>
-          </>
+          <StorageSection
+            form={form}
+            plugin={plugin}
+            settings={settings}
+            onEdit={() => {
+              setIsEditingSettings(true);
+            }}
+          />
         }>
         <form.AppField name="name">
           {(field) => (
@@ -219,7 +237,7 @@ const LibraryFormFields = ({
                   <SegmentedButton
                     key={type}
                     selected={field.state.value === type}
-                    enabled={!isSubmitting}
+                    enabled={!isSaving}
                     onClick={() => {
                       field.handleChange(type);
                       field.handleBlur();

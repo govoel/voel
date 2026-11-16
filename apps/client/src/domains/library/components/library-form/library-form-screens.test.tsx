@@ -22,7 +22,6 @@ import AndroidCreateLibraryScreen from '#src/app/accounts/(selected)/server/libr
 import IosCreateLibraryScreen from '#src/app/accounts/(selected)/server/libraries/create/index.tsx';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
 import { SelectedAccountContext } from '#src/domains/accounts/scope.ts';
-import { npmPluginWarning } from '#src/domains/library/components/library-form/index.tsx';
 import type * as Management from '#src/domains/library/management.ts';
 
 const native = vi.hoisted(() => ({ hide: vi.fn<() => Promise<void>>() }));
@@ -205,7 +204,14 @@ vi.mock('@expo/ui', () => ({ Icon: () => null }));
 vi.mock('@expo/ui/swift-ui', () => ({
   Host: ({ children }: PropsWithChildren) => <View>{children}</View>,
   HStack: ({ children }: PropsWithChildren) => <View>{children}</View>,
-  Section: ({ children }: PropsWithChildren) => <View>{children}</View>,
+  VStack: ({ children }: PropsWithChildren) => <View>{children}</View>,
+  ProgressView: () => <Text>Loading</Text>,
+  Section: ({ children, footer }: PropsWithChildren<{ readonly footer?: ReactNode }>) => (
+    <View>
+      {children}
+      {footer}
+    </View>
+  ),
   Spacer: () => null,
   Button: ({
     children,
@@ -328,6 +334,10 @@ const bucketForms = {
   ],
 };
 const localDraft = () => loadedForm({ name: '', type: 'movie', forms: localForms });
+
+const npmPluginWarning =
+  'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.';
+const loadPlugin = 'Load plugin & edit settings';
 
 const registries = new Set<AtomRegistry.AtomRegistry>();
 const renderScreen = async (content: Parameters<typeof render>[0]) => {
@@ -491,13 +501,13 @@ describe.each([
     await fireEvent.changeText(await screen.findByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), '   ');
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Load plugin' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: loadPlugin })).toBeDisabled();
     });
-    await fireEvent.press(screen.getByRole('button', { name: 'Load plugin' }));
+    await fireEvent.press(screen.getByRole('button', { name: loadPlugin }));
     expect(api.loadPlugin).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText('Package'), ' voel-storage-s3 ');
-    await submit({ label: 'Load plugin' });
+    await submit({ label: loadPlugin });
     await waitFor(() => {
       expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
         account,
@@ -513,8 +523,7 @@ describe.each([
     expect(screen.queryByText(npmPluginWarning)).toBeNull();
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     expect(screen.getByText(npmPluginWarning)).toBeOnTheScreen();
-    expect(screen.getByText('Load the plugin to edit its settings.')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Storage settings' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Storage settings' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
 
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
@@ -525,23 +534,24 @@ describe.each([
         Effect.andThen(loadedStorage({ storagePluginId, forms: bucketForms }))
       )
     );
-    await submit({ label: 'Load plugin' });
+    await submit({ label: loadPlugin });
     await waitFor(() => {
       expect(screen.getByLabelText('Package')).toBeDisabled();
     });
     expect(screen.getByLabelText('Name')).toBeEnabled();
+    expect(screen.getByText('Loading')).toBeOnTheScreen();
     await act(async () => {
       await Effect.runPromise(Deferred.succeed(loading, void 0));
     });
-    await editStorageSettings();
-    expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
+    // Loading opens the settings it loaded.
+    expect(await screen.findByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
     expect(screen.getByLabelText('Package')).toBeEnabled();
     expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
       account,
       id: Option.none(),
       storagePluginId: 'npm:voel-storage-s3',
     });
-    expect(screen.queryByRole('button', { name: 'Load plugin' })).toBeNull();
+    expect(screen.queryByRole('button', { name: loadPlugin })).toBeNull();
 
     // Choosing another package hides the loaded one's settings until it's loaded too.
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-other');
@@ -565,6 +575,21 @@ describe.each([
     });
   });
 
+  it('explains, instead of opening settings, when a loaded plugin doesn’t support the type', async () => {
+    await renderScreen(<CreateLibraryScreen />);
+    await fireEvent.changeText(await screen.findByLabelText('Media type'), 'show');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
+    await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
+    await submit({ label: loadPlugin });
+    expect(
+      await screen.findByText(
+        '“voel-storage-s3” doesn’t support TV shows. Choose another media type.'
+      )
+    ).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Bucket')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Storage settings' })).toBeDisabled();
+  });
+
   it('loads local folders as soon as they’re chosen, starting their settings afresh', async () => {
     await renderScreen(<CreateLibraryScreen />);
     await editStorageSettings();
@@ -576,7 +601,7 @@ describe.each([
 
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
-    await submit({ label: 'Load plugin' });
+    await submit({ label: loadPlugin });
     await screen.findByLabelText('Bucket');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
     await waitFor(() => {
@@ -597,13 +622,14 @@ describe.each([
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'not-a-plugin');
-    await submit({ label: 'Load plugin' });
+    await submit({ label: loadPlugin });
     expect(
       await screen.findByText(
         'Unable to install or load this plugin. Check the package name and try again.'
       )
     ).toBeOnTheScreen();
-    expect(screen.getByText('Load the plugin to edit its settings.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: loadPlugin })).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Bucket')).toBeNull();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
     await waitFor(() => {
       expect(screen.getByLabelText('Package')).toBeEnabled();
@@ -730,8 +756,7 @@ describe.each([
     await renderScreen(<EditLibraryScreen />);
     await fireEvent.changeText(await screen.findByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
-    await submit({ label: 'Load plugin' });
-    await editStorageSettings();
+    await submit({ label: loadPlugin });
     await screen.findByLabelText('Bucket');
     expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
       account,
