@@ -24,13 +24,14 @@ export const libraryFailureMessage = ({ error }: { readonly error: LibraryError 
       LibraryNameConflictError: () =>
         'A library with this name already exists. Choose another name.',
       StoragePluginSettingsConstructionError: () => 'Unable to load storage settings. Try again.',
-      StoragePluginInvalidSettingsError: () => 'Check the storage settings and try again.',
+      // Plugins write these for people fixing their input, and must keep them client-safe.
+      StoragePluginInvalidSettingsError: ({ message }) => message,
       StoragePluginUnsupportedMediaTypeError: () =>
         'This storage plugin doesn’t support the selected media type. Choose another type or plugin.',
       StoragePluginSettingsError: () => 'Unable to apply storage settings. Try again.',
-      PluginLoadError: () => 'Unable to load the plugin. Check its configuration and try again.',
-      StoragePluginLoadError: () =>
-        'Unable to load the storage plugin. Check its configuration and try again.',
+      PluginLoadError: () =>
+        'Unable to install or load this plugin. Check the package name and try again.',
+      StoragePluginLoadError: () => 'This package isn’t a compatible storage plugin.',
       SchemaError: (failure) => clientFailureMessage({ error: failure }),
       HttpClientError: (failure) => clientFailureMessage({ error: failure }),
       BetterAuthClientInitializationError: (failure) => accountFailureMessage({ error: failure }),

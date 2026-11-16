@@ -11,11 +11,14 @@ import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
+  createLibrary,
   deleteLibrary,
+  libraryFormAtom,
   libraryStorageDetails,
   libraryStorageErrors,
   listLibrariesAtom,
   serverLibraryAtom,
+  updateLibrary,
 } from '#src/domains/library/management.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -72,6 +75,106 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         yield* deleteLibrary({ account: account.key, id: created.id });
         const deleted = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(deleted).toBeInstanceOf(Cause.NoSuchElementError);
+      },
+      (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'loads forms for new and saved libraries, and refreshes queries after saving',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+
+        const draft = yield* Atom.getResult(
+          libraryFormAtom({ account: account.key, id: Option.none() })
+        );
+        const emptyRoots = {
+          kind: 'TextListField',
+          name: 'roots',
+          label: 'Directories',
+          placeholder: '/path/to/media',
+          purpose: 'text',
+          initialValue: [],
+        };
+        expect(draft).toEqual({
+          name: '',
+          type: 'movie',
+          storage: {
+            storagePluginId: 'builtin:local',
+            forms: { audiobook: [emptyRoots], movie: [emptyRoots], show: [emptyRoots] },
+          },
+        });
+
+        const query = listLibrariesAtom(account.key);
+        yield* Atom.mount(query);
+        yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
+        const created = yield* createLibrary({
+          account: account.key,
+          library: {
+            ...createInput('Films'),
+            storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/media/films'] }),
+          },
+        });
+        const listed = yield* Atom.getResult(query, { suspendOnWaiting: true });
+        expect(listed.items).toMatchObject([{ id: created.id, name: 'Films' }]);
+
+        const saved = yield* Atom.getResult(
+          libraryFormAtom({ account: account.key, id: Option.some(created.id) })
+        );
+        const savedRoots = { ...emptyRoots, initialValue: ['/media/films'] };
+        expect(saved).toEqual({
+          name: 'Films',
+          type: 'movie',
+          storage: {
+            storagePluginId: 'builtin:local',
+            forms: { audiobook: [savedRoots], movie: [savedRoots], show: [savedRoots] },
+          },
+        });
+
+        const detail = serverLibraryAtom({ account: account.key, id: created.id });
+        yield* Atom.mount(detail);
+        yield* Atom.getResult(detail);
+        yield* updateLibrary({
+          account: account.key,
+          id: created.id,
+          library: {
+            name: Library.jsonUpdate.fields.name.make('Shows'),
+            type: Library.jsonUpdate.fields.type.make('show'),
+            storagePluginId: saved.storage.storagePluginId,
+            storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/media/shows'] }),
+          },
+        });
+        const updated = yield* Atom.toStreamResult(detail).pipe(
+          Stream.filter((library) => library.name === 'Shows'),
+          Stream.runHead
+        );
+        expect(Option.getOrThrow(updated)).toMatchObject({
+          type: 'show',
+          storagePluginSettings: { roots: ['/media/shows'] },
+        });
+
+        const rejected = yield* updateLibrary({
+          account: account.key,
+          id: created.id,
+          library: {
+            name: Library.jsonUpdate.fields.name.make('Shows'),
+            type: Library.jsonUpdate.fields.type.make('show'),
+            storagePluginId: saved.storage.storagePluginId,
+            storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['relative'] }),
+          },
+        }).pipe(Effect.flip);
+        expect(libraryFailureMessage({ error: rejected })).toBe(
+          'Directories must be non-empty absolute paths without NUL characters'
+        );
+
+        yield* deleteLibrary({ account: account.key, id: created.id });
+        const missing = yield* Atom.getResult(
+          libraryFormAtom({ account: account.key, id: Option.some(created.id) })
+        ).pipe(Effect.flip);
+        expect(libraryFailureMessage({ error: missing })).toBe('This library no longer exists.');
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )

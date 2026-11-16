@@ -9,6 +9,7 @@ import type { PropsWithChildren } from 'react';
 
 import { LibraryParams } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
 import { DetailRows } from '#src/components/detail-rows';
+import { InvalidLinkScreen } from '#src/components/invalid-link-screen';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { Text } from '#src/components/text';
@@ -130,35 +131,9 @@ const LibraryDetails = ({ id }: typeof LibraryParams.Type) => {
 
 export default function ServerLibraryScreen() {
   const params = useRouteParams(LibraryParams);
-  const router = useRouter();
   return Result.match(params, {
     onFailure: (error) =>
-      Match.value(error).pipe(
-        Match.tagsExhaustive({
-          SchemaError: () => (
-            <>
-              <Stack.Screen.Title>Invalid Link</Stack.Screen.Title>
-              <Host style={{ flex: 1 }}>
-                <List modifiers={[frame({ maxHeight: Infinity })]}>
-                  <Section>
-                    <Text>This link is invalid.</Text>
-                    <Button
-                      onPress={() => {
-                        if (router.canGoBack()) {
-                          router.back();
-                        } else {
-                          router.replace('/');
-                        }
-                      }}>
-                      <Text>Back</Text>
-                    </Button>
-                  </Section>
-                </List>
-              </Host>
-            </>
-          ),
-        })
-      ),
+      Match.value(error).pipe(Match.tagsExhaustive({ SchemaError: () => <InvalidLinkScreen /> })),
     onSuccess: ({ id }) => <LibraryDetails key={id} id={id} />,
   });
 }

@@ -1,0 +1,19 @@
+import type { useRouter } from 'expo-router';
+import type { ComponentType } from 'react';
+
+/** A full screen for a route whose link parameters couldn't be decoded. */
+export type InvalidLinkScreenComponent = ComponentType;
+
+export declare const InvalidLinkScreen: InvalidLinkScreenComponent;
+
+export const goBackOrHome = ({
+  router,
+}: {
+  readonly router: Pick<ReturnType<typeof useRouter>, 'canGoBack' | 'back' | 'replace'>;
+}) => {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.replace('/');
+  }
+};

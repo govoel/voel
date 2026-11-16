@@ -1,6 +1,6 @@
 import { RegistryContext, useAtomMount, useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { ObservableState } from '@expo/ui';
-import { createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
+import { Field, createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
@@ -14,7 +14,7 @@ import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import type { ComponentType, Context } from 'react';
+import type { ComponentType, Context, ReactNode } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
@@ -412,6 +412,46 @@ export const useNativeTextSync = ({
     lastSyncedText.current = value;
     handleChange(value);
   };
+};
+
+export const useTextListFieldState = () => {
+  const field = useFieldContext<Array<string>>();
+  const form = useFormContext();
+  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  return {
+    entries: field.state.value,
+    isSubmitting,
+    add: () => {
+      field.pushValue('');
+    },
+    remove: (index: number) => {
+      field.removeValue(index);
+      field.handleBlur();
+    },
+  };
+};
+
+/**
+ * Binds `children` to one entry of the surrounding list field, so text components like
+ * `TextField` edit that entry the same way they edit a standalone field.
+ */
+export const TextListFieldEntry = ({
+  index,
+  children,
+}: {
+  readonly index: number;
+  readonly children: ReactNode;
+}) => {
+  const field = useFieldContext<Array<string>>();
+  return (
+    <Field form={field.form} name={`${field.name}[${index}]`}>
+      {(entry) => (
+        <tanStackFormHookContexts.fieldContext.Provider value={entry}>
+          {children}
+        </tanStackFormHookContexts.fieldContext.Provider>
+      )}
+    </Field>
+  );
 };
 
 export const useSubmitState = () => {
