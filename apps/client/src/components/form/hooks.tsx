@@ -1,10 +1,19 @@
 import { RegistryContext, useAtomMount, useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { ObservableState } from '@expo/ui';
-import { Field, createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
+import {
+  Field,
+  createFormHook,
+  createFormHookContexts,
+  useFormGroup,
+  useSelector,
+} from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
   AppFieldExtendedReactFormApi,
+  DeepKeys,
+  DeepValue,
+  FormApi,
   FormOptions,
   StandardSchemaV1,
   StandardSchemaV1Issue,
@@ -13,7 +22,7 @@ import { Array, Cause, Effect, Exit, Option, Predicate, Schema, String, Struct }
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
-import { useContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ComponentType, Context, ReactNode } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -22,8 +31,18 @@ const formSubmissionError = Atom.family((_form: AnyFormApi) =>
   Atom.make<Option.Option<string>>(Option.none())
 );
 
-export const useFormSubmissionError = () =>
-  useAtomValue(formSubmissionError(tanStackFormHookContexts.useFormContext()));
+/**
+ * The submission state of the surrounding form group, if any. Inside a group, fields and submit
+ * buttons act on the group instead of the whole form.
+ */
+const formGroupContext = createContext<
+  Option.Option<{
+    readonly canSubmit: boolean;
+    readonly isSubmitting: boolean;
+    readonly errorMessage: Option.Option<string>;
+    readonly submit: () => Promise<void>;
+  }>
+>(Option.none());
 
 type FormFieldError = string | StandardSchemaV1Issue;
 
@@ -185,6 +204,52 @@ type EffectSchemaInternalFormOptions<
       } & EffectSchemaSubmissionOptions<void, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices>)
   );
 
+const decodeSubmitted = async <TType, TEncoded, TEncodingServices>({
+  schema,
+  value,
+}: {
+  readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
+  readonly value: TEncoded;
+}) => {
+  const result = await Schema.toStandardSchemaV1(schema)['~standard'].validate(value);
+  if (result.issues !== void 0) {
+    throw new Error('Unexpected invalid data during submit');
+  }
+  return result.value;
+};
+
+/**
+ * Scopes `children` to a form group from `useAppFormGroup`: submit buttons inside submit the group,
+ * and fields inside are disabled while it's submitted.
+ */
+const AppFormGroup = ({
+  group,
+  children,
+}: {
+  readonly group: {
+    readonly state: {
+      readonly meta: { readonly canSubmit: boolean; readonly isSubmitting: boolean };
+    };
+    readonly handleSubmit: () => Promise<void>;
+    readonly submissionError: Atom.Atom<Option.Option<string>>;
+  };
+  readonly children: ReactNode;
+}) => {
+  const { canSubmit, isSubmitting } = group.state.meta;
+  const errorMessage = useAtomValue(group.submissionError);
+  const value = useMemo(
+    () =>
+      Option.some({
+        canSubmit,
+        isSubmitting,
+        errorMessage,
+        submit: async () => group.handleSubmit(),
+      }),
+    [canSubmit, isSubmitting, errorMessage, group]
+  );
+  return <formGroupContext.Provider value={value}>{children}</formGroupContext.Provider>;
+};
+
 export const createEffectSchemaFormHook = <
   TServices,
   // TanStack's createFormHook preserves each component's actual props through an any-based
@@ -213,6 +278,43 @@ export const createEffectSchemaFormHook = <
     formComponents,
     formContext: hookFormContext,
   });
+
+  /** Runs a submission, reporting expected failures through `setError` and rethrowing defects. */
+  const runSubmission = async <TSuccess, TFailure>({
+    registry,
+    submit,
+    onSuccess,
+    onFailure,
+    setError,
+  }: {
+    readonly registry: AtomRegistry.AtomRegistry;
+    readonly submit: () => Effect.Effect<
+      TSuccess,
+      TFailure,
+      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+    >;
+    readonly onSuccess: (result: TSuccess) => void | Promise<void>;
+    readonly onFailure: (error: TFailure) => string;
+    readonly setError: (message: Option.Option<string>) => void;
+  }) => {
+    setError(Option.none());
+    const submitExit = await Effect.runPromiseExit(
+      AtomRegistry.getResult(registry, runtime.atom(Effect.suspend(submit)))
+    );
+
+    if (Exit.isSuccess(submitExit)) {
+      await onSuccess(submitExit.value);
+      return;
+    }
+
+    const error = Exit.findErrorOption(submitExit);
+    if (Option.isSome(error)) {
+      setError(Option.some(onFailure(error.value)));
+      return;
+    }
+
+    throw Cause.squash(submitExit.cause);
+  };
 
   function useAppForm<
     TType = void,
@@ -274,9 +376,7 @@ export const createEffectSchemaFormHook = <
         },
       },
       onSubmit: async (submitProps) => {
-        setSubmissionError(Option.none());
-
-        const submitDecoded = async <Value,>({
+        const submit = async <Value,>({
           callbacks,
           value,
         }: {
@@ -289,51 +389,21 @@ export const createEffectSchemaFormHook = <
             TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
           >;
           readonly value: Value;
-        }) => {
-          const submitExit = await Effect.runPromiseExit(
-            AtomRegistry.getResult(
-              registry,
-              runtime.atom(Effect.suspend(() => callbacks.onSubmit({ ...submitProps, value })))
-            )
-          );
+        }) =>
+          runSubmission({
+            registry,
+            submit: () => callbacks.onSubmit({ ...submitProps, value }),
+            onSuccess: async (result) => callbacks.onSuccess?.({ ...submitProps, result, value }),
+            onFailure: (error) => callbacks.onFailure({ ...submitProps, error, value }),
+            setError: setSubmissionError,
+          });
 
-          if (Exit.isSuccess(submitExit)) {
-            await callbacks.onSuccess?.({
-              ...submitProps,
-              result: submitExit.value,
-              value,
-            });
-            return;
-          }
-
-          const error = Exit.findErrorOption(submitExit);
-          if (Option.isSome(error)) {
-            setSubmissionError(
-              Option.some(
-                callbacks.onFailure({
-                  ...submitProps,
-                  error: error.value,
-                  value,
-                })
-              )
-            );
-            return;
-          }
-
-          throw Cause.squash(submitExit.cause);
-        };
-
-        if (options.schema === void 0) {
-          await submitDecoded({ callbacks: options, value: void 0 });
-        } else {
-          const result = await Schema.toStandardSchemaV1(options.schema)['~standard'].validate(
-            submitProps.value
-          );
-          if (result.issues !== void 0) {
-            throw new Error('Unexpected invalid data during submit');
-          }
-          await submitDecoded({ callbacks: options, value: result.value });
-        }
+        await (options.schema === void 0
+          ? submit({ callbacks: options, value: void 0 })
+          : submit({
+              callbacks: options,
+              value: await decodeSubmitted({ schema: options.schema, value: submitProps.value }),
+            }));
       },
       validators: { onChangeAsync: standardSchema },
     });
@@ -350,12 +420,97 @@ export const createEffectSchemaFormHook = <
     return Object.assign(form, { reset });
   }
 
-  return { ...formHook, useAppForm };
+  /**
+   * A part of `form` that's submitted on its own, like a lookup that fills in the rest of the form.
+   * The whole form's validation still applies to the group's fields when the group is submitted.
+   * Render the group's submit button inside `<AppFormGroup group={group}>`.
+   */
+  const useAppFormGroup = <
+    TFormData,
+    TSubmitMeta,
+    const TName extends DeepKeys<TFormData>,
+    TType,
+    TSuccess,
+    TFailure,
+    TEncodingServices = never,
+  >({
+    form,
+    name,
+    schema,
+    onSubmit,
+    onSuccess,
+    onFailure,
+  }: {
+    readonly form: FormApi<
+      TFormData,
+      undefined,
+      undefined,
+      StandardSchemaV1<TFormData, unknown> | undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      TSubmitMeta
+    >;
+    readonly name: TName;
+    readonly schema: Schema.Codec<TType, DeepValue<TFormData, TName>, never, TEncodingServices>;
+    readonly onSubmit: (props: {
+      readonly value: TType;
+    }) => Effect.Effect<
+      TSuccess,
+      TFailure,
+      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+    >;
+    readonly onSuccess?: (props: {
+      readonly value: TType;
+      readonly result: TSuccess;
+    }) => void | Promise<void>;
+    readonly onFailure: (props: { readonly value: TType; readonly error: TFailure }) => string;
+  }) => {
+    const registry = useContext(RegistryContext);
+    useAtomMount(runtime);
+    const submissionError = useMemo(() => Atom.make(Option.none<string>()), []);
+    const setError = (message: Option.Option<string>) => {
+      registry.set(submissionError, message);
+    };
+    const group = useFormGroup({
+      form,
+      name,
+      listeners: {
+        onChange: () => {
+          setError(Option.none());
+        },
+      },
+      onGroupSubmit: async ({ value }) => {
+        const decoded = await decodeSubmitted({ schema, value });
+        await runSubmission({
+          registry,
+          submit: () => onSubmit({ value: decoded }),
+          onSuccess: async (result) => onSuccess?.({ value: decoded, result }),
+          onFailure: (error) => onFailure({ value: decoded, error }),
+          setError,
+        });
+      },
+    });
+    return Object.assign(group, { submissionError });
+  };
+
+  return { ...formHook, useAppForm, useAppFormGroup, AppFormGroup };
+};
+
+/** Whether the field's form is saving, or its form group is being submitted. */
+const useIsSubmitting = () => {
+  const form = useFormContext();
+  const group = useContext(formGroupContext);
+  const isFormSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  return isFormSubmitting || Option.exists(group, ({ isSubmitting }) => isSubmitting);
 };
 
 export const useTextFieldState = () => {
   const field = useFieldContext<string>();
-  const form = useFormContext();
   const errorMessage = useSelector(
     field.store,
     (state) =>
@@ -364,7 +519,7 @@ export const useTextFieldState = () => {
         : Option.none(),
     { compare: Option.makeEquivalence(String.Equivalence) }
   );
-  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  const isSubmitting = useIsSubmitting();
   const hasFocused = useRef(false);
   return {
     field,
@@ -416,8 +571,7 @@ export const useNativeTextSync = ({
 
 export const useTextListFieldState = () => {
   const field = useFieldContext<Array<string>>();
-  const form = useFormContext();
-  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  const isSubmitting = useIsSubmitting();
   return {
     entries: field.state.value,
     isSubmitting,
@@ -454,9 +608,13 @@ export const TextListFieldEntry = ({
   );
 };
 
+/** The submission state of the surrounding form group, or else of the whole form. */
 export const useSubmitState = () => {
   const form = useFormContext();
-  const submissionError = useFormSubmissionError();
+  const group = useContext(formGroupContext);
+  const submissionError = useAtomValue(
+    formSubmissionError(tanStackFormHookContexts.useFormContext())
+  );
   const [canSubmit, isSubmitting, validationErrors] = useSelector(
     form.store,
     (state) =>
@@ -469,10 +627,10 @@ export const useSubmitState = () => {
         ),
       ] as const
   );
-  return {
-    form,
+  return Option.getOrElse(group, () => ({
     canSubmit,
     isSubmitting,
     errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
-  };
+    submit: async () => form.handleSubmit(),
+  }));
 };

@@ -22,7 +22,7 @@ export const SubmitButton = (({
   platformProps = { android: { variant: 'default' } },
   containerModifiers = {},
 }) => {
-  const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+  const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState();
   const colors = useMaterialColors();
   const ButtonComponent =
     'android' in platformProps && platformProps.android.variant === 'text' ? TextButton : Button;
@@ -45,7 +45,7 @@ export const SubmitButton = (({
           {...('android' in platformProps ? platformProps.android : {})}
           enabled={canSubmit && !isSubmitting && !disabled}
           onClick={() => {
-            void form.handleSubmit();
+            void submit();
           }}>
           <Row
             horizontalAlignment="center"

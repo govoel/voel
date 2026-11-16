@@ -231,11 +231,11 @@ const makeFixture = async (initial: ReadonlyArray<typeof Account.Type>) => {
 };
 
 const DeleteUser = () => {
-  const { form, isSubmitting, errorMessage } = useSubmitState();
+  const { submit, isSubmitting, errorMessage } = useSubmitState();
   return (
     <>
       <Text>{Option.getOrElse(errorMessage, () => 'Ready to delete user')}</Text>
-      <Pressable role="button" disabled={isSubmitting} onPress={() => void form.handleSubmit()}>
+      <Pressable role="button" disabled={isSubmitting} onPress={() => void submit()}>
         <Text>Delete missing user</Text>
       </Pressable>
     </>

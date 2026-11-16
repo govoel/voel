@@ -110,13 +110,13 @@ vi.mock('#src/components/form', async () => {
     children,
     disabled = false,
   }: PropsWithChildren<{ readonly disabled?: boolean }>) => {
-    const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+    const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState();
     return (
       <>
         <Pressable
           role="button"
           disabled={!canSubmit || isSubmitting || disabled}
-          onPress={() => void form.handleSubmit()}>
+          onPress={() => void submit()}>
           {children}
         </Pressable>
         {isSubmitting ? <Text>Saving</Text> : null}
@@ -422,6 +422,41 @@ describe.each([
     expect(navigation.replace).not.toHaveBeenCalled();
   });
 
+  it('clears a rejected save’s message once another plugin is chosen', async () => {
+    api.create.mockReturnValue(
+      Effect.fail(LibraryNameConflictError.make({ libraryName: Library.fields.name.make('Films') }))
+    );
+    await renderScreen(<CreateLibraryScreen />);
+    await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
+    await submit({ label: 'Create library' });
+    const message = 'A library with this name already exists. Choose another name.';
+    expect(await screen.findByText(message)).toBeOnTheScreen();
+
+    await fireEvent.changeText(screen.getByLabelText('Storage'), 'npm');
+    expect(screen.queryByText(message)).toBeNull();
+  });
+
+  it('needs a package name before loading an npm plugin', async () => {
+    await renderScreen(<CreateLibraryScreen />);
+    await fireEvent.changeText(await screen.findByLabelText('Storage'), 'npm');
+    await fireEvent.changeText(screen.getByLabelText('Package'), '   ');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Load plugin' })).toBeDisabled();
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Load plugin' }));
+    expect(api.loadPlugin).not.toHaveBeenCalled();
+
+    await fireEvent.changeText(screen.getByLabelText('Package'), ' voel-storage-s3 ');
+    await submit({ label: 'Load plugin' });
+    await waitFor(() => {
+      expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
+        account,
+        id: Option.none(),
+        storagePluginId: 'npm:voel-storage-s3',
+      });
+    });
+  });
+
   it('loads an npm plugin only when asked, and saves with its settings', async () => {
     await renderScreen(<CreateLibraryScreen />);
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
@@ -493,7 +528,8 @@ describe.each([
       Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
     );
     await renderScreen(<CreateLibraryScreen />);
-    await fireEvent.changeText(await screen.findByLabelText('Storage'), 'npm');
+    await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
+    await fireEvent.changeText(screen.getByLabelText('Storage'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'not-a-plugin');
     await submit({ label: 'Load plugin' });
     expect(

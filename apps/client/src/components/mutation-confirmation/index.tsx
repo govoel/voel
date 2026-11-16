@@ -53,7 +53,7 @@ const ConfirmationForm = ({
   readonly onDismissed: () => void;
   readonly onDismiss: () => void;
 }) => {
-  const { form, isSubmitting, errorMessage } = useSubmitState();
+  const { submit, isSubmitting, errorMessage } = useSubmitState();
   return (
     <Confirmation
       {...props}
@@ -61,7 +61,7 @@ const ConfirmationForm = ({
         presented,
         busy: isSubmitting,
         feedback: Option.getOrElse(errorMessage, () => ''),
-        execute: form.handleSubmit,
+        execute: submit,
         handleDismiss: () => {
           if (!isSubmitting) {
             onDismiss();

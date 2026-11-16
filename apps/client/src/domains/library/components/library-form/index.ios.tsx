@@ -13,6 +13,7 @@ import { Array, Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
 
+import { AppFormGroup } from '#src/components/form';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
@@ -40,10 +41,9 @@ const LibraryFormFields = ({
   onSaved,
 }: ComponentProps<LibraryFormComponent> & { readonly loaded: LoadedLibraryForm }) => {
   const form = useLibraryForm({ loaded, target, onSaved });
-  const { loader, pending, choose } = useStoragePluginLoader({ form, loaded, target });
+  const { loader, pending, choose } = useStoragePluginLoader({ form, target });
   const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
-  const isLoading = useSelector(loader.store, (state) => state.isSubmitting);
-  const source = useSelector(loader.store, (state) => state.values.source);
+  const isLoading = useSelector(loader.store, (state) => state.meta.isSubmitting);
   const mediaTypeChoices = useMediaTypeChoices({ form });
   const settings = useStoragePluginSettingsFields({ form, pending });
   return (
@@ -52,7 +52,6 @@ const LibraryFormFields = ({
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={pending}
             platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
             containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
             <Text>{submitLabel}</Text>
@@ -79,31 +78,41 @@ const LibraryFormFields = ({
             </Picker>
           )}
         </form.AppField>
-        <Picker
-          label="Storage"
-          selection={source}
-          onSelectionChange={choose}
-          modifiers={[pickerStyle('menu'), disabled(isSubmitting || isLoading)]}>
-          {Array.map(storagePluginSources, (option) => (
-            <Text key={option.source} modifiers={[tag(option.source)]}>
-              {option.label}
-            </Text>
-          ))}
-        </Picker>
-        <loader.AppForm>
-          {source === 'npm' ? (
-            <loader.AppField name="packageName">
-              {(field) => (
-                <field.TextField purpose="text" label="Package" placeholder="voel-storage-plugin" />
-              )}
-            </loader.AppField>
-          ) : null}
+        <AppFormGroup group={loader}>
+          <form.AppField name="storageChoice.source">
+            {(field) => (
+              <>
+                <Picker
+                  label="Storage"
+                  selection={field.state.value}
+                  onSelectionChange={choose}
+                  modifiers={[pickerStyle('menu'), disabled(isSubmitting || isLoading)]}>
+                  {Array.map(storagePluginSources, (option) => (
+                    <Text key={option.source} modifiers={[tag(option.source)]}>
+                      {option.label}
+                    </Text>
+                  ))}
+                </Picker>
+                {field.state.value === 'npm' ? (
+                  <form.AppField name="storageChoice.packageName">
+                    {(packageField) => (
+                      <packageField.TextField
+                        purpose="text"
+                        label="Package"
+                        placeholder="voel-storage-plugin"
+                      />
+                    )}
+                  </form.AppField>
+                ) : null}
+              </>
+            )}
+          </form.AppField>
           {pending ? (
-            <loader.SubmitButton disabled={isSubmitting}>
+            <form.SubmitButton disabled={isSubmitting}>
               <Text>Load plugin</Text>
-            </loader.SubmitButton>
+            </form.SubmitButton>
           ) : null}
-        </loader.AppForm>
+        </AppFormGroup>
         {Match.value(settings).pipe(
           Match.tagsExhaustive({
             NotLoaded: ({ message }) => (

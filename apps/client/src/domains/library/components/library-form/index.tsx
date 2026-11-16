@@ -1,14 +1,14 @@
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
 import { StoragePluginSettingsForms, StoragePluginSettingsInput } from '@govoel/plugins/storage';
 import { useSelector } from '@tanstack/react-form';
-import { Array, Effect, Match, Option, Record, Schema, String } from 'effect';
+import { Array, Match, Option, Record, Schema, SchemaTransformation, String } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
-import { useAppForm } from '#src/components/form';
+import { useAppForm, useAppFormGroup } from '#src/components/form';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
@@ -67,34 +67,90 @@ const settingsFormFor = ({
   readonly type: typeof Library.json.fields.type.Encoded;
 }) => storage.forms[type];
 
+const storagePluginChoice = ({
+  storagePluginId,
+}: {
+  readonly storagePluginId: StoragePluginIdEncoded;
+}) =>
+  Match.value(storagePluginId).pipe(
+    Match.when('builtin:local', () => ({ source: 'builtin:local' as const, packageName: '' })),
+    Match.orElse((id) => ({ source: 'npm' as const, packageName: npmPackageName(id) }))
+  );
+
+const chosenStoragePluginId = ({
+  source,
+  packageName,
+}: {
+  readonly source: 'builtin:local' | 'npm';
+  readonly packageName: string;
+}): StoragePluginIdEncoded =>
+  source === 'builtin:local' ? 'builtin:local' : `npm:${String.trim(packageName)}`;
+
 /**
- * The library, plus the storage plugin it will be saved with: the plugin whose settings forms
- * were loaded last. Settings are kept per media type, so switching types never mixes one form's
- * values into another's, and switching back restores what was entered. Text and list values are
- * kept apart so each field's value has the shape its component edits.
+ * Which storage plugin to use: a built-in one, or an npm package the server installs. Choosing one
+ * doesn't load it. Loading an npm plugin installs its package, so that waits until it's asked for.
+ */
+class StoragePluginChoice extends Schema.Struct({
+  source: Schema.Literals(['builtin:local', 'npm']),
+  packageName: Schema.String,
+}).check(
+  Schema.makeFilter(
+    ({ source, packageName }) =>
+      source === 'builtin:local' ||
+      String.isNonEmpty(String.trim(packageName)) || {
+        path: ['packageName'],
+        issue: 'Enter a package name',
+      }
+  )
+) {
+  /** The choice, decoded to the plugin's ID. */
+  public static readonly storagePluginId = this.pipe(
+    Schema.decodeTo(
+      Library.jsonCreate.fields.storagePluginId,
+      SchemaTransformation.transform({
+        decode: chosenStoragePluginId,
+        encode: (storagePluginId) => storagePluginChoice({ storagePluginId }),
+      })
+    )
+  );
+}
+
+/**
+ * The library, the storage plugin chosen for it, and the storage plugin it will be saved with: the
+ * one whose settings forms were loaded last. Settings are kept per media type, so switching types
+ * never mixes one form's values into another's, and switching back restores what was entered. Text
+ * and list values are kept apart so each field's value has the shape its component edits.
  */
 class LibraryFormValues extends Schema.Struct({
   name: Schema.Trim.check(Schema.isNonEmpty({ message: 'Name is required' })).pipe(
     Schema.decodeTo(Library.jsonCreate.fields.name)
   ),
   type: Library.jsonCreate.fields.type,
+  storageChoice: StoragePluginChoice.storagePluginId,
   storage: Schema.Struct({
     storagePluginId: Library.jsonCreate.fields.storagePluginId,
     forms: StoragePluginSettingsForms,
+    settings: Schema.Record(
+      Schema.String,
+      Schema.Struct({
+        text: Schema.Record(Schema.String, Schema.String),
+        list: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+      })
+    ),
   }),
-  storagePluginSettings: Schema.Record(
-    Schema.String,
-    Schema.Struct({
-      text: Schema.Record(Schema.String, Schema.String),
-      list: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-    })
-  ),
 }).check(
   Schema.makeFilter(
     ({ type, storage }) =>
       settingsFormFor({ storage, type }) !== void 0 || {
         path: ['type'],
         issue: `${storagePluginName(storage)} doesn’t support ${mediaTypeLabel({ type })}.`,
+      }
+  ),
+  Schema.makeFilter(
+    ({ storageChoice, storage }) =>
+      storageChoice === storage.storagePluginId || {
+        path: ['storage'],
+        issue: 'Load the storage plugin before saving.',
       }
   )
 ) {}
@@ -120,24 +176,23 @@ const settingsValues = ({ form }: { readonly form: typeof StoragePluginSettingsF
   ),
 });
 
-const storagePluginSettingsValues = ({
-  storage,
-}: {
-  readonly storage: { readonly forms: typeof StoragePluginSettingsForms.Encoded };
-}) =>
-  Record.fromEntries(
+/** A loaded storage plugin, with each of its settings forms starting from its initial values. */
+const storageValues = ({ storage }: { readonly storage: LoadedLibraryForm['storage'] }) => ({
+  ...storage,
+  settings: Record.fromEntries(
     Array.flatMap(mediaTypes, (type) => {
       const form = settingsFormFor({ storage, type });
       return form === void 0 ? [] : [[type, settingsValues({ form })] as const];
     })
-  );
+  ),
+});
 
 const storagePluginSettingsInput = ({
   form,
   values,
 }: {
   readonly form: typeof StoragePluginSettingsForm.Encoded;
-  readonly values: (typeof LibraryFormValues.Type)['storagePluginSettings'][string] | undefined;
+  readonly values: (typeof LibraryFormValues.Type)['storage']['settings'][string] | undefined;
 }) =>
   StoragePluginSettingsInput.make(
     Record.fromEntries(
@@ -180,8 +235,8 @@ export const useLibraryForm = ({
     defaultValues: {
       name: loaded.name,
       type: loaded.type,
-      storage: loaded.storage,
-      storagePluginSettings: storagePluginSettingsValues(loaded),
+      storageChoice: storagePluginChoice(loaded.storage),
+      storage: storageValues(loaded),
     },
     onSubmit: ({ value }) => {
       const library = {
@@ -190,7 +245,7 @@ export const useLibraryForm = ({
         storagePluginId: value.storage.storagePluginId,
         storagePluginSettings: storagePluginSettingsInput({
           form: settingsFormFor({ storage: value.storage, type: value.type }) ?? [],
-          values: value.storagePluginSettings[value.type],
+          values: value.storage.settings[value.type],
         }),
       };
       return Match.value(target).pipe(
@@ -205,72 +260,40 @@ export const useLibraryForm = ({
   });
 };
 
-/** Which storage plugin to load: a built-in one, or an npm package named by the person editing. */
-class StoragePluginChoice extends Schema.Struct({
-  source: Schema.Literals(['builtin:local', 'npm']),
-  packageName: Schema.String,
-}).check(
-  Schema.makeFilter(
-    ({ source, packageName }) =>
-      source === 'builtin:local' ||
-      String.isNonEmpty(String.trim(packageName)) || {
-        path: ['packageName'],
-        issue: 'Enter a package name',
-      }
-  )
-) {}
-
-const chosenStoragePluginId = ({
-  source,
-  packageName,
-}: typeof StoragePluginChoice.Encoded): StoragePluginIdEncoded =>
-  source === 'builtin:local' ? 'builtin:local' : `npm:${String.trim(packageName)}`;
-
 /**
- * Loads a storage plugin's settings forms into the library form, only when asked. Loading an npm
- * plugin makes the server install its package, so typing a package name loads nothing by itself.
- * Edits keep the library's ID, so the new plugin's forms can start from the saved settings.
+ * Loads the chosen storage plugin's settings forms into the library form, only when asked. Edits
+ * keep the library's ID, so the new plugin's forms can start from the saved settings.
  */
 export const useStoragePluginLoader = ({
   form,
-  loaded,
   target,
 }: {
   readonly form: ReturnType<typeof useLibraryForm>;
-  readonly loaded: LoadedLibraryForm;
   readonly target: LibraryFormTarget;
 }) => {
   const account = useSelectedAccount();
-  const loader = useAppForm({
-    schema: StoragePluginChoice,
-    defaultValues: Match.value(loaded.storage.storagePluginId).pipe(
-      Match.when('builtin:local', () => ({ source: 'builtin:local' as const, packageName: '' })),
-      Match.orElse((id) => ({ source: 'npm' as const, packageName: npmPackageName(id) }))
-    ),
+  const loader = useAppFormGroup({
+    form,
+    name: 'storageChoice',
+    schema: StoragePluginChoice.storagePluginId,
     onSubmit: ({ value }) =>
-      Schema.decodeEffect(Library.jsonCreate.fields.storagePluginId)(
-        chosenStoragePluginId(value)
-      ).pipe(
-        Effect.flatMap((storagePluginId) =>
-          loadStoragePluginSettingsForms({ account, id: targetId({ target }), storagePluginId })
-        )
-      ),
+      loadStoragePluginSettingsForms({ account, id: targetId({ target }), storagePluginId: value }),
     onFailure: libraryFailureMessage,
     onSuccess: ({ result }) => {
-      form.setFieldValue('storage', result);
-      form.setFieldValue('storagePluginSettings', storagePluginSettingsValues({ storage: result }));
+      form.setFieldValue('storage', storageValues({ storage: result }));
     },
   });
-  const chosen = useSelector(loader.store, (state) => chosenStoragePluginId(state.values));
-  const loadedId = useSelector(form.store, (state) => state.values.storage.storagePluginId);
   return {
     loader,
     /** The chosen plugin isn't the loaded one, so its settings can't be shown or saved yet. */
-    pending: chosen !== loadedId,
-    choose: (source: typeof StoragePluginChoice.Encoded.source) => {
-      loader.setFieldValue('source', source);
+    pending: useSelector(
+      form.store,
+      ({ values }) => chosenStoragePluginId(values.storageChoice) !== values.storage.storagePluginId
+    ),
+    choose: (source: (typeof StoragePluginChoice.Encoded)['source']) => {
+      form.setFieldValue('storageChoice.source', source);
       // Built-in plugins install nothing, so choosing one is the request to load it.
-      if (source === 'builtin:local' && loadedId !== 'builtin:local') {
+      if (source === 'builtin:local' && form.state.values.storage.storagePluginId !== source) {
         void loader.handleSubmit();
       }
     },
@@ -281,7 +304,7 @@ export const storagePluginSources = [
   { source: 'builtin:local', label: 'Local folders' },
   { source: 'npm', label: 'npm package' },
 ] as const satisfies ReadonlyArray<{
-  readonly source: typeof StoragePluginChoice.Encoded.source;
+  readonly source: (typeof StoragePluginChoice.Encoded)['source'];
   readonly label: string;
 }>;
 
@@ -327,12 +350,12 @@ export const useStoragePluginSettingsFields = ({
           TextField: (descriptor) => ({
             ...descriptor,
             key: `${storage.storagePluginId}.${type}.${descriptor.name}`,
-            path: `storagePluginSettings.${type}.text.${descriptor.name}` as const,
+            path: `storage.settings.${type}.text.${descriptor.name}` as const,
           }),
           TextListField: (descriptor) => ({
             ...descriptor,
             key: `${storage.storagePluginId}.${type}.${descriptor.name}`,
-            path: `storagePluginSettings.${type}.list.${descriptor.name}` as const,
+            path: `storage.settings.${type}.list.${descriptor.name}` as const,
           }),
         })
       )

@@ -23,7 +23,7 @@ export const SubmitButton = (({
   platformProps = {},
   containerModifiers = {},
 }) => {
-  const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+  const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState();
   return (
     <>
       {Option.match(errorMessage, {
@@ -48,7 +48,7 @@ export const SubmitButton = (({
           disabledModifier(!canSubmit || isSubmitting || disabled),
         ]}
         onPress={() => {
-          void form.handleSubmit();
+          void submit();
         }}>
         <HStack
           alignment="center"

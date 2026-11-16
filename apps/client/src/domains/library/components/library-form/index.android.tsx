@@ -6,6 +6,7 @@ import { Array, Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
 
+import { AppFormGroup } from '#src/components/form';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
@@ -34,10 +35,9 @@ const LibraryFormFields = ({
   onSaved,
 }: ComponentProps<LibraryFormComponent> & { readonly loaded: LoadedLibraryForm }) => {
   const form = useLibraryForm({ loaded, target, onSaved });
-  const { loader, pending, choose } = useStoragePluginLoader({ form, loaded, target });
+  const { loader, pending, choose } = useStoragePluginLoader({ form, target });
   const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
-  const isLoading = useSelector(loader.store, (state) => state.isSubmitting);
-  const source = useSelector(loader.store, (state) => state.values.source);
+  const isLoading = useSelector(loader.store, (state) => state.meta.isSubmitting);
   const mediaTypeChoices = useMediaTypeChoices({ form });
   const settings = useStoragePluginSettingsFields({ form, pending });
   const colors = useMaterialColors();
@@ -46,9 +46,7 @@ const LibraryFormFields = ({
       <FormLayout
         {...(title !== void 0 ? { title } : {})}
         footer={
-          <form.SubmitButton
-            disabled={pending}
-            platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+          <form.SubmitButton platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
             <Text>{submitLabel}</Text>
           </form.SubmitButton>
         }>
@@ -85,43 +83,49 @@ const LibraryFormFields = ({
             </>
           )}
         </form.AppField>
-        <Text>Storage</Text>
-        <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-          {Array.map(storagePluginSources, (option) => (
-            <SegmentedButton
-              key={option.source}
-              selected={source === option.source}
-              enabled={!isSubmitting && !isLoading}
-              onClick={() => {
-                choose(option.source);
-              }}>
-              <SegmentedButton.Label>
-                <Text>{option.label}</Text>
-              </SegmentedButton.Label>
-            </SegmentedButton>
-          ))}
-        </SingleChoiceSegmentedButtonRow>
-        <loader.AppForm>
-          {source === 'npm' ? (
-            <loader.AppField name="packageName">
-              {(field) => (
-                <field.TextField
-                  purpose="text"
-                  label="Package"
-                  placeholder="voel-storage-plugin"
-                  platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
-                />
-              )}
-            </loader.AppField>
-          ) : null}
+        <AppFormGroup group={loader}>
+          <form.AppField name="storageChoice.source">
+            {(field) => (
+              <>
+                <Text>Storage</Text>
+                <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+                  {Array.map(storagePluginSources, (option) => (
+                    <SegmentedButton
+                      key={option.source}
+                      selected={field.state.value === option.source}
+                      enabled={!isSubmitting && !isLoading}
+                      onClick={() => {
+                        choose(option.source);
+                      }}>
+                      <SegmentedButton.Label>
+                        <Text>{option.label}</Text>
+                      </SegmentedButton.Label>
+                    </SegmentedButton>
+                  ))}
+                </SingleChoiceSegmentedButtonRow>
+                {field.state.value === 'npm' ? (
+                  <form.AppField name="storageChoice.packageName">
+                    {(packageField) => (
+                      <packageField.TextField
+                        purpose="text"
+                        label="Package"
+                        placeholder="voel-storage-plugin"
+                        platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                      />
+                    )}
+                  </form.AppField>
+                ) : null}
+              </>
+            )}
+          </form.AppField>
           {pending ? (
-            <loader.SubmitButton
+            <form.SubmitButton
               disabled={isSubmitting}
               platformProps={{ android: { variant: 'text' } }}>
               <Text>Load plugin</Text>
-            </loader.SubmitButton>
+            </form.SubmitButton>
           ) : null}
-        </loader.AppForm>
+        </AppFormGroup>
         {Match.value(settings).pipe(
           Match.tagsExhaustive({
             NotLoaded: ({ message }) => <Text color={colors.onSurfaceVariant}>{message}</Text>,
