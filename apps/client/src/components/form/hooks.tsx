@@ -1,4 +1,5 @@
 import { RegistryContext, useAtomMount, useAtomSet, useAtomValue } from '@effect/atom-react';
+import type { ObservableState } from '@expo/ui';
 import { createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
 import type {
   AnyFieldApi,
@@ -8,12 +9,12 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Array, Cause, Effect, Exit, Option, Predicate, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, Exit, Option, Predicate, Schema, String, Struct } from 'effect';
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
-import { useContext, useMemo, useRef } from 'react';
-import type { ComponentProps, ComponentType, Context } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
+import type { ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
@@ -24,9 +25,9 @@ const formSubmissionError = Atom.family((_form: AnyFormApi) =>
 export const useFormSubmissionError = () =>
   useAtomValue(formSubmissionError(tanStackFormHookContexts.useFormContext()));
 
-export type FormFieldError = string | StandardSchemaV1Issue;
+type FormFieldError = string | StandardSchemaV1Issue;
 
-export const getFormFieldErrorMessage = (error: FormFieldError) =>
+const getFormFieldErrorMessage = (error: FormFieldError) =>
   typeof error === 'string' ? error : error.message;
 
 type StandardSchemaFieldContext<TData> = Omit<
@@ -184,28 +185,6 @@ type EffectSchemaInternalFormOptions<
       } & EffectSchemaSubmissionOptions<void, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices>)
   );
 
-// TanStack exposes AppField as a component whose props are inferred through any-based
-// React component helpers. Preserve that inference while only removing validator props.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AppFieldWithoutValidators<TAppField extends ComponentType<any>> = ComponentType<
-  Omit<ComponentProps<TAppField>, 'validators'>
->;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FormWithoutFieldValidators<TForm extends { readonly AppField: ComponentType<any> }> = Omit<
-  TForm,
-  'AppField'
-> & {
-  readonly AppField: AppFieldWithoutValidators<TForm['AppField']>;
-};
-
-const withoutFieldValidators = <
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  TForm extends { readonly AppField: ComponentType<any> },
->(
-  form: TForm
-): FormWithoutFieldValidators<TForm> => form;
-
 export const createEffectSchemaFormHook = <
   TServices,
   // TanStack's createFormHook preserves each component's actual props through an any-based
@@ -252,23 +231,21 @@ export const createEffectSchemaFormHook = <
       TSubmitMeta,
       TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
     >
-  ): FormWithoutFieldValidators<
-    AppFieldExtendedReactFormApi<
-      TEncoded,
-      undefined,
-      undefined,
-      StandardSchemaV1<TEncoded, unknown> | undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      TSubmitMeta,
-      TFieldComponents,
-      TFormComponents
-    >
+  ): AppFieldExtendedReactFormApi<
+    TEncoded,
+    undefined,
+    undefined,
+    StandardSchemaV1<TEncoded, unknown> | undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    TSubmitMeta,
+    TFieldComponents,
+    TFormComponents
   >;
   function useAppForm<TType, TEncoded, TSuccess, TFailure, TEncodingServices, TSubmitMeta>(
     options: EffectSchemaInternalFormOptions<
@@ -370,7 +347,7 @@ export const createEffectSchemaFormHook = <
       };
     }, [form, setSubmissionError]);
 
-    return withoutFieldValidators(Object.assign(form, { reset }));
+    return Object.assign(form, { reset });
   }
 
   return { ...formHook, useAppForm };
@@ -379,12 +356,20 @@ export const createEffectSchemaFormHook = <
 export const useTextFieldState = () => {
   const field = useFieldContext<string>();
   const form = useFormContext();
+  const errorMessage = useSelector(
+    field.store,
+    (state) =>
+      state.meta.isTouched
+        ? Option.map(Array.head(state.meta.errors), getFormFieldErrorMessage)
+        : Option.none(),
+    { compare: Option.makeEquivalence(String.Equivalence) }
+  );
   const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
   const hasFocused = useRef(false);
   return {
     field,
     isSubmitting,
-    errorMessage: field.state.meta.isTouched ? Array.head(field.state.meta.errors) : Option.none(),
+    errorMessage,
     onFocusChange: (focused: boolean) => {
       // Native controls can emit an initial unfocused event. Only real blur marks a field touched.
       if (focused) {
@@ -393,6 +378,39 @@ export const useTextFieldState = () => {
         field.handleBlur();
       }
     },
+  };
+};
+
+/**
+ * Keeps a native field's text in sync with its form field. Typing flows to the form through the
+ * returned change handler, and other form changes (reset, `setFieldValue`) flow back to `text`.
+ */
+export const useNativeTextSync = ({
+  text,
+}: {
+  readonly text: Pick<ObservableState<string>, 'set'>;
+}) => {
+  const { store, handleChange } = useFieldContext<string>();
+  // Native change events arrive asynchronously. Remembering the last text either side reported
+  // keeps the form's echo of a stale keystroke from overwriting newer native input.
+  const lastSyncedText = useRef(store.state.value);
+  useEffect(() => {
+    const syncToNative = () => {
+      const { value } = store.state;
+      if (lastSyncedText.current !== value) {
+        lastSyncedText.current = value;
+        text.set(value);
+      }
+    };
+    syncToNative();
+    const subscription = store.subscribe(syncToNative);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [store, text]);
+  return (value: string) => {
+    lastSyncedText.current = value;
+    handleChange(value);
   };
 };
 

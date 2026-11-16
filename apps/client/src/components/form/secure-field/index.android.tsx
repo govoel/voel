@@ -1,7 +1,7 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
 import { Option } from 'effect';
 
-import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
+import { useNativeTextSync, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { passwordInputPresets } from '#src/components/form/input-presets/index.android.ts';
 import type { SecureFieldComponent } from '#src/components/form/secure-field/index.tsx';
 import { Text } from '#src/components/text';
@@ -15,6 +15,7 @@ export const SecureField = (({
 }) => {
   const { field, isSubmitting, errorMessage, onFocusChange } = useTextFieldState();
   const value = useNativeState(field.state.value);
+  const handleChange = useNativeTextSync({ text: value });
 
   return (
     <ComposeTextField
@@ -29,7 +30,7 @@ export const SecureField = (({
         ...('android' in platformProps ? platformProps.android.keyboardOptions : {}),
       }}
       value={value}
-      onValueChange={field.handleChange}
+      onValueChange={handleChange}
       onFocusChanged={onFocusChange}
       enabled={
         !isSubmitting &&
@@ -47,9 +48,9 @@ export const SecureField = (({
 
       {Option.match(errorMessage, {
         onNone: () => null,
-        onSome: (error) => (
+        onSome: (message) => (
           <ComposeTextField.SupportingText>
-            <Text variant="caption">{getFormFieldErrorMessage(error)}</Text>
+            <Text variant="caption">{message}</Text>
           </ComposeTextField.SupportingText>
         ),
       })}

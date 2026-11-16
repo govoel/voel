@@ -3,7 +3,7 @@ import { disabled, font, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { Option } from 'effect';
 import { PlatformColor } from 'react-native';
 
-import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
+import { useNativeTextSync, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { passwordInputPresets } from '#src/components/form/input-presets/index.ios.ts';
 import type { SecureFieldComponent } from '#src/components/form/secure-field/index.tsx';
 import { Text } from '#src/components/text/index.ios.tsx';
@@ -17,6 +17,7 @@ export const SecureField = (({
 }) => {
   const { field, isSubmitting, errorMessage, onFocusChange } = useTextFieldState();
   const value = useNativeState(field.state.value);
+  const handleChange = useNativeTextSync({ text: value });
 
   return (
     <VStack alignment="leading" spacing={Spacing.one}>
@@ -31,15 +32,15 @@ export const SecureField = (({
           ...('ios' in platformProps ? (platformProps.ios.modifiers ?? []) : []),
         ]}
         text={value}
-        onTextChange={field.handleChange}
+        onTextChange={handleChange}
         onFocusChange={onFocusChange}
       />
 
       {Option.match(errorMessage, {
         onNone: () => null,
-        onSome: (error) => (
+        onSome: (message) => (
           <Label
-            title={getFormFieldErrorMessage(error)}
+            title={message}
             modifiers={[
               font({ textStyle: 'caption', weight: 'regular' }),
               foregroundStyle(PlatformColor('systemRed')),

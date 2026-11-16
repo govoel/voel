@@ -1,19 +1,31 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
+import { semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 
-import { getFormFieldErrorMessage, useTextFieldState } from '#src/components/form/hooks.tsx';
+import { useNativeTextSync, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { textInputPresets } from '#src/components/form/input-presets/index.android.ts';
 import type { TextFieldComponent } from '#src/components/form/text-field/index.tsx';
 import { Text } from '#src/components/text';
 import { materialInputTextStyle } from '#src/constants/material.ts';
 
-export const TextField = (({ label, placeholder, purpose, platformProps = {} }) => {
+export const TextField = (({
+  label,
+  labelVisibility = 'visible',
+  placeholder,
+  purpose,
+  platformProps = {},
+}) => {
   const { field, isSubmitting, errorMessage, onFocusChange } = useTextFieldState();
   const value = useNativeState(field.state.value);
+  const handleChange = useNativeTextSync({ text: value });
 
   return (
     <ComposeTextField
       {...('android' in platformProps ? platformProps.android : {})}
+      modifiers={[
+        ...(labelVisibility === 'hidden' ? [semantics({ contentDescription: label })] : []),
+        ...('android' in platformProps ? (platformProps.android.modifiers ?? []) : []),
+      ]}
       textStyle={{
         ...materialInputTextStyle,
         ...('android' in platformProps ? platformProps.android.textStyle : {}),
@@ -23,7 +35,7 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
         ...('android' in platformProps ? platformProps.android.keyboardOptions : {}),
       }}
       value={value}
-      onValueChange={field.handleChange}
+      onValueChange={handleChange}
       onFocusChanged={onFocusChange}
       enabled={
         !isSubmitting &&
@@ -31,9 +43,11 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
       }
       singleLine={'android' in platformProps ? (platformProps.android.singleLine ?? true) : true}
       isError={Option.isSome(errorMessage)}>
-      <ComposeTextField.Label>
-        <Text>{label}</Text>
-      </ComposeTextField.Label>
+      {labelVisibility === 'visible' ? (
+        <ComposeTextField.Label>
+          <Text>{label}</Text>
+        </ComposeTextField.Label>
+      ) : null}
 
       <ComposeTextField.Placeholder>
         <Text>{placeholder}</Text>
@@ -41,9 +55,9 @@ export const TextField = (({ label, placeholder, purpose, platformProps = {} }) 
 
       {Option.match(errorMessage, {
         onNone: () => null,
-        onSome: (error) => (
+        onSome: (message) => (
           <ComposeTextField.SupportingText>
-            <Text variant="caption">{getFormFieldErrorMessage(error)}</Text>
+            <Text variant="caption">{message}</Text>
           </ComposeTextField.SupportingText>
         ),
       })}
