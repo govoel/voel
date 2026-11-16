@@ -19,10 +19,11 @@ import { Spacing } from '#src/constants/theme.ts';
 export const SubmitButton = (({
   children,
   disabled = false,
+  group,
   platformProps = { android: { variant: 'default' } },
   containerModifiers = {},
 }) => {
-  const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+  const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState({ group });
   const colors = useMaterialColors();
   const ButtonComponent =
     'android' in platformProps && platformProps.android.variant === 'text' ? TextButton : Button;

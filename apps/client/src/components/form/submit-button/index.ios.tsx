@@ -20,10 +20,11 @@ import { Spacing } from '#src/constants/theme.ts';
 export const SubmitButton = (({
   children,
   disabled = false,
+  group,
   platformProps = {},
   containerModifiers = {},
 }) => {
-  const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+  const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState({ group });
   return (
     <>
       {Option.match(errorMessage, {

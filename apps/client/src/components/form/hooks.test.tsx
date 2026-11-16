@@ -37,7 +37,7 @@ class LookupForm extends Schema.Struct({
 
 class Lookup extends Schema.Struct({ query: Schema.Trim }) {}
 
-const { AppFormGroup, useAppForm, useAppFormGroup } = createEffectSchemaFormHook({
+const { useAppForm, useAppFormGroup } = createEffectSchemaFormHook({
   runtime,
   fieldComponents: { EmptyComponent },
   fieldContext,
@@ -45,12 +45,15 @@ const { AppFormGroup, useAppForm, useAppFormGroup } = createEffectSchemaFormHook
   formContext,
 });
 
-const ErrorProbe = ({ testID = 'form-error' }: { readonly testID?: string }) => {
-  const { errorMessage } = useSubmitState();
+const ErrorProbe = ({
+  testID = 'form-error',
+  group,
+}: NonNullable<Parameters<typeof useSubmitState>[0]> & { readonly testID?: string }) => {
+  const { errorMessage } = useSubmitState({ group });
   return <Text testID={testID}>{Option.getOrElse(errorMessage, () => 'No form error')}</Text>;
 };
-const RetrySubmitButton = () => {
-  const { submit, canSubmit, isSubmitting } = useSubmitState();
+const RetrySubmitButton = ({ group }: NonNullable<Parameters<typeof useSubmitState>[0]>) => {
+  const { submit, canSubmit, isSubmitting } = useSubmitState({ group });
   return (
     <Pressable disabled={!canSubmit || isSubmitting} role="button" onPress={() => void submit()}>
       <Text>Submit</Text>
@@ -377,10 +380,8 @@ describe('createEffectSchemaFormHook', () => {
               />
             )}
           </form.Field>
-          <AppFormGroup group={group}>
-            <RetrySubmitButton />
-            <ErrorProbe testID="group-error" />
-          </AppFormGroup>
+          <RetrySubmitButton group={group} />
+          <ErrorProbe testID="group-error" group={group} />
           <ErrorProbe />
           <Text>Name: {name}</Text>
         </form.AppForm>

@@ -13,7 +13,6 @@ import { Array, Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
 
-import { AppFormGroup } from '#src/components/form';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
@@ -78,41 +77,39 @@ const LibraryFormFields = ({
             </Picker>
           )}
         </form.AppField>
-        <AppFormGroup group={loader}>
-          <form.AppField name="storageChoice.source">
-            {(field) => (
-              <>
-                <Picker
-                  label="Storage"
-                  selection={field.state.value}
-                  onSelectionChange={choose}
-                  modifiers={[pickerStyle('menu'), disabled(isSubmitting || isLoading)]}>
-                  {Array.map(storagePluginSources, (option) => (
-                    <Text key={option.source} modifiers={[tag(option.source)]}>
-                      {option.label}
-                    </Text>
-                  ))}
-                </Picker>
-                {field.state.value === 'npm' ? (
-                  <form.AppField name="storageChoice.packageName">
-                    {(packageField) => (
-                      <packageField.TextField
-                        purpose="text"
-                        label="Package"
-                        placeholder="voel-storage-plugin"
-                      />
-                    )}
-                  </form.AppField>
-                ) : null}
-              </>
-            )}
-          </form.AppField>
-          {pending ? (
-            <form.SubmitButton disabled={isSubmitting}>
-              <Text>Load plugin</Text>
-            </form.SubmitButton>
-          ) : null}
-        </AppFormGroup>
+        <form.AppField name="storageChoice.source">
+          {(field) => (
+            <>
+              <Picker
+                label="Storage"
+                selection={field.state.value}
+                onSelectionChange={choose}
+                modifiers={[pickerStyle('menu'), disabled(isSubmitting || isLoading)]}>
+                {Array.map(storagePluginSources, (option) => (
+                  <Text key={option.source} modifiers={[tag(option.source)]}>
+                    {option.label}
+                  </Text>
+                ))}
+              </Picker>
+              {field.state.value === 'npm' ? (
+                <form.AppField name="storageChoice.packageName">
+                  {(packageField) => (
+                    <packageField.TextField
+                      purpose="text"
+                      label="Package"
+                      placeholder="voel-storage-plugin"
+                    />
+                  )}
+                </form.AppField>
+              ) : null}
+            </>
+          )}
+        </form.AppField>
+        {pending ? (
+          <form.SubmitButton group={loader} disabled={isSubmitting}>
+            <Text>Load plugin</Text>
+          </form.SubmitButton>
+        ) : null}
         {Match.value(settings).pipe(
           Match.tagsExhaustive({
             NotLoaded: ({ message }) => (

@@ -109,8 +109,11 @@ vi.mock('#src/components/form', async () => {
   const SubmitButton = ({
     children,
     disabled = false,
-  }: PropsWithChildren<{ readonly disabled?: boolean }>) => {
-    const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+    group,
+  }: PropsWithChildren<
+    { readonly disabled?: boolean } & NonNullable<Parameters<typeof useSubmitState>[0]>
+  >) => {
+    const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState({ group });
     return (
       <>
         <Pressable

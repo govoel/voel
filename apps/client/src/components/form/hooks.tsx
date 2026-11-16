@@ -22,7 +22,7 @@ import { Array, Cause, Effect, Exit, Option, Predicate, Schema, String, Struct }
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
-import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 import type { ComponentType, Context, ReactNode } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -30,19 +30,6 @@ const tanStackFormHookContexts = createFormHookContexts();
 const formSubmissionError = Atom.family((_form: AnyFormApi) =>
   Atom.make<Option.Option<string>>(Option.none())
 );
-
-/**
- * The submission state of the surrounding form group, if any. Inside a group, fields and submit
- * buttons act on the group instead of the whole form.
- */
-const formGroupContext = createContext<
-  Option.Option<{
-    readonly canSubmit: boolean;
-    readonly isSubmitting: boolean;
-    readonly errorMessage: Option.Option<string>;
-    readonly submit: () => Promise<void>;
-  }>
->(Option.none());
 
 type FormFieldError = string | StandardSchemaV1Issue;
 
@@ -218,38 +205,6 @@ const decodeSubmitted = async <TType, TEncoded, TEncodingServices>({
   return result.value;
 };
 
-/**
- * Scopes `children` to a form group from `useAppFormGroup`: submit buttons inside submit the group,
- * and fields inside are disabled while it's submitted.
- */
-const AppFormGroup = ({
-  group,
-  children,
-}: {
-  readonly group: {
-    readonly state: {
-      readonly meta: { readonly canSubmit: boolean; readonly isSubmitting: boolean };
-    };
-    readonly handleSubmit: () => Promise<void>;
-    readonly submissionError: Atom.Atom<Option.Option<string>>;
-  };
-  readonly children: ReactNode;
-}) => {
-  const { canSubmit, isSubmitting } = group.state.meta;
-  const errorMessage = useAtomValue(group.submissionError);
-  const value = useMemo(
-    () =>
-      Option.some({
-        canSubmit,
-        isSubmitting,
-        errorMessage,
-        submit: async () => group.handleSubmit(),
-      }),
-    [canSubmit, isSubmitting, errorMessage, group]
-  );
-  return <formGroupContext.Provider value={value}>{children}</formGroupContext.Provider>;
-};
-
 export const createEffectSchemaFormHook = <
   TServices,
   // TanStack's createFormHook preserves each component's actual props through an any-based
@@ -423,7 +378,7 @@ export const createEffectSchemaFormHook = <
   /**
    * A part of `form` that's submitted on its own, like a lookup that fills in the rest of the form.
    * The whole form's validation still applies to the group's fields when the group is submitted.
-   * Render the group's submit button inside `<AppFormGroup group={group}>`.
+   * Pass the group to a submit button to submit just the group.
    */
   const useAppFormGroup = <
     TFormData,
@@ -498,15 +453,7 @@ export const createEffectSchemaFormHook = <
     return Object.assign(group, { submissionError });
   };
 
-  return { ...formHook, useAppForm, useAppFormGroup, AppFormGroup };
-};
-
-/** Whether the field's form is saving, or its form group is being submitted. */
-const useIsSubmitting = () => {
-  const form = useFormContext();
-  const group = useContext(formGroupContext);
-  const isFormSubmitting = useSelector(form.store, (state) => state.isSubmitting);
-  return isFormSubmitting || Option.exists(group, ({ isSubmitting }) => isSubmitting);
+  return { ...formHook, useAppForm, useAppFormGroup };
 };
 
 export const useTextFieldState = () => {
@@ -519,7 +466,7 @@ export const useTextFieldState = () => {
         : Option.none(),
     { compare: Option.makeEquivalence(String.Equivalence) }
   );
-  const isSubmitting = useIsSubmitting();
+  const isSubmitting = useSelector(useFormContext().store, (state) => state.isSubmitting);
   const hasFocused = useRef(false);
   return {
     field,
@@ -571,7 +518,7 @@ export const useNativeTextSync = ({
 
 export const useTextListFieldState = () => {
   const field = useFieldContext<Array<string>>();
-  const isSubmitting = useIsSubmitting();
+  const isSubmitting = useSelector(useFormContext().store, (state) => state.isSubmitting);
   return {
     entries: field.state.value,
     isSubmitting,
@@ -608,13 +555,26 @@ export const TextListFieldEntry = ({
   );
 };
 
-/** The submission state of the surrounding form group, or else of the whole form. */
-export const useSubmitState = () => {
+/**
+ * The submission state of the surrounding form, or of `group`, a form group from `useAppFormGroup`
+ * that's submitted on its own.
+ */
+export const useSubmitState = ({
+  group,
+}: {
+  readonly group?:
+    | {
+        readonly state: {
+          readonly meta: { readonly canSubmit: boolean; readonly isSubmitting: boolean };
+        };
+        readonly handleSubmit: () => Promise<void>;
+        readonly submissionError: Atom.Atom<Option.Option<string>>;
+      }
+    | undefined;
+} = {}) => {
   const form = useFormContext();
-  const group = useContext(formGroupContext);
-  const submissionError = useAtomValue(
-    formSubmissionError(tanStackFormHookContexts.useFormContext())
-  );
+  const formApi = tanStackFormHookContexts.useFormContext();
+  const submissionError = useAtomValue(group?.submissionError ?? formSubmissionError(formApi));
   const [canSubmit, isSubmitting, validationErrors] = useSelector(
     form.store,
     (state) =>
@@ -627,10 +587,18 @@ export const useSubmitState = () => {
         ),
       ] as const
   );
-  return Option.getOrElse(group, () => ({
-    canSubmit,
-    isSubmitting,
-    errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
-    submit: async () => form.handleSubmit(),
-  }));
+  return Option.match(Option.fromNullishOr(group), {
+    onNone: () => ({
+      canSubmit,
+      isSubmitting,
+      errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
+      submit: async () => form.handleSubmit(),
+    }),
+    onSome: ({ state, handleSubmit }) => ({
+      canSubmit: state.meta.canSubmit,
+      isSubmitting: state.meta.isSubmitting,
+      errorMessage: submissionError,
+      submit: async () => handleSubmit(),
+    }),
+  });
 };

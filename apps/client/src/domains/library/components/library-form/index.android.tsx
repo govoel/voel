@@ -6,7 +6,6 @@ import { Array, Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { ComponentProps } from 'react';
 
-import { AppFormGroup } from '#src/components/form';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { Text } from '#src/components/text';
@@ -83,49 +82,48 @@ const LibraryFormFields = ({
             </>
           )}
         </form.AppField>
-        <AppFormGroup group={loader}>
-          <form.AppField name="storageChoice.source">
-            {(field) => (
-              <>
-                <Text>Storage</Text>
-                <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-                  {Array.map(storagePluginSources, (option) => (
-                    <SegmentedButton
-                      key={option.source}
-                      selected={field.state.value === option.source}
-                      enabled={!isSubmitting && !isLoading}
-                      onClick={() => {
-                        choose(option.source);
-                      }}>
-                      <SegmentedButton.Label>
-                        <Text>{option.label}</Text>
-                      </SegmentedButton.Label>
-                    </SegmentedButton>
-                  ))}
-                </SingleChoiceSegmentedButtonRow>
-                {field.state.value === 'npm' ? (
-                  <form.AppField name="storageChoice.packageName">
-                    {(packageField) => (
-                      <packageField.TextField
-                        purpose="text"
-                        label="Package"
-                        placeholder="voel-storage-plugin"
-                        platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
-                      />
-                    )}
-                  </form.AppField>
-                ) : null}
-              </>
-            )}
-          </form.AppField>
-          {pending ? (
-            <form.SubmitButton
-              disabled={isSubmitting}
-              platformProps={{ android: { variant: 'text' } }}>
-              <Text>Load plugin</Text>
-            </form.SubmitButton>
-          ) : null}
-        </AppFormGroup>
+        <form.AppField name="storageChoice.source">
+          {(field) => (
+            <>
+              <Text>Storage</Text>
+              <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+                {Array.map(storagePluginSources, (option) => (
+                  <SegmentedButton
+                    key={option.source}
+                    selected={field.state.value === option.source}
+                    enabled={!isSubmitting && !isLoading}
+                    onClick={() => {
+                      choose(option.source);
+                    }}>
+                    <SegmentedButton.Label>
+                      <Text>{option.label}</Text>
+                    </SegmentedButton.Label>
+                  </SegmentedButton>
+                ))}
+              </SingleChoiceSegmentedButtonRow>
+              {field.state.value === 'npm' ? (
+                <form.AppField name="storageChoice.packageName">
+                  {(packageField) => (
+                    <packageField.TextField
+                      purpose="text"
+                      label="Package"
+                      placeholder="voel-storage-plugin"
+                      platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                    />
+                  )}
+                </form.AppField>
+              ) : null}
+            </>
+          )}
+        </form.AppField>
+        {pending ? (
+          <form.SubmitButton
+            group={loader}
+            disabled={isSubmitting}
+            platformProps={{ android: { variant: 'text' } }}>
+            <Text>Load plugin</Text>
+          </form.SubmitButton>
+        ) : null}
         {Match.value(settings).pipe(
           Match.tagsExhaustive({
             NotLoaded: ({ message }) => <Text color={colors.onSurfaceVariant}>{message}</Text>,

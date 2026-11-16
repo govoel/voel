@@ -2,9 +2,13 @@ import type { ButtonProps as ComposeButtonProps, RowProps } from '@expo/ui/jetpa
 import type { HStackProps, ButtonProps as SwiftButtonProps } from '@expo/ui/swift-ui';
 import type { ComponentType, ReactElement } from 'react';
 
+import type { useSubmitState } from '#src/components/form/hooks.tsx';
+
 export type SubmitButtonComponent = ComponentType<{
   children: ReactElement | Array<ReactElement>;
   disabled?: boolean;
+  /** A form group to submit on its own, instead of the whole form. */
+  group?: NonNullable<Parameters<typeof useSubmitState>[0]>['group'];
   platformProps?:
     | {
         ios: Omit<SwiftButtonProps, 'children'>;
