@@ -50,7 +50,14 @@ const targetId = ({ target }: { readonly target: LibraryFormTarget }) =>
 
 type StoragePluginId = typeof Library.jsonCreate.fields.storagePluginId.Type;
 
-const npmPackageName = String.replace(/^npm:/u, '');
+/** Splits an npm plugin ID into its `npm:` prefix and package name. */
+class NpmPluginIdParts extends Schema.TemplateLiteralParser(NpmPluginId.parts) {
+  /** Only for IDs that matched `NpmPluginId.is`, which checks the same parts, so it can't throw. */
+  // oxlint-disable-next-line effecttsgo/schema-sync -- see above.
+  public static readonly decodeSync = Schema.decodeSync(this);
+}
+
+const npmPackageName = (id: typeof NpmPluginId.Type) => NpmPluginIdParts.decodeSync(id)[1];
 
 /** How people name a storage plugin: built in, or an npm package the server installs. */
 const storagePluginName = ({ storagePluginId }: { readonly storagePluginId: StoragePluginId }) =>

@@ -669,14 +669,17 @@ describe.each([
       loadedForm({
         name: 'Shows',
         type: 'show',
-        storagePluginId: 'npm:storage',
+        storagePluginId: 'npm:@voel/storage@1.2.0',
         forms: bucketForms,
       })
     );
     await renderScreen(<EditLibraryScreen />);
     expect(
-      await screen.findByText('“storage” doesn’t support TV shows. Choose another media type.')
+      await screen.findByText(
+        '“@voel/storage@1.2.0” doesn’t support TV shows. Choose another media type.'
+      )
     ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Package')).toHaveDisplayValue('@voel/storage@1.2.0');
     expect(screen.getByText('Movies')).toBeOnTheScreen();
     expect(screen.getByText('TV shows')).toBeOnTheScreen();
     expect(screen.getByText('Audiobooks')).toBeOnTheScreen();
@@ -700,7 +703,7 @@ describe.each([
         library: {
           name: 'Shows',
           type: 'movie',
-          storagePluginId: 'npm:storage',
+          storagePluginId: 'npm:@voel/storage@1.2.0',
           storagePluginSettings: { bucket: 'saved-bucket' },
         },
       });
