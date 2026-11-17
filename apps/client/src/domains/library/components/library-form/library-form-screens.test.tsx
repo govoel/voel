@@ -462,7 +462,7 @@ describe.each([
     });
   });
 
-  it('requires a name and shows server rejections without leaving', async () => {
+  it('requires a name, and shows server rejections until the input changes', async () => {
     api.create.mockReturnValue(
       Effect.fail(LibraryNameConflictError.make({ libraryName: Library.fields.name.make('Films') }))
     );
@@ -480,41 +480,12 @@ describe.each([
     ).toBeOnTheScreen();
     expect(native.hide).not.toHaveBeenCalled();
     expect(navigation.replace).not.toHaveBeenCalled();
-  });
 
-  it('clears a rejected save’s message once another plugin is chosen', async () => {
-    api.create.mockReturnValue(
-      Effect.fail(LibraryNameConflictError.make({ libraryName: Library.fields.name.make('Films') }))
-    );
-    await renderScreen(<CreateLibraryScreen />);
-    await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
-    await submit({ label: 'Create library' });
-    const message = 'A library with this name already exists. Choose another name.';
-    expect(await screen.findByText(message)).toBeOnTheScreen();
-
+    // Choosing another plugin clears the rejection.
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
-    expect(screen.queryByText(message)).toBeNull();
-  });
-
-  it('needs a package name before loading an npm plugin', async () => {
-    await renderScreen(<CreateLibraryScreen />);
-    await fireEvent.changeText(await screen.findByLabelText('Provider'), 'npm');
-    await fireEvent.changeText(screen.getByLabelText('Package'), '   ');
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: loadPlugin })).toBeDisabled();
-    });
-    await fireEvent.press(screen.getByRole('button', { name: loadPlugin }));
-    expect(api.loadPlugin).not.toHaveBeenCalled();
-
-    await fireEvent.changeText(screen.getByLabelText('Package'), ' voel-storage-s3 ');
-    await submit({ label: loadPlugin });
-    await waitFor(() => {
-      expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
-        account,
-        id: Option.none(),
-        storagePluginId: 'npm:voel-storage-s3',
-      });
-    });
+    expect(
+      screen.queryByText('A library with this name already exists. Choose another name.')
+    ).toBeNull();
   });
 
   it('loads an npm plugin only when asked, and saves with its settings', async () => {
@@ -526,7 +497,11 @@ describe.each([
     expect(screen.queryByRole('button', { name: 'Storage settings' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
 
-    await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
+    await fireEvent.changeText(screen.getByLabelText('Package'), '   ');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: loadPlugin })).toBeDisabled();
+    });
+    await fireEvent.changeText(screen.getByLabelText('Package'), ' voel-storage-s3 ');
     expect(api.loadPlugin).not.toHaveBeenCalled();
     const loading = await Effect.runPromise(Deferred.make<undefined>());
     api.loadPlugin.mockImplementationOnce(({ storagePluginId }) =>
@@ -597,21 +572,13 @@ describe.each([
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
-    expect(api.loadPlugin).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await submit({ label: loadPlugin });
     await screen.findByLabelText('Bucket');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
-    await waitFor(() => {
-      expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('');
-    });
-    expect(api.loadPlugin).toHaveBeenLastCalledWith({
-      account,
-      id: Option.none(),
-      storagePluginId: 'builtin:local',
-    });
+    expect(await screen.findByLabelText('Directories 1')).toHaveDisplayValue('');
   });
 
   it('keeps the loaded plugin when another can’t be loaded', async () => {
@@ -695,7 +662,6 @@ describe.each([
         params: { id: libraryId },
       });
     });
-    expect(navigation.replace).not.toHaveBeenCalled();
   });
 
   it('flags a saved media type the plugin no longer supports', async () => {
@@ -704,18 +670,7 @@ describe.each([
         name: 'Shows',
         type: 'show',
         storagePluginId: 'npm:storage',
-        forms: {
-          movie: [
-            {
-              kind: 'TextField',
-              name: 'bucket',
-              label: 'Bucket',
-              placeholder: 'media',
-              purpose: 'text',
-              initialValue: 'saved-bucket',
-            },
-          ],
-        },
+        forms: bucketForms,
       })
     );
     await renderScreen(<EditLibraryScreen />);

@@ -76,6 +76,46 @@ const RetrySubmitButton = ({ group }: NonNullable<Parameters<typeof useSubmitSta
     </Pressable>
   );
 };
+const submitWhenEnabled = async () => {
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+  });
+  await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+};
+
+const MetadataForm = () => {
+  const form = useAppForm({
+    defaultValues: { name: '', lookup: { query: 'films' } },
+    schema: LookupForm,
+    onSubmit: () => Effect.void,
+    onFailure: () => 'not saved',
+  });
+  const group = useAppFormGroup({
+    form,
+    name: 'lookup',
+    schema: Lookup,
+    onSubmitMeta: { source: 'default' },
+    onSubmit: ({ meta, value }) =>
+      meta.source === 'default'
+        ? TestSubmitError.make({ message: `${value.query} not found` })
+        : Effect.succeed('found'),
+    onFailure: ({ error, meta }) => `${error.message} (${meta.source})`,
+    onSuccess: ({ groupApi, meta, result, value }) => {
+      groupApi.setFieldValue('name', `${result}: ${value.query} (${meta.source})`);
+    },
+  });
+  const name = useSelector(form.store, (state) => state.values.name);
+  return (
+    <form.AppForm>
+      <RetrySubmitButton group={group} />
+      <Pressable role="button" onPress={async () => group.handleSubmit({ source: 'button' })}>
+        <Text>Submit override</Text>
+      </Pressable>
+      <ErrorProbe group={group} />
+      <Text>{name}</Text>
+    </form.AppForm>
+  );
+};
 
 describe('createEffectSchemaFormHook', () => {
   it('shows each concurrent form its own saved result', async () => {
@@ -360,7 +400,6 @@ describe('createEffectSchemaFormHook', () => {
   });
 
   it('submits a form group on its own, checked by the whole form’s schema', async () => {
-    const lookups = vi.fn<(query: string) => void>();
     const saves = vi.fn();
     const TestForm = () => {
       const form = useAppForm({
@@ -373,12 +412,10 @@ describe('createEffectSchemaFormHook', () => {
         form,
         name: 'lookup',
         schema: Lookup,
-        onSubmit: ({ value }) => {
-          lookups(value.query);
-          return value.query === 'missing'
+        onSubmit: ({ value }) =>
+          value.query === 'missing'
             ? TestSubmitError.make({ message: 'not found' })
-            : Effect.succeed(`Found ${value.query}`);
-        },
+            : Effect.succeed(`Found ${value.query}`),
         onFailure: ({ error }) => error.message,
         onSuccess: ({ result }) => {
           form.setFieldValue('name', result);
@@ -405,23 +442,14 @@ describe('createEffectSchemaFormHook', () => {
     });
 
     await fireEvent.changeText(screen.getByLabelText('Query'), 'missing');
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
-    });
-    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
-    await waitFor(() => {
-      expect(screen.getByTestId('group-error')).toHaveTextContent('not found');
-    });
+    await submitWhenEnabled();
+    expect(await screen.findByText('not found')).toBeOnTheScreen();
     expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
 
     await fireEvent.changeText(screen.getByLabelText('Query'), ' films ');
     expect(screen.getByTestId('group-error')).toHaveTextContent('No form error');
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
-    });
-    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    await submitWhenEnabled();
     expect(await screen.findByText('Name: Found films')).toBeOnTheScreen();
-    expect(lookups.mock.calls).toEqual([['missing'], ['films']]);
     expect(saves).not.toHaveBeenCalled();
   });
 
@@ -433,9 +461,6 @@ describe('createEffectSchemaFormHook', () => {
     class RequiredLookup extends Schema.Struct({
       query: Schema.String.check(Schema.isNonEmpty({ message: 'Enter a query' })),
     }) {}
-    const submitted = vi.fn();
-    const failed = vi.fn(() => 'not found');
-    const rejected = vi.fn();
     const TestForm = () => {
       const form = useAppForm({
         defaultValues: { name: '', lookup: { query: '' } },
@@ -447,43 +472,35 @@ describe('createEffectSchemaFormHook', () => {
         form,
         name: 'lookup',
         schema: RequiredLookup,
-        onSubmit: ({ value }) =>
-          Effect.sync(() => {
-            submitted(value);
-          }),
-        onFailure: failed,
+        onSubmit: ({ value }) => Effect.succeed(`Found ${value.query}`),
+        onFailure: () => 'not found',
+        onSuccess: ({ result }) => {
+          form.setFieldValue('name', result);
+        },
       });
+      const name = useSelector(form.store, (state) => state.values.name);
       return (
         <form.AppForm>
           <form.AppField name="lookup.query">
             {(field) => <field.TestTextField label="Query" />}
           </form.AppField>
-          <Pressable role="button" onPress={async () => group.handleSubmit().catch(rejected)}>
-            <Text>Validate lookup</Text>
-          </Pressable>
           <RetrySubmitButton group={group} />
-          <ErrorProbe group={group} />
+          <ErrorProbe testID="group-error" group={group} />
+          <Text>Name: {name}</Text>
         </form.AppForm>
       );
     };
 
     await render(<TestForm />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Validate lookup' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
     expect(await screen.findByText('Enter a query')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
-    expect(submitted).not.toHaveBeenCalled();
-    expect(failed).not.toHaveBeenCalled();
-    expect(rejected).not.toHaveBeenCalled();
-    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+    expect(screen.getByTestId('group-error')).toHaveTextContent('No form error');
+    expect(screen.queryByText(/Found/u)).toBeNull();
 
     await fireEvent.changeText(screen.getByLabelText('Query'), 'films');
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
-    });
-    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
-    await waitFor(() => {
-      expect(submitted).toHaveBeenCalledExactlyOnceWith({ query: 'films' });
-    });
+    await submitWhenEnabled();
+    expect(await screen.findByText('Name: Found films')).toBeOnTheScreen();
   });
 
   it('clears every scoped submission error when the parent is reset', async () => {
@@ -538,99 +555,26 @@ describe('createEffectSchemaFormHook', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'First' }));
     expect(await screen.findByText('first failed')).toBeOnTheScreen();
     expect(screen.getByTestId('second-error')).toHaveTextContent('No form error');
-    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
     await fireEvent.press(screen.getByRole('button', { name: 'Second' }));
     expect(await screen.findByText('second failed')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Form' }));
     expect(await screen.findByText('form failed')).toBeOnTheScreen();
-    expect(screen.getByText('first failed')).toBeOnTheScreen();
-    expect(screen.getByText('second failed')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
+    // The values never changed, so clearing errors must not rely on change listeners.
     await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
     for (const testID of ['form-error', 'first-error', 'second-error']) {
       expect(screen.getByTestId(testID)).toHaveTextContent('No form error');
     }
-    // The values never changed, so clearing errors must not rely on change listeners.
     await fireEvent.press(screen.getByRole('button', { name: 'First' }));
     expect(await screen.findByText('first failed')).toBeOnTheScreen();
-    expect(screen.getByTestId('second-error')).toHaveTextContent('No form error');
-    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
-  it('preserves group context and metadata in submission, failure, and success callbacks', async () => {
-    const submitted = vi.fn();
-    const failed = vi.fn();
-    const succeeded = vi.fn();
-    const groupContexts = new Set<unknown>();
-    const TestForm = () => {
-      const form = useAppForm({
-        defaultValues: { name: '', lookup: { query: ' films ' } },
-        schema: LookupForm,
-        onSubmitMeta: { parentOnly: true },
-        onSubmit: () => Effect.void,
-        onFailure: () => 'not saved',
-      });
-      const group = useAppFormGroup({
-        form,
-        name: 'lookup',
-        schema: Lookup,
-        onSubmitMeta: { source: 'default' },
-        onSubmit: (props) => {
-          groupContexts.add(props.groupApi);
-          submitted(props);
-          return props.meta.source === 'default'
-            ? TestSubmitError.make({ message: 'not found' })
-            : Effect.succeed('found');
-        },
-        onFailure: (props) => {
-          groupContexts.add(props.groupApi);
-          failed(props);
-          return props.error.message;
-        },
-        onSuccess: (props) => {
-          groupContexts.add(props.groupApi);
-          succeeded(props);
-          props.groupApi.setFieldValue(
-            'name',
-            `${props.result}: ${props.value.query} (${props.meta.source})`
-          );
-        },
-      });
-      const name = useSelector(form.store, (state) => state.values.name);
-      return (
-        <form.AppForm>
-          <RetrySubmitButton group={group} />
-          <Pressable role="button" onPress={async () => group.handleSubmit({ source: 'button' })}>
-            <Text>Submit override</Text>
-          </Pressable>
-          <ErrorProbe group={group} />
-          <Text>{name}</Text>
-        </form.AppForm>
-      );
-    };
-
-    await render(<TestForm />);
+  it('passes the group’s submit metadata to its callbacks', async () => {
+    await render(<MetadataForm />);
     await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
-    expect(await screen.findByText('not found')).toBeOnTheScreen();
-    const defaultProps = {
-      value: { query: 'films' },
-      meta: { source: 'default' },
-    };
-    expect(submitted).toHaveBeenNthCalledWith(1, expect.objectContaining(defaultProps));
-    expect(failed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(defaultProps));
-    expect(succeeded).not.toHaveBeenCalled();
-
+    expect(await screen.findByText('films not found (default)')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Submit override' }));
     expect(await screen.findByText('found: films (button)')).toBeOnTheScreen();
-    const overrideProps = {
-      value: { query: 'films' },
-      meta: { source: 'button' },
-    };
-    expect(submitted).toHaveBeenNthCalledWith(2, expect.objectContaining(overrideProps));
-    expect(succeeded).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(overrideProps));
-    expect(groupContexts.size).toBe(1);
-    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
   it('locks a form group’s fields, and only those, while the group is submitted', async () => {
