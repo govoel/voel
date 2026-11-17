@@ -14,20 +14,18 @@ import type {
   AppFieldExtendedReactFormApi,
   DeepKeys,
   DeepValue,
-  FormApi,
   FormOptions,
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
 import {
   Array,
-  Cause,
   Effect,
-  Exit,
   Option,
   Order,
   Predicate,
   Record,
+  Result,
   Schema,
   String,
   Struct,
@@ -204,20 +202,6 @@ type EffectSchemaInternalFormOptions<
       } & EffectSchemaSubmissionOptions<void, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices>)
   );
 
-const decodeSubmitted = async <TType, TEncoded, TEncodingServices>({
-  schema,
-  value,
-}: {
-  readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
-  readonly value: TEncoded;
-}) => {
-  const result = await Schema.toStandardSchemaV1(schema)['~standard'].validate(value);
-  if (result.issues !== void 0) {
-    throw new Error('Unexpected invalid data during submit');
-  }
-  return result.value;
-};
-
 export const createEffectSchemaFormHook = <
   TServices,
   // TanStack's createFormHook preserves each component's actual props through an any-based
@@ -247,41 +231,76 @@ export const createEffectSchemaFormHook = <
     formContext: hookFormContext,
   });
 
-  /** Runs a submission, reporting expected failures through `setError` and rethrowing defects. */
-  const runSubmission = async <TSuccess, TFailure>({
+  /** A form from `useAppForm`, validated by its schema. */
+  type AppForm<TEncoded, TSubmitMeta> = AppFieldExtendedReactFormApi<
+    TEncoded,
+    undefined,
+    undefined,
+    StandardSchemaV1<TEncoded, unknown> | undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    TSubmitMeta,
+    TFieldComponents,
+    TFormComponents
+  >;
+
+  /**
+   * Decodes and submits a value, reporting expected failures through `setError` and rethrowing
+   * defects. Validation already accepted the value, so failing to decode it is a defect.
+   */
+  const runSubmission = async <TType, TSuccess, TFailure>({
     registry,
-    submit,
+    decoded,
+    onSubmit,
     onSuccess,
     onFailure,
     setError,
   }: {
     readonly registry: AtomRegistry.AtomRegistry;
-    readonly submit: () => Effect.Effect<
+    readonly decoded: Effect.Effect<TType, Schema.SchemaError>;
+    readonly onSubmit: (
+      value: TType
+    ) => Effect.Effect<
       TSuccess,
       TFailure,
       TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
     >;
-    readonly onSuccess: (result: TSuccess) => void | Promise<void>;
-    readonly onFailure: (error: TFailure) => string;
+    readonly onSuccess: (props: {
+      readonly value: TType;
+      readonly result: TSuccess;
+    }) => void | Promise<void>;
+    readonly onFailure: (props: { readonly value: TType; readonly error: TFailure }) => string;
     readonly setError: (message: Option.Option<string>) => void;
   }) => {
     setError(Option.none());
-    const submitExit = await Effect.runPromiseExit(
-      AtomRegistry.getResult(registry, runtime.atom(Effect.suspend(submit)))
+    // Defects reject the promise, so only expected failures reach `result`.
+    const { value, result } = await Effect.runPromise(
+      AtomRegistry.getResult(
+        registry,
+        runtime.atom(
+          decoded.pipe(
+            Effect.orDie,
+            Effect.flatMap((decodedValue) =>
+              onSubmit(decodedValue).pipe(
+                Effect.result,
+                Effect.map((submitted) => ({ value: decodedValue, result: submitted }))
+              )
+            )
+          )
+        )
+      )
     );
-
-    if (Exit.isSuccess(submitExit)) {
-      await onSuccess(submitExit.value);
-      return;
-    }
-
-    const error = Exit.findErrorOption(submitExit);
-    if (Option.isSome(error)) {
-      setError(Option.some(onFailure(error.value)));
-      return;
-    }
-
-    throw Cause.squash(submitExit.cause);
+    await Result.match(result, {
+      onSuccess: async (success) => onSuccess({ value, result: success }),
+      onFailure: (error) => {
+        setError(Option.some(onFailure({ value, error })));
+      },
+    });
   };
 
   function useAppForm<
@@ -301,22 +320,7 @@ export const createEffectSchemaFormHook = <
       TSubmitMeta,
       TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
     >
-  ): AppFieldExtendedReactFormApi<
-    TEncoded,
-    undefined,
-    undefined,
-    StandardSchemaV1<TEncoded, unknown> | undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    TSubmitMeta,
-    TFieldComponents,
-    TFormComponents
-  >;
+  ): AppForm<TEncoded, TSubmitMeta>;
   function useAppForm<TType, TEncoded, TSuccess, TFailure, TEncodingServices, TSubmitMeta>(
     options: EffectSchemaInternalFormOptions<
       TType,
@@ -346,7 +350,7 @@ export const createEffectSchemaFormHook = <
       onSubmit: async (submitProps) => {
         const submit = async <Value,>({
           callbacks,
-          value,
+          decoded,
         }: {
           readonly callbacks: EffectSchemaSubmissionOptions<
             Value,
@@ -356,21 +360,23 @@ export const createEffectSchemaFormHook = <
             TSubmitMeta,
             TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
           >;
-          readonly value: Value;
+          readonly decoded: Effect.Effect<Value, Schema.SchemaError>;
         }) =>
           runSubmission({
             registry,
-            submit: () => callbacks.onSubmit({ ...submitProps, value }),
-            onSuccess: async (result) => callbacks.onSuccess?.({ ...submitProps, result, value }),
-            onFailure: (error) => callbacks.onFailure({ ...submitProps, error, value }),
+            decoded,
+            onSubmit: (value) => callbacks.onSubmit({ ...submitProps, value }),
+            onSuccess: async ({ value, result }) =>
+              callbacks.onSuccess?.({ ...submitProps, result, value }),
+            onFailure: ({ value, error }) => callbacks.onFailure({ ...submitProps, error, value }),
             setError: setSubmissionError,
           });
 
         await (options.schema === void 0
-          ? submit({ callbacks: options, value: void 0 })
+          ? submit({ callbacks: options, decoded: Effect.void })
           : submit({
               callbacks: options,
-              value: await decodeSubmitted({ schema: options.schema, value: submitProps.value }),
+              decoded: Schema.decodeEffect(options.schema)(submitProps.value),
             }));
       },
       validators: { onChangeAsync: standardSchema },
@@ -409,20 +415,7 @@ export const createEffectSchemaFormHook = <
     onSuccess,
     onFailure,
   }: {
-    readonly form: FormApi<
-      TFormData,
-      undefined,
-      undefined,
-      StandardSchemaV1<TFormData, unknown> | undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      TSubmitMeta
-    >;
+    readonly form: AppForm<TFormData, TSubmitMeta>;
     readonly name: TName;
     readonly schema: Schema.Codec<TType, DeepValue<TFormData, TName>, never, TEncodingServices>;
     readonly onSubmit: (props: {
@@ -441,9 +434,7 @@ export const createEffectSchemaFormHook = <
     const registry = useContext(RegistryContext);
     useAtomMount(runtime);
     const submissionError = useMemo(() => Atom.make(Option.none<string>()), []);
-    const setError = (message: Option.Option<string>) => {
-      registry.set(submissionError, message);
-    };
+    const setError = useAtomSet(submissionError);
     const group = useFormGroup({
       form,
       name,
@@ -452,16 +443,15 @@ export const createEffectSchemaFormHook = <
           setError(Option.none());
         },
       },
-      onGroupSubmit: async ({ value }) => {
-        const decoded = await decodeSubmitted({ schema, value });
-        await runSubmission({
+      onGroupSubmit: async ({ value }) =>
+        runSubmission({
           registry,
-          submit: () => onSubmit({ value: decoded }),
-          onSuccess: async (result) => onSuccess?.({ value: decoded, result }),
-          onFailure: (error) => onFailure({ value: decoded, error }),
+          decoded: Schema.decodeEffect(schema)(value),
+          onSubmit: (decoded) => onSubmit({ value: decoded }),
+          onSuccess: async (props) => onSuccess?.(props),
+          onFailure,
           setError,
-        });
-      },
+        }),
     });
     return Object.assign(group, { submissionError });
   };
@@ -616,18 +606,17 @@ export const useSubmitState = ({
         ),
       ] as const
   );
-  return Option.match(Option.fromNullishOr(group), {
-    onNone: () => ({
-      canSubmit,
-      isSubmitting,
-      errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
-      submit: async () => form.handleSubmit(),
-    }),
-    onSome: ({ state, handleSubmit }) => ({
-      canSubmit: state.meta.canSubmit,
-      isSubmitting: state.meta.isSubmitting,
-      errorMessage: submissionError,
-      submit: async () => handleSubmit(),
-    }),
-  });
+  return group === void 0
+    ? {
+        canSubmit,
+        isSubmitting,
+        errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
+        submit: async () => form.handleSubmit(),
+      }
+    : {
+        canSubmit: group.state.meta.canSubmit,
+        isSubmitting: group.state.meta.isSubmitting,
+        errorMessage: submissionError,
+        submit: async () => group.handleSubmit(),
+      };
 };

@@ -1,4 +1,5 @@
-import { Array, Effect, Match, Option, Stream } from 'effect';
+import { MediaType } from '@govoel/plugins/library';
+import { Array, Effect, Match, Option, Order, Record, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
@@ -43,10 +44,28 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
-/** Display order for media type choices. */
-export const mediaTypes = ['movie', 'show', 'audiobook'] as const satisfies ReadonlyArray<
-  typeof Library.json.fields.type.Encoded
+/** How each media type is shown. Every media type needs an entry. */
+const mediaTypeDisplay = {
+  movie: { order: 0, label: 'Movies' },
+  show: { order: 1, label: 'TV shows' },
+  audiobook: { order: 2, label: 'Audiobooks' },
+} satisfies Record.ReadonlyRecord<
+  typeof MediaType.Encoded,
+  { readonly order: number; readonly label: string }
 >;
+
+/** Every media type, in display order. */
+export const mediaTypes = Array.sort(
+  MediaType.schema.literals,
+  Order.mapInput(Order.Number, (type: typeof MediaType.Encoded) => mediaTypeDisplay[type].order)
+);
+
+/** A value for every media type. */
+export const byMediaType = <A>(f: (type: typeof MediaType.Encoded) => A) =>
+  Record.map(mediaTypeDisplay, (_, type) => f(type));
+
+export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type'>) =>
+  mediaTypeDisplay[type].label;
 
 /**
  * Every settings form a storage plugin offers. With an `id`, the forms start from that library's
@@ -84,29 +103,35 @@ export const libraryFormAtom = Atom.family(
     AppRuntime.atom(
       Effect.fnUntraced(function* () {
         const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-        const library = yield* Option.match(id, {
-          onNone: () => Effect.succeedNone,
-          onSome: (libraryId) =>
-            client.library.get({ params: { id: libraryId } }).pipe(Effect.asSome),
+        const saved = yield* Effect.transposeOption(
+          Option.map(id, (libraryId) => client.library.get({ params: { id: libraryId } }))
+        );
+        const library = Option.match(saved, {
+          onNone: () => ({
+            name: '',
+            type: Option.none(),
+            storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
+          }),
+          onSome: ({ name, type, storagePluginId }) => ({
+            name,
+            type: Option.some(type),
+            storagePluginId,
+          }),
         });
         const storage = yield* loadStoragePluginSettingsForms({
           account,
           id,
-          storagePluginId: Option.match(library, {
-            onNone: () => Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
-            onSome: (saved) => saved.storagePluginId,
-          }),
+          storagePluginId: library.storagePluginId,
         });
         return {
           storage,
-          name: Option.match(library, { onNone: () => '', onSome: (saved) => saved.name }),
-          type: Option.match(library, {
-            onNone: () =>
-              Array.findFirst(mediaTypes, (type) => storage.forms[type] !== void 0).pipe(
-                Option.getOrElse(() => Array.headNonEmpty(mediaTypes))
-              ),
-            onSome: (saved): typeof Library.json.fields.type.Encoded => saved.type,
-          }),
+          name: library.name,
+          // A new library starts as the first media type its storage plugin supports.
+          type: Option.getOrElse(library.type, () =>
+            Array.findFirst(mediaTypes, (type) => storage.forms[type] !== void 0).pipe(
+              Option.getOrElse(() => Array.headNonEmpty(mediaTypes))
+            )
+          ),
         };
       })
     ).pipe(Atom.withLabel('libraryFormAtom'))
@@ -155,14 +180,6 @@ export const deleteLibrary = Effect.fnUntraced(
   },
   Reactivity.mutation(['library'])
 );
-
-export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type'>) =>
-  Match.value(type).pipe(
-    Match.when('movie', () => 'Movies'),
-    Match.when('show', () => 'TV shows'),
-    Match.when('audiobook', () => 'Audiobooks'),
-    Match.exhaustive
-  );
 
 export const storageProviderLabel = ({
   storagePluginId,

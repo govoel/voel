@@ -1,4 +1,3 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Icon } from '@expo/ui';
 import { Button, HStack, Picker, ProgressView, Section, Spacer, VStack } from '@expo/ui/swift-ui';
 import {
@@ -14,8 +13,6 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { useSelector } from '@tanstack/react-form';
 import { Array, Match } from 'effect';
-import { AsyncResult } from 'effect/reactivity';
-import { useState } from 'react';
 import type { ComponentProps } from 'react';
 
 import { FormLayout } from '#src/components/form/layout';
@@ -23,24 +20,19 @@ import { ListState } from '#src/components/list-state';
 import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
-import type {
-  LibraryFormComponent,
-  LoadedLibraryForm,
-} from '#src/domains/library/components/library-form/index.tsx';
+import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
 import {
-  libraryFormQuery,
+  LibraryFormLoader,
   storagePluginSources,
-  useLibraryForm,
-  useStoragePluginLoader,
-  useStoragePluginSettingsFields,
+  useLibraryFormState,
   useStorageSettingsRow,
 } from '#src/domains/library/components/library-form/index.tsx';
-import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
 
+type LibraryFormState = ReturnType<typeof useLibraryFormState>;
+
 type SettingsFields = Extract<
-  ReturnType<typeof useStoragePluginSettingsFields>,
+  LibraryFormState['settings'],
   { readonly _tag: 'Supported' }
 >['fields'];
 
@@ -48,7 +40,7 @@ const StorageSettingsField = ({
   form,
   descriptor,
 }: {
-  readonly form: ReturnType<typeof useLibraryForm>;
+  readonly form: LibraryFormState['form'];
   readonly descriptor: SettingsFields[number];
 }) =>
   Match.value(descriptor).pipe(
@@ -77,7 +69,7 @@ const StorageSettings = ({
   fields,
   onDone,
 }: {
-  readonly form: ReturnType<typeof useLibraryForm>;
+  readonly form: LibraryFormState['form'];
   readonly fields: SettingsFields;
   readonly onDone: () => void | Promise<void>;
 }) => (
@@ -101,18 +93,25 @@ const StorageSettings = ({
             nonEmpty,
             (previous, next) => previous.kind === 'TextField' && next.kind === 'TextField'
           ),
-          (group) => {
-            const first = Array.headNonEmpty(group);
-            return first.kind === 'TextListField' ? (
-              <StorageSettingsField key={first.key} form={form} descriptor={first} />
-            ) : (
-              <Section key={first.key}>
-                {Array.map(group, (descriptor) => (
-                  <StorageSettingsField key={descriptor.key} form={form} descriptor={descriptor} />
-                ))}
-              </Section>
-            );
-          }
+          (group) =>
+            Match.value(Array.headNonEmpty(group)).pipe(
+              Match.discriminatorsExhaustive('kind')({
+                TextListField: (list) => (
+                  <StorageSettingsField key={list.key} form={form} descriptor={list} />
+                ),
+                TextField: ({ key }) => (
+                  <Section key={key}>
+                    {Array.map(group, (descriptor) => (
+                      <StorageSettingsField
+                        key={descriptor.key}
+                        form={form}
+                        descriptor={descriptor}
+                      />
+                    ))}
+                  </Section>
+                ),
+              })
+            )
         ),
     })}>
     {Array.isReadonlyArrayEmpty(fields) ? (
@@ -141,7 +140,11 @@ const StorageSection = ({
               <Text
                 key={message}
                 variant="caption"
-                {...(tone === 'critical' ? { color: 'red' } : {})}>
+                {...Match.value(tone).pipe(
+                  Match.when('critical', () => ({ color: 'red' })),
+                  Match.when('secondary', () => ({})),
+                  Match.exhaustive
+                )}>
                 {message}
               </Text>
             ))}
@@ -164,17 +167,21 @@ const StorageSection = ({
                 </Text>
               ))}
             </Picker>
-            {field.state.value === 'npm' ? (
-              <form.AppField name="storageChoice.packageName">
-                {(packageField) => (
-                  <packageField.TextField
-                    purpose="text"
-                    label="Package"
-                    placeholder="voel-storage-plugin"
-                  />
-                )}
-              </form.AppField>
-            ) : null}
+            {Match.value(field.state.value).pipe(
+              Match.when('builtin:local', () => null),
+              Match.when('npm', () => (
+                <form.AppField name="storageChoice.packageName">
+                  {(packageField) => (
+                    <packageField.TextField
+                      purpose="text"
+                      label="Package"
+                      placeholder="voel-storage-plugin"
+                    />
+                  )}
+                </form.AppField>
+              )),
+              Match.exhaustive
+            )}
           </>
         )}
       </form.AppField>
@@ -213,12 +220,10 @@ const LibraryFormFields = ({
   title,
   submitLabel,
   onSaved,
-}: ComponentProps<LibraryFormComponent> & { readonly loaded: LoadedLibraryForm }) => {
-  const form = useLibraryForm({ loaded, target, onSaved });
-  const plugin = useStoragePluginLoader({ form, target });
-  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
-  const settings = useStoragePluginSettingsFields({ form, pending: plugin.pending });
-  const [isEditingSettings, setIsEditingSettings] = useState(false);
+}: ComponentProps<LibraryFormComponent> &
+  Pick<Parameters<typeof useLibraryFormState>[0], 'loaded'>) => {
+  const { form, plugin, isSaving, settings, isEditingSettings, editSettings, closeSettings } =
+    useLibraryFormState({ loaded, target, onSaved });
   return (
     <form.AppForm>
       <FormLayout
@@ -232,14 +237,7 @@ const LibraryFormFields = ({
           </form.SubmitButton>
         }
         sections={
-          <StorageSection
-            form={form}
-            plugin={plugin}
-            settings={settings}
-            onEdit={() => {
-              setIsEditingSettings(true);
-            }}
-          />
+          <StorageSection form={form} plugin={plugin} settings={settings} onEdit={editSettings} />
         }>
         <form.AppField name="name">
           {(field) => <field.TextField purpose="name" label="Name" placeholder="Library name" />}
@@ -264,10 +262,7 @@ const LibraryFormFields = ({
         </form.AppField>
       </FormLayout>
       {isEditingSettings ? (
-        <Sheet
-          onDismissed={() => {
-            setIsEditingSettings(false);
-          }}>
+        <Sheet onDismissed={closeSettings}>
           {({ dismiss }) =>
             // The sheet covers the controls that change the settings, so they stay supported.
             settings._tag === 'Supported' ? (
@@ -280,38 +275,8 @@ const LibraryFormFields = ({
   );
 };
 
-export const LibraryForm = ((props) => {
-  const account = useSelectedAccount();
-  const query = libraryFormQuery({ account, target: props.target });
-  const state = useAtomValue(query);
-  const refresh = useAtomRefresh(query);
-  const layout = props.title !== void 0 ? { title: props.title, footer: null } : { footer: null };
-  return AsyncResult.matchWithError(state, {
-    onInitial: () => (
-      <FormLayout {...layout}>
-        <ListState kind="loading" />
-      </FormLayout>
-    ),
-    onError: (error) => (
-      <FormLayout {...layout}>
-        <ListState
-          kind="error"
-          message={libraryFailureMessage({ error })}
-          onRetry={refresh}
-          retrying={state.waiting}
-        />
-      </FormLayout>
-    ),
-    onDefect: () => (
-      <FormLayout {...layout}>
-        <ListState
-          kind="error"
-          message="Unable to load this library’s settings."
-          onRetry={refresh}
-          retrying={state.waiting}
-        />
-      </FormLayout>
-    ),
-    onSuccess: ({ value }) => <LibraryFormFields {...props} loaded={value} />,
-  });
-}) satisfies LibraryFormComponent;
+export const LibraryForm = ((props) => (
+  <LibraryFormLoader {...props}>
+    {(loaded) => <LibraryFormFields {...props} loaded={loaded} />}
+  </LibraryFormLoader>
+)) satisfies LibraryFormComponent;
