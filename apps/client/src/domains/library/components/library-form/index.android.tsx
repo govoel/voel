@@ -10,6 +10,7 @@ import {
 import { fillMaxWidth, padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { useSelector } from '@tanstack/react-form';
 import { Array, Match } from 'effect';
+import type { Data } from 'effect';
 import type { ComponentProps } from 'react';
 
 import { FormLayout } from '#src/components/form/layout';
@@ -23,6 +24,7 @@ import type { LibraryFormComponent } from '#src/domains/library/components/libra
 import {
   LibraryFormLoader,
   storagePluginSources,
+  storageSettingsAreSupported,
   useLibraryFormState,
   useStorageSettingsRow,
 } from '#src/domains/library/components/library-form/index.tsx';
@@ -30,10 +32,7 @@ import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
 
 type LibraryFormState = ReturnType<typeof useLibraryFormState>;
 
-type SettingsFields = Extract<
-  LibraryFormState['settings'],
-  { readonly _tag: 'Supported' }
->['fields'];
+type SettingsFields = Data.TaggedEnum.Value<LibraryFormState['settings'], 'Supported'>['fields'];
 
 /** The selected media type's storage settings, in a sheet of their own. */
 const StorageSettings = ({
@@ -201,7 +200,7 @@ const LibraryFormFields = ({
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={settings._tag !== 'Supported'}
+            disabled={!storageSettingsAreSupported(settings)}
             platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
             <Text>{submitLabel}</Text>
           </form.SubmitButton>
@@ -247,7 +246,7 @@ const LibraryFormFields = ({
         <Sheet onDismissed={closeSettings}>
           {({ dismiss }) =>
             // The sheet covers the controls that change the settings, so they stay supported.
-            settings._tag === 'Supported' ? (
+            storageSettingsAreSupported(settings) ? (
               <StorageSettings form={form} fields={settings.fields} onDone={dismiss} />
             ) : null
           }

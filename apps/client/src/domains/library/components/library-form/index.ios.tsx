@@ -13,6 +13,7 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { useSelector } from '@tanstack/react-form';
 import { Array, Match } from 'effect';
+import type { Data } from 'effect';
 import type { ComponentProps } from 'react';
 
 import { FormLayout } from '#src/components/form/layout';
@@ -24,6 +25,7 @@ import type { LibraryFormComponent } from '#src/domains/library/components/libra
 import {
   LibraryFormLoader,
   storagePluginSources,
+  storageSettingsAreSupported,
   useLibraryFormState,
   useStorageSettingsRow,
 } from '#src/domains/library/components/library-form/index.tsx';
@@ -31,10 +33,7 @@ import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
 
 type LibraryFormState = ReturnType<typeof useLibraryFormState>;
 
-type SettingsFields = Extract<
-  LibraryFormState['settings'],
-  { readonly _tag: 'Supported' }
->['fields'];
+type SettingsFields = Data.TaggedEnum.Value<LibraryFormState['settings'], 'Supported'>['fields'];
 
 const StorageSettingsField = ({
   form,
@@ -230,7 +229,7 @@ const LibraryFormFields = ({
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={settings._tag !== 'Supported'}
+            disabled={!storageSettingsAreSupported(settings)}
             platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
             containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
             <Text>{submitLabel}</Text>
@@ -265,7 +264,7 @@ const LibraryFormFields = ({
         <Sheet onDismissed={closeSettings}>
           {({ dismiss }) =>
             // The sheet covers the controls that change the settings, so they stay supported.
-            settings._tag === 'Supported' ? (
+            storageSettingsAreSupported(settings) ? (
               <StorageSettings form={form} fields={settings.fields} onDone={dismiss} />
             ) : null
           }

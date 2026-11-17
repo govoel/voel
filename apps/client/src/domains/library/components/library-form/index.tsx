@@ -29,6 +29,7 @@ import { useSubmitState } from '#src/components/form/hooks.tsx';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
+import { LibraryFormTarget } from '#src/domains/library/components/library-form/target.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   byMediaType,
@@ -40,12 +41,6 @@ import {
 } from '#src/domains/library/management.ts';
 
 type LoadedLibraryForm = Atom.Success<ReturnType<typeof libraryFormAtom>>;
-
-export type LibraryFormTarget =
-  | { readonly _tag: 'Create' }
-  | { readonly _tag: 'Edit'; readonly id: typeof Library.fields.id.Type };
-
-const LibraryFormTarget = Data.taggedEnum<LibraryFormTarget>();
 
 const targetId = ({ target }: { readonly target: LibraryFormTarget }) =>
   LibraryFormTarget.$match(target, {
@@ -375,8 +370,49 @@ export const storagePluginSources = [
   readonly label: string;
 }>;
 
-/** The storage settings fields for the selected media type, each bound to its form value. */
-const useStoragePluginSettingsFields = ({
+/** A storage settings form's fields for a media type, each bound to its form value. */
+const storageSettingsFields = ({
+  settingsForm,
+  storagePluginId,
+  type,
+}: {
+  readonly settingsForm: typeof StoragePluginSettingsForm.Encoded;
+  readonly storagePluginId: StoragePluginId;
+  readonly type: typeof MediaType.Encoded;
+}) =>
+  Array.map(settingsForm, (field) =>
+    Match.value(field).pipe(
+      Match.discriminatorsExhaustive('kind')({
+        TextField: (descriptor) => ({
+          ...descriptor,
+          key: `${storagePluginId}.${type}.${descriptor.name}`,
+          path: `storage.settings.${type}.text.${descriptor.name}` as const,
+        }),
+        TextListField: (descriptor) => ({
+          ...descriptor,
+          key: `${storagePluginId}.${type}.${descriptor.name}`,
+          path: `storage.settings.${type}.list.${descriptor.name}` as const,
+        }),
+      })
+    )
+  );
+
+/** Whether the selected media type's storage settings can be edited, and their fields if so. */
+type StorageSettingsState = Data.TaggedEnum<{
+  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- NotLoaded intentionally has no payload.
+  NotLoaded: Record<never, never>;
+  Unsupported: { readonly message: string };
+  Supported: { readonly fields: ReturnType<typeof storageSettingsFields> };
+}>;
+
+const StorageSettingsState = Data.taggedEnum<StorageSettingsState>();
+
+export const storageSettingsAreSupported = StorageSettingsState.$is('Supported');
+
+const notLoaded = StorageSettingsState.NotLoaded();
+
+/** The storage settings for the selected media type. */
+const useStorageSettings = ({
   form,
   pending,
 }: {
@@ -386,34 +422,21 @@ const useStoragePluginSettingsFields = ({
   const type = useSelector(form.store, (state) => state.values.type);
   const storage = useSelector(form.store, (state) => state.values.storage);
   if (pending) {
-    return { _tag: 'NotLoaded' } as const;
+    return notLoaded;
   }
   return Option.match(settingsFormFor({ storage, type }), {
     onNone: () =>
-      ({
-        _tag: 'Unsupported',
+      StorageSettingsState.Unsupported({
         message: `${unsupportedMediaTypeMessage({ storage, type })} Choose another media type.`,
-      }) as const,
+      }),
     onSome: (settingsForm) =>
-      ({
-        _tag: 'Supported',
-        fields: Array.map(settingsForm, (field) =>
-          Match.value(field).pipe(
-            Match.discriminatorsExhaustive('kind')({
-              TextField: (descriptor) => ({
-                ...descriptor,
-                key: `${storage.storagePluginId}.${type}.${descriptor.name}`,
-                path: `storage.settings.${type}.text.${descriptor.name}` as const,
-              }),
-              TextListField: (descriptor) => ({
-                ...descriptor,
-                key: `${storage.storagePluginId}.${type}.${descriptor.name}`,
-                path: `storage.settings.${type}.list.${descriptor.name}` as const,
-              }),
-            })
-          )
-        ),
-      }) as const,
+      StorageSettingsState.Supported({
+        fields: storageSettingsFields({
+          settingsForm,
+          storagePluginId: storage.storagePluginId,
+          type,
+        }),
+      }),
   });
 };
 
@@ -425,7 +448,7 @@ export const useLibraryFormState = (props: Parameters<typeof useLibraryForm>[0])
   const form = useLibraryForm(props);
   const plugin = useStoragePluginLoader({ form, target: props.target });
   const isSaving = useSelector(form.store, (state) => state.isSubmitting);
-  const settings = useStoragePluginSettingsFields({ form, pending: plugin.pending });
+  const settings = useStorageSettings({ form, pending: plugin.pending });
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   return {
     form,
@@ -455,35 +478,33 @@ export const useStorageSettingsRow = ({
 }: {
   readonly form: ReturnType<typeof useLibraryForm>;
   readonly plugin: ReturnType<typeof useStoragePluginLoader>;
-  readonly settings: ReturnType<typeof useStoragePluginSettingsFields>;
+  readonly settings: ReturnType<typeof useStorageSettings>;
   readonly onEdit: () => void;
 }) => {
   const loading = useSubmitState({ group: plugin.loader });
   const isSaving = useSelector(form.store, (state) => state.isSubmitting);
   const source = useSelector(form.store, (state) => state.values.storageChoice.source);
-  const row = Match.value(settings).pipe(
-    Match.tagsExhaustive({
-      NotLoaded: () => ({
-        label: 'Load plugin & edit settings',
-        enabled: loading.canSubmit && !loading.isSubmitting,
-        note: Option.none(),
-        /** Resolves with whether the loaded settings can be edited. */
-        prepare: plugin.load,
-      }),
-      Unsupported: ({ message }) => ({
-        label: 'Storage settings',
-        enabled: false,
-        note: Option.some({ tone: 'critical' as const, message }),
-        prepare: async () => false,
-      }),
-      Supported: () => ({
-        label: 'Storage settings',
-        enabled: true,
-        note: Option.none(),
-        prepare: async () => true,
-      }),
-    })
-  );
+  const row = StorageSettingsState.$match(settings, {
+    NotLoaded: () => ({
+      label: 'Load plugin & edit settings',
+      enabled: loading.canSubmit && !loading.isSubmitting,
+      note: Option.none(),
+      /** Resolves with whether the loaded settings can be edited. */
+      prepare: plugin.load,
+    }),
+    Unsupported: ({ message }) => ({
+      label: 'Storage settings',
+      enabled: false,
+      note: Option.some({ tone: 'critical' as const, message }),
+      prepare: async () => false,
+    }),
+    Supported: () => ({
+      label: 'Storage settings',
+      enabled: true,
+      note: Option.none(),
+      prepare: async () => true,
+    }),
+  });
   return {
     label: row.label,
     isLoading: loading.isSubmitting,

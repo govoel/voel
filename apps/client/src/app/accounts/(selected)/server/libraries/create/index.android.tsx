@@ -7,6 +7,9 @@ import type { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { LibraryForm } from '#src/domains/library/components/library-form';
+import { LibraryFormTarget } from '#src/domains/library/components/library-form/target.ts';
+
+const createTarget = LibraryFormTarget.Create();
 
 export default function CreateLibraryScreen() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
@@ -25,7 +28,7 @@ export default function CreateLibraryScreen() {
   return (
     <AndroidAccountsSheet ref={sheetRef}>
       <LibraryForm
-        target={{ _tag: 'Create' }}
+        target={createTarget}
         title="Create Library"
         submitLabel="Create library"
         onSaved={async ({ id }) => {
