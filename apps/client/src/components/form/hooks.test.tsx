@@ -18,14 +18,17 @@ import {
 const EmptyComponent = (() => null) satisfies ComponentType;
 
 const TestTextField = ({ label }: { readonly label: string }) => {
-  const { field, isSubmitting } = useTextFieldState();
+  const { field, isSubmitting, errorMessage } = useTextFieldState();
   return (
-    <TextInput
-      accessibilityLabel={label}
-      editable={!isSubmitting}
-      value={field.state.value}
-      onChangeText={field.handleChange}
-    />
+    <>
+      <TextInput
+        accessibilityLabel={label}
+        editable={!isSubmitting}
+        value={field.state.value}
+        onChangeText={field.handleChange}
+      />
+      <Text>{Option.getOrElse(errorMessage, () => '')}</Text>
+    </>
   );
 };
 
@@ -420,6 +423,214 @@ describe('createEffectSchemaFormHook', () => {
     expect(await screen.findByText('Name: Found films')).toBeOnTheScreen();
     expect(lookups.mock.calls).toEqual([['missing'], ['films']]);
     expect(saves).not.toHaveBeenCalled();
+  });
+
+  it('validates the group schema even when the parent accepts the input', async () => {
+    class PermissiveLookupForm extends Schema.Struct({
+      name: Schema.NonEmptyString,
+      lookup: Schema.Struct({ query: Schema.String }),
+    }) {}
+    class RequiredLookup extends Schema.Struct({
+      query: Schema.String.check(Schema.isNonEmpty({ message: 'Enter a query' })),
+    }) {}
+    const submitted = vi.fn();
+    const failed = vi.fn(() => 'not found');
+    const rejected = vi.fn();
+    const TestForm = () => {
+      const form = useAppForm({
+        defaultValues: { name: '', lookup: { query: '' } },
+        schema: PermissiveLookupForm,
+        onSubmit: () => Effect.void,
+        onFailure: () => 'not saved',
+      });
+      const group = useAppFormGroup({
+        form,
+        name: 'lookup',
+        schema: RequiredLookup,
+        onSubmit: ({ value }) =>
+          Effect.sync(() => {
+            submitted(value);
+          }),
+        onFailure: failed,
+      });
+      return (
+        <form.AppForm>
+          <form.AppField name="lookup.query">
+            {(field) => <field.TestTextField label="Query" />}
+          </form.AppField>
+          <Pressable role="button" onPress={async () => group.handleSubmit().catch(rejected)}>
+            <Text>Validate lookup</Text>
+          </Pressable>
+          <RetrySubmitButton group={group} />
+          <ErrorProbe group={group} />
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Validate lookup' }));
+    expect(await screen.findByText('Enter a query')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    expect(submitted).not.toHaveBeenCalled();
+    expect(failed).not.toHaveBeenCalled();
+    expect(rejected).not.toHaveBeenCalled();
+    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+
+    await fireEvent.changeText(screen.getByLabelText('Query'), 'films');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(() => {
+      expect(submitted).toHaveBeenCalledExactlyOnceWith({ query: 'films' });
+    });
+  });
+
+  it('clears every scoped submission error when the parent is reset', async () => {
+    class GroupedForm extends Schema.Struct({ first: Lookup, second: Lookup }) {}
+    const TestForm = () => {
+      const form = useAppForm({
+        defaultValues: { first: { query: 'first' }, second: { query: 'second' } },
+        schema: GroupedForm,
+        onSubmit: () => TestSubmitError.make({ message: 'form failed' }),
+        onFailure: ({ error }) => error.message,
+      });
+      const first = useAppFormGroup({
+        form,
+        name: 'first',
+        schema: Lookup,
+        onSubmit: () => TestSubmitError.make({ message: 'first failed' }),
+        onFailure: ({ error }) => error.message,
+      });
+      const second = useAppFormGroup({
+        form,
+        name: 'second',
+        schema: Lookup,
+        onSubmit: () => TestSubmitError.make({ message: 'second failed' }),
+        onFailure: ({ error }) => error.message,
+      });
+      return (
+        <form.AppForm>
+          <Pressable role="button" onPress={async () => first.handleSubmit()}>
+            <Text>First</Text>
+          </Pressable>
+          <Pressable role="button" onPress={async () => second.handleSubmit()}>
+            <Text>Second</Text>
+          </Pressable>
+          <Pressable role="button" onPress={async () => form.handleSubmit()}>
+            <Text>Form</Text>
+          </Pressable>
+          <Pressable
+            role="button"
+            onPress={() => {
+              form.reset();
+            }}>
+            <Text>Reset</Text>
+          </Pressable>
+          <ErrorProbe />
+          <ErrorProbe group={first} testID="first-error" />
+          <ErrorProbe group={second} testID="second-error" />
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    await fireEvent.press(screen.getByRole('button', { name: 'First' }));
+    expect(await screen.findByText('first failed')).toBeOnTheScreen();
+    expect(screen.getByTestId('second-error')).toHaveTextContent('No form error');
+    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+    await fireEvent.press(screen.getByRole('button', { name: 'Second' }));
+    expect(await screen.findByText('second failed')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Form' }));
+    expect(await screen.findByText('form failed')).toBeOnTheScreen();
+    expect(screen.getByText('first failed')).toBeOnTheScreen();
+    expect(screen.getByText('second failed')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
+    for (const testID of ['form-error', 'first-error', 'second-error']) {
+      expect(screen.getByTestId(testID)).toHaveTextContent('No form error');
+    }
+    // The values never changed, so clearing errors must not rely on change listeners.
+    await fireEvent.press(screen.getByRole('button', { name: 'First' }));
+    expect(await screen.findByText('first failed')).toBeOnTheScreen();
+    expect(screen.getByTestId('second-error')).toHaveTextContent('No form error');
+    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
+  });
+
+  it('preserves group context and metadata in submission, failure, and success callbacks', async () => {
+    const submitted = vi.fn();
+    const failed = vi.fn();
+    const succeeded = vi.fn();
+    const groupContexts = new Set<unknown>();
+    const TestForm = () => {
+      const form = useAppForm({
+        defaultValues: { name: '', lookup: { query: ' films ' } },
+        schema: LookupForm,
+        onSubmitMeta: { parentOnly: true },
+        onSubmit: () => Effect.void,
+        onFailure: () => 'not saved',
+      });
+      const group = useAppFormGroup({
+        form,
+        name: 'lookup',
+        schema: Lookup,
+        onSubmitMeta: { source: 'default' },
+        onSubmit: (props) => {
+          groupContexts.add(props.groupApi);
+          submitted(props);
+          return props.meta.source === 'default'
+            ? TestSubmitError.make({ message: 'not found' })
+            : Effect.succeed('found');
+        },
+        onFailure: (props) => {
+          groupContexts.add(props.groupApi);
+          failed(props);
+          return props.error.message;
+        },
+        onSuccess: (props) => {
+          groupContexts.add(props.groupApi);
+          succeeded(props);
+          props.groupApi.setFieldValue(
+            'name',
+            `${props.result}: ${props.value.query} (${props.meta.source})`
+          );
+        },
+      });
+      const name = useSelector(form.store, (state) => state.values.name);
+      return (
+        <form.AppForm>
+          <RetrySubmitButton group={group} />
+          <Pressable role="button" onPress={async () => group.handleSubmit({ source: 'button' })}>
+            <Text>Submit override</Text>
+          </Pressable>
+          <ErrorProbe group={group} />
+          <Text>{name}</Text>
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByText('not found')).toBeOnTheScreen();
+    const defaultProps = {
+      value: { query: 'films' },
+      meta: { source: 'default' },
+    };
+    expect(submitted).toHaveBeenNthCalledWith(1, expect.objectContaining(defaultProps));
+    expect(failed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(defaultProps));
+    expect(succeeded).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit override' }));
+    expect(await screen.findByText('found: films (button)')).toBeOnTheScreen();
+    const overrideProps = {
+      value: { query: 'films' },
+      meta: { source: 'button' },
+    };
+    expect(submitted).toHaveBeenNthCalledWith(2, expect.objectContaining(overrideProps));
+    expect(succeeded).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(overrideProps));
+    expect(groupContexts.size).toBe(1);
+    expect(screen.getByTestId('form-error')).toHaveTextContent('No form error');
   });
 
   it('locks a form group’s fields, and only those, while the group is submitted', async () => {

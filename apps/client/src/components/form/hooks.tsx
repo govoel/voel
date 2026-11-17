@@ -14,6 +14,7 @@ import type {
   AppFieldExtendedReactFormApi,
   DeepKeys,
   DeepValue,
+  FormGroupApiOptions,
   FormOptions,
   StandardSchemaV1,
   StandardSchemaV1Issue,
@@ -21,6 +22,7 @@ import type {
 import {
   Array,
   Effect,
+  Equal,
   Option,
   Order,
   Predicate,
@@ -38,8 +40,26 @@ import type { ComponentType, Context, ReactNode } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
-const formSubmissionError = Atom.family((_form: AnyFormApi) =>
-  Atom.make<Option.Option<string>>(Option.none())
+// TanStack's `form.reset` notifies no listeners, so bumping this signal is what clears every
+// submission error of the form, including the ones of its groups.
+const formResetSignal = Atom.family((_form: AnyFormApi) => Atom.make(0));
+
+// Reading the reset signal makes the atom rebuild to `none` whenever the form is reset.
+const makeSubmissionError = (form: AnyFormApi) =>
+  Atom.writable(
+    (get) => {
+      get(formResetSignal(form));
+      return Option.none<string>();
+    },
+    (context, error: Option.Option<string>) => {
+      context.setSelf(error);
+    }
+  );
+
+const formSubmissionError = Atom.family(makeSubmissionError);
+
+const groupSubmissionError = Atom.family((form: AnyFormApi) =>
+  Atom.family((_name: string) => makeSubmissionError(form))
 );
 
 type FormFieldError = string | StandardSchemaV1Issue;
@@ -106,36 +126,10 @@ type EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> = Omit<
   readonly value: TType;
 };
 
-type EffectSchemaSubmitSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta> =
-  EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta> & {
-    readonly result: TSuccess;
-  };
-
-type EffectSchemaSubmitFailureProps<TType, TEncoded, TFailure, TSubmitMeta> = Omit<
-  EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
-  'meta'
-> & {
-  readonly error: TFailure;
-  readonly meta?: TSubmitMeta;
-};
-
-interface EffectSchemaSubmissionOptions<
-  TType,
-  TEncoded,
-  TSuccess,
-  TFailure,
-  TSubmitMeta,
-  TServices,
-> {
-  readonly onSubmit: (
-    props: EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>
-  ) => Effect.Effect<TSuccess, TFailure, TServices>;
-  readonly onSuccess?: (
-    props: EffectSchemaSubmitSuccessProps<TType, TEncoded, TSuccess, TSubmitMeta>
-  ) => void | Promise<void>;
-  readonly onFailure: (
-    props: EffectSchemaSubmitFailureProps<TType, TEncoded, TFailure, TSubmitMeta>
-  ) => string;
+interface EffectSchemaSubmissionOptions<TProps, TSuccess, TFailure, TServices> {
+  readonly onSubmit: (props: TProps) => Effect.Effect<TSuccess, TFailure, TServices>;
+  readonly onSuccess?: (props: TProps & { readonly result: TSuccess }) => void | Promise<void>;
+  readonly onFailure: (props: TProps & { readonly error: TFailure }) => string;
 }
 
 type EffectSchemaFormOptions<
@@ -150,7 +144,12 @@ type EffectSchemaFormOptions<
   EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>,
   'onSubmit' | 'validators' | 'defaultValues'
 > &
-  EffectSchemaSubmissionOptions<TType, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices> &
+  EffectSchemaSubmissionOptions<
+    EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
+    TSuccess,
+    TFailure,
+    TServices
+  > &
   (
     | {
         readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
@@ -161,11 +160,9 @@ type EffectSchemaFormOptions<
         readonly defaultValues?: never;
         readonly onSubmit: [Schema.Void['Type']] extends [TType]
           ? EffectSchemaSubmissionOptions<
-              TType,
-              TEncoded,
+              EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
               TSuccess,
               TFailure,
-              TSubmitMeta,
               TServices
             >['onSubmit']
           : never;
@@ -189,18 +186,73 @@ type EffectSchemaInternalFormOptions<
         readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
         readonly defaultValues?: TEncoded;
       } & EffectSchemaSubmissionOptions<
-        TType,
-        TEncoded,
+        EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
         TSuccess,
         TFailure,
-        TSubmitMeta,
         TServices
       >)
     | ({
         readonly schema?: never;
         readonly defaultValues?: never;
-      } & EffectSchemaSubmissionOptions<void, TEncoded, TSuccess, TFailure, TSubmitMeta, TServices>)
+      } & EffectSchemaSubmissionOptions<
+        EffectSchemaSubmitProps<void, TEncoded, TSubmitMeta>,
+        TSuccess,
+        TFailure,
+        TServices
+      >)
   );
+
+type EffectSchemaBaseFormGroupOptions<
+  TFormData,
+  TName extends DeepKeys<TFormData>,
+  TParentSubmitMeta,
+  TSubmitMeta,
+> = FormGroupApiOptions<
+  TFormData,
+  TName,
+  DeepValue<TFormData, TName>,
+  undefined,
+  undefined,
+  StandardSchemaV1<DeepValue<TFormData, TName>, unknown> | undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  TSubmitMeta,
+  undefined,
+  undefined,
+  StandardSchemaV1<TFormData, unknown> | undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  TParentSubmitMeta
+>;
+
+type EffectSchemaGroupSubmitProps<
+  TType,
+  TFormData,
+  TName extends DeepKeys<TFormData>,
+  TParentSubmitMeta,
+  TSubmitMeta,
+> = Omit<
+  Parameters<
+    NonNullable<
+      EffectSchemaBaseFormGroupOptions<
+        TFormData,
+        TName,
+        TParentSubmitMeta,
+        TSubmitMeta
+      >['onGroupSubmit']
+    >
+  >[0],
+  'value'
+> & { readonly value: TType };
 
 export const createEffectSchemaFormHook = <
   TServices,
@@ -338,121 +390,129 @@ export const createEffectSchemaFormHook = <
     const standardSchema =
       options.schema === void 0 ? void 0 : Schema.toStandardSchemaV1(options.schema);
 
-    const form = useTanStackAppForm({
-      ...props,
-      listeners: {
-        ...props.listeners,
-        onChange: (listenerProps) => {
-          setSubmissionError(Option.none());
-          props.listeners?.onChange?.(listenerProps);
+    // The atom families below key on the form. Effect hashes and compares object keys structurally,
+    // which would walk the whole form, so the form is marked to be keyed by reference instead.
+    const form = Equal.byReferenceUnsafe(
+      useTanStackAppForm({
+        ...props,
+        listeners: {
+          ...props.listeners,
+          onChange: (listenerProps) => {
+            setSubmissionError(Option.none());
+            props.listeners?.onChange?.(listenerProps);
+          },
         },
-      },
-      onSubmit: async (submitProps) => {
-        const submit = async <Value,>({
-          callbacks,
-          decoded,
-        }: {
-          readonly callbacks: EffectSchemaSubmissionOptions<
-            Value,
-            TEncoded,
-            TSuccess,
-            TFailure,
-            TSubmitMeta,
-            TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
-          >;
-          readonly decoded: Effect.Effect<Value, Schema.SchemaError>;
-        }) =>
-          runSubmission({
-            registry,
+        onSubmit: async (submitProps) => {
+          const submit = async <Value,>({
+            callbacks,
             decoded,
-            onSubmit: (value) => callbacks.onSubmit({ ...submitProps, value }),
-            onSuccess: async ({ value, result }) =>
-              callbacks.onSuccess?.({ ...submitProps, result, value }),
-            onFailure: ({ value, error }) => callbacks.onFailure({ ...submitProps, error, value }),
-            setError: setSubmissionError,
-          });
+          }: {
+            readonly callbacks: EffectSchemaSubmissionOptions<
+              EffectSchemaSubmitProps<Value, TEncoded, TSubmitMeta>,
+              TSuccess,
+              TFailure,
+              TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+            >;
+            readonly decoded: Effect.Effect<Value, Schema.SchemaError>;
+          }) =>
+            runSubmission({
+              registry,
+              decoded,
+              onSubmit: (value) => callbacks.onSubmit({ ...submitProps, value }),
+              onSuccess: async ({ value, result }) =>
+                callbacks.onSuccess?.({ ...submitProps, result, value }),
+              onFailure: ({ value, error }) =>
+                callbacks.onFailure({ ...submitProps, error, value }),
+              setError: setSubmissionError,
+            });
 
-        await (options.schema === void 0
-          ? submit({ callbacks: options, decoded: Effect.void })
-          : submit({
-              callbacks: options,
-              decoded: Schema.decodeEffect(options.schema)(submitProps.value),
-            }));
-      },
-      validators: { onChangeAsync: standardSchema },
-    });
+          await (options.schema === void 0
+            ? submit({ callbacks: options, decoded: Effect.void })
+            : submit({
+                callbacks: options,
+                decoded: Schema.decodeEffect(options.schema)(submitProps.value),
+              }));
+        },
+        validators: { onChangeAsync: standardSchema },
+      })
+    );
     const setSubmissionError = useAtomSet(formSubmissionError(form));
+    const signalReset = useAtomSet(formResetSignal(form));
     const reset = useMemo(() => {
       const resetForm = form.reset;
 
       return (...args: Parameters<typeof resetForm>) => {
-        setSubmissionError(Option.none());
+        signalReset((count) => count + 1);
         resetForm(...args);
       };
-    }, [form, setSubmissionError]);
+    }, [form, signalReset]);
 
     return Object.assign(form, { reset });
   }
 
   /**
    * A part of `form` that's submitted on its own, like a lookup that fills in the rest of the form.
-   * The whole form's validation still applies to the group's fields when the group is submitted.
+   * Its schema validates and decodes the group; parent validation still applies to its fields.
    * Pass the group to a submit button to submit just the group.
    */
   const useAppFormGroup = <
     TFormData,
-    TSubmitMeta,
+    TParentSubmitMeta,
     const TName extends DeepKeys<TFormData>,
     TType,
     TSuccess,
     TFailure,
     TEncodingServices = never,
+    TSubmitMeta = never,
   >({
     form,
     name,
     schema,
+    onSubmitMeta,
     onSubmit,
     onSuccess,
     onFailure,
   }: {
-    readonly form: AppForm<TFormData, TSubmitMeta>;
+    readonly form: AppForm<TFormData, TParentSubmitMeta>;
     readonly name: TName;
     readonly schema: Schema.Codec<TType, DeepValue<TFormData, TName>, never, TEncodingServices>;
-    readonly onSubmit: (props: {
-      readonly value: TType;
-    }) => Effect.Effect<
-      TSuccess,
-      TFailure,
-      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
-    >;
-    readonly onSuccess?: (props: {
-      readonly value: TType;
-      readonly result: TSuccess;
-    }) => void | Promise<void>;
-    readonly onFailure: (props: { readonly value: TType; readonly error: TFailure }) => string;
-  }) => {
+    readonly onSubmitMeta?: TSubmitMeta;
+  } & EffectSchemaSubmissionOptions<
+    EffectSchemaGroupSubmitProps<TType, TFormData, TName, TParentSubmitMeta, TSubmitMeta>,
+    TSuccess,
+    TFailure,
+    TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+  >) => {
     const registry = useContext(RegistryContext);
     useAtomMount(runtime);
-    const submissionError = useMemo(() => Atom.make(Option.none<string>()), []);
+    const submissionError = groupSubmissionError(form)(name);
     const setError = useAtomSet(submissionError);
-    const group = useFormGroup({
+    const options: EffectSchemaBaseFormGroupOptions<
+      TFormData,
+      TName,
+      TParentSubmitMeta,
+      TSubmitMeta
+    > = {
       form,
       name,
+      ...(onSubmitMeta === void 0 ? {} : { onSubmitMeta }),
+      validators: { onChangeAsync: Schema.toStandardSchemaV1(schema) },
       listeners: {
         onChange: () => {
           setError(Option.none());
         },
       },
-      onGroupSubmit: async ({ value }) =>
+      onGroupSubmit: async (submitProps) =>
         runSubmission({
           registry,
-          decoded: Schema.decodeEffect(schema)(value),
-          onSubmit: (decoded) => onSubmit({ value: decoded }),
-          onSuccess: async (props) => onSuccess?.(props),
-          onFailure,
+          decoded: Schema.decodeEffect(schema)(submitProps.value),
+          onSubmit: (value) => onSubmit({ ...submitProps, value }),
+          onSuccess: async ({ value, result }) => onSuccess?.({ ...submitProps, value, result }),
+          onFailure: ({ value, error }) => onFailure({ ...submitProps, value, error }),
           setError,
         }),
-    });
+    };
+    const group = useFormGroup(options);
     return Object.assign(group, { submissionError });
   };
 
