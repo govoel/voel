@@ -24,8 +24,8 @@ import { Spacing } from '#src/constants/theme.ts';
 import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
 import {
   LibraryFormLoader,
+  StorageSettingsState,
   storagePluginSources,
-  storageSettingsAreSupported,
   useLibraryFormState,
   useStorageSettingsRow,
 } from '#src/domains/library/components/library-form/index.tsx';
@@ -229,7 +229,11 @@ const LibraryFormFields = ({
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={!storageSettingsAreSupported(settings)}
+            disabled={StorageSettingsState.$match(settings, {
+              NotLoaded: () => true,
+              Unsupported: () => true,
+              Supported: () => false,
+            })}
             platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
             containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
             <Text>{submitLabel}</Text>
@@ -264,9 +268,13 @@ const LibraryFormFields = ({
         <Sheet onDismissed={closeSettings}>
           {({ dismiss }) =>
             // The sheet covers the controls that change the settings, so they stay supported.
-            storageSettingsAreSupported(settings) ? (
-              <StorageSettings form={form} fields={settings.fields} onDone={dismiss} />
-            ) : null
+            StorageSettingsState.$match(settings, {
+              NotLoaded: () => null,
+              Unsupported: () => null,
+              Supported: ({ fields }) => (
+                <StorageSettings form={form} fields={fields} onDone={dismiss} />
+              ),
+            })
           }
         </Sheet>
       ) : null}

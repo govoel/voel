@@ -405,9 +405,7 @@ type StorageSettingsState = Data.TaggedEnum<{
   Supported: { readonly fields: ReturnType<typeof storageSettingsFields> };
 }>;
 
-const StorageSettingsState = Data.taggedEnum<StorageSettingsState>();
-
-export const storageSettingsAreSupported = StorageSettingsState.$is('Supported');
+export const StorageSettingsState = Data.taggedEnum<StorageSettingsState>();
 
 const notLoaded = StorageSettingsState.NotLoaded();
 
