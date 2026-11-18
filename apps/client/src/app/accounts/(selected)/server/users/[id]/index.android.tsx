@@ -251,7 +251,7 @@ const LoadedUser = ({
                   <Text>Edit profile</Text>
                 </SegmentedListItem.HeadlineContent>
                 <SegmentedListItem.TrailingContent>
-                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                  <Icon source={ChevronRight} size={24} />
                 </SegmentedListItem.TrailingContent>
               </SegmentedListItem>
               <SegmentedListItem
@@ -264,7 +264,7 @@ const LoadedUser = ({
                   <Text>Change role</Text>
                 </SegmentedListItem.HeadlineContent>
                 <SegmentedListItem.TrailingContent>
-                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                  <Icon source={ChevronRight} size={24} />
                 </SegmentedListItem.TrailingContent>
               </SegmentedListItem>
               <SegmentedListItem
@@ -277,7 +277,7 @@ const LoadedUser = ({
                   <Text>Set password</Text>
                 </SegmentedListItem.HeadlineContent>
                 <SegmentedListItem.TrailingContent>
-                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                  <Icon source={ChevronRight} size={24} />
                 </SegmentedListItem.TrailingContent>
               </SegmentedListItem>
               <MutationConfirmation
@@ -315,7 +315,7 @@ const LoadedUser = ({
                   <Text>Go to profile</Text>
                 </SegmentedListItem.HeadlineContent>
                 <SegmentedListItem.TrailingContent>
-                  <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+                  <Icon source={ChevronRight} size={24} />
                 </SegmentedListItem.TrailingContent>
               </SegmentedListItem>
             </SegmentedList>

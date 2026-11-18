@@ -34,7 +34,6 @@ export default function ServerLibrariesScreen() {
   const query = listLibrariesAtom(account);
   const [libraries, loadMoreLibraries] = useAtom(query);
   const refresh = useAtomRefresh(query);
-  const { onSurfaceVariant } = useMaterialColors();
   const [createActionHeight, setCreateActionHeight] = useAtom(Atom.make(56));
 
   return (
@@ -73,7 +72,7 @@ export default function ServerLibrariesScreen() {
                         <Text>{item.name}</Text>
                       </SegmentedListItem.HeadlineContent>
                       <SegmentedListItem.SupportingContent>
-                        <Text variant="caption" color={onSurfaceVariant}>
+                        <Text variant="caption">
                           {mediaTypeLabel(item)} · {storageProviderLabel(item)}
                         </Text>
                       </SegmentedListItem.SupportingContent>
@@ -82,7 +81,7 @@ export default function ServerLibrariesScreen() {
                           verticalAlignment="center"
                           horizontalArrangement={{ spacedBy: Spacing.two }}>
                           <StorageStatus status={item.storagePluginStatus} />
-                          <Icon source={ChevronRight} size={24} tint={onSurfaceVariant} />
+                          <Icon source={ChevronRight} size={24} />
                         </Row>
                       </SegmentedListItem.TrailingContent>
                     </SegmentedListItem>
@@ -159,8 +158,8 @@ const StorageStatus = ({ status }: { readonly status: typeof StoragePluginStatus
   const colors = useMaterialColors();
   const appearance = Match.value(status).pipe(
     Match.literalsExhaustive({
-      healthy: () => ({ source: Check, tint: colors.onSurfaceVariant }),
-      unknown: () => ({ source: Help, tint: colors.onSurfaceVariant }),
+      healthy: () => ({ source: Check }),
+      unknown: () => ({ source: Help }),
       unhealthy: () => ({ source: Warning, tint: colors.error }),
     })
   );

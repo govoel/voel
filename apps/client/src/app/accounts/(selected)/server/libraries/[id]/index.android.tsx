@@ -75,7 +75,7 @@ const LoadedLibrary = ({
             <Text>Edit library</Text>
           </SegmentedListItem.HeadlineContent>
           <SegmentedListItem.TrailingContent>
-            <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+            <Icon source={ChevronRight} size={24} />
           </SegmentedListItem.TrailingContent>
         </SegmentedListItem>
         <MutationConfirmation

@@ -5,15 +5,12 @@ import { padding } from '@expo/ui/jetpack-compose/modifiers';
 import { ListState } from '#src/components/list-state';
 import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
-import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { sessionDeviceName } from '#src/domains/accounts/components/management/session-details/device-name.ts';
 import type { SessionListComponent } from '#src/domains/accounts/components/management/session-list';
 
 export const SessionList = (({ sessions, currentId, onSelect }) => {
   'use memo';
-
-  const colors = useMaterialColors();
 
   return sessions.length === 0 ? (
     <ListState kind="empty" message="No active sessions." />
@@ -31,7 +28,7 @@ export const SessionList = (({ sessions, currentId, onSelect }) => {
             <Text>{sessionDeviceName({ session: item, isCurrent: item.id === currentId })}</Text>
           </SegmentedListItem.HeadlineContent>
           <SegmentedListItem.TrailingContent>
-            <Icon source={ChevronRight} size={24} tint={colors.onSurfaceVariant} />
+            <Icon source={ChevronRight} size={24} />
           </SegmentedListItem.TrailingContent>
         </SegmentedListItem>
       )}
