@@ -13,7 +13,6 @@ import { ListState } from '#src/components/list-state';
 import { PaginationFooter } from '#src/components/pagination-footer';
 import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
-import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
@@ -24,7 +23,6 @@ export default function ServerUsersScreen() {
   const query = listUsersAtom(account);
   const [users, loadMoreUsers] = useAtom(query);
   const refresh = useAtomRefresh(query);
-  const { onSurfaceVariant } = useMaterialColors();
   const [createActionHeight, setCreateActionHeight] = useAtom(Atom.make(56));
 
   return (
@@ -66,7 +64,7 @@ export default function ServerUsersScreen() {
                           <Text>@{item.username}</Text>
                         </SegmentedListItem.HeadlineContent>
                         <SegmentedListItem.TrailingContent>
-                          <Icon source={ChevronRight} size={24} tint={onSurfaceVariant} />
+                          <Icon source={ChevronRight} size={24} />
                         </SegmentedListItem.TrailingContent>
                       </SegmentedListItem>
                     )}

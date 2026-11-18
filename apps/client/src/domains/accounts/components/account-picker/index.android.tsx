@@ -7,7 +7,6 @@ import { AsyncResult } from 'effect/reactivity';
 import { useSetActiveAccount } from '#src/app/accounts/index.ts';
 import { SegmentedListItem } from '#src/components/segmented-list/index.tsx';
 import { Text } from '#src/components/text';
-import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import type { Account } from '#src/domains/accounts/repository.ts';
 import { AccountKey } from '#src/domains/accounts/schema.ts';
@@ -20,7 +19,6 @@ export const AccountPicker = ({
   readonly onSelected: () => void | Promise<void>;
 }) => {
   const [setActiveAccount, selectAccount] = useSetActiveAccount();
-  const colors = useMaterialColors();
   return (
     <LazyColumn
       contentPadding={{
@@ -48,15 +46,13 @@ export const AccountPicker = ({
               });
             }}>
             <SegmentedListItem.LeadingContent>
-              <Icon source={AccountCircle} size={32} tint={colors.onSurfaceVariant} />
+              <Icon source={AccountCircle} size={32} />
             </SegmentedListItem.LeadingContent>
             <SegmentedListItem.HeadlineContent>
               <Text>@{item.username}</Text>
             </SegmentedListItem.HeadlineContent>
             <SegmentedListItem.SupportingContent>
-              <Text variant="caption" color={colors.onSurfaceVariant}>
-                {item.key.serverUrl.toString()}
-              </Text>
+              <Text variant="caption">{item.key.serverUrl.toString()}</Text>
             </SegmentedListItem.SupportingContent>
           </SegmentedListItem>
         )}

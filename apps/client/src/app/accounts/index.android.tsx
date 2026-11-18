@@ -115,15 +115,13 @@ export default function AccountsScreen() {
                               <Text>@{account.username}</Text>
                             </SegmentedListItem.HeadlineContent>
                             <SegmentedListItem.SupportingContent>
-                              <Text variant="caption" color={colors.onSurfaceVariant}>
-                                {account.key.serverUrl.toString()}
-                              </Text>
+                              <Text variant="caption">{account.key.serverUrl.toString()}</Text>
                             </SegmentedListItem.SupportingContent>
                           </>
                         ),
                       })}
                       <SegmentedListItem.TrailingContent>
-                        <Icon source={UnfoldMore} size={24} tint={colors.onSurfaceVariant} />
+                        <Icon source={UnfoldMore} size={24} />
                       </SegmentedListItem.TrailingContent>
                     </SegmentedListItem>
 
