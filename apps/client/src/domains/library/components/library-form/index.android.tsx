@@ -157,7 +157,6 @@ const StorageSection = ({
               {row.isLoading ? (
                 <LoadingIndicator modifiers={[size(24, 24)]} />
               ) : (
-                // Untinted, so it takes the row's trailing color, which dims when disabled.
                 <Icon source={ChevronRight} size={24} />
               )}
             </SegmentedListItem.TrailingContent>
