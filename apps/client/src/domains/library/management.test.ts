@@ -1,6 +1,6 @@
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
+import { Array, Cause, Effect, Layer, Option, Schema, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
@@ -9,6 +9,8 @@ import { PluginLoadError } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
+import { libraryEditorAtom, saveLibrary } from '#src/domains/library/editor/requests.ts';
+import { LibraryEditorSource } from '#src/domains/library/editor/schema.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   deleteLibrary,
@@ -192,6 +194,64 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(
           (yield* firstClient.library.list({ query: { limit: 20, cursor: Option.none() } })).items
         ).toEqual([]);
+      },
+      (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'keeps library views current after creation and preserves saved settings when editing',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+        const query = listLibrariesAtom(account.key);
+        yield* Atom.mount(query);
+        yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
+        const values = yield* Schema.decodeEffect(Library.jsonCreate)({
+          name: 'Audiobooks',
+          type: 'audiobook',
+          storagePluginId: 'builtin:local',
+          storagePluginSettings: { roots: ['/media/first'] },
+        });
+        const created = yield* saveLibrary({
+          account: account.key,
+          source: LibraryEditorSource.Create(),
+          values,
+        });
+        expect((yield* Atom.getResult(query, { suspendOnWaiting: true })).items).toMatchObject([
+          { id: created.id, name: 'Audiobooks' },
+        ]);
+        const detail = serverLibraryAtom({ account: account.key, id: created.id });
+        yield* Atom.mount(detail);
+        yield* Atom.getResult(detail, { suspendOnWaiting: true });
+        const editor = yield* Atom.getResult(
+          libraryEditorAtom({ account: account.key, id: Option.some(created.id) }),
+          { suspendOnWaiting: true }
+        );
+        expect(editor.source).toMatchObject({ _tag: 'Edit', library: { name: 'Audiobooks' } });
+        expect(editor.storage.forms.audiobook).toMatchObject([
+          { name: 'roots', initialValue: ['/media/first'] },
+        ]);
+        const updated = yield* Schema.decodeEffect(Library.jsonCreate)({
+          ...values,
+          name: 'Renamed',
+          storagePluginSettings: { roots: ['/media/first'] },
+        });
+        yield* saveLibrary({
+          account: account.key,
+          source: editor.source,
+          values: updated,
+        });
+        const saved = yield* Atom.getResult(detail, { suspendOnWaiting: true });
+        expect(saved).toMatchObject({
+          name: 'Renamed',
+          storagePluginSettings: { roots: ['/media/first'] },
+        });
+        expect((yield* Atom.getResult(query, { suspendOnWaiting: true })).items).toMatchObject([
+          { id: created.id, name: 'Renamed' },
+        ]);
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )

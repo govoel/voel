@@ -9,11 +9,11 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Array, Cause, Effect, Exit, Option, Predicate, Schema, String, Struct } from 'effect';
+import { Array, Effect, Option, Predicate, Result, Schema, String, Struct } from 'effect';
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
-import { useContext, useEffect, useMemo, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, Context } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
@@ -214,6 +214,63 @@ export const createEffectSchemaFormHook = <
     formContext: hookFormContext,
   });
 
+  /** Runs a submission, returning its typed failure and throwing defects. */
+  const runSubmission = async <TSuccess, TFailure>({
+    registry,
+    submit,
+  }: {
+    readonly registry: AtomRegistry.AtomRegistry;
+    readonly submit: () => Effect.Effect<
+      TSuccess,
+      TFailure,
+      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+    >;
+  }) =>
+    Effect.runPromise(
+      Effect.result(AtomRegistry.getResult(registry, runtime.atom(Effect.suspend(submit))))
+    );
+
+  /**
+   * Submits a form group with an Effect, keeping its failure message like `useAppForm` does for
+   * the whole form. Pass `onGroupSubmit` to the group, and `clearError` to its change listener.
+   */
+  const useGroupSubmit = <TValue, TSuccess, TFailure>(callbacks: {
+    readonly onSubmit: (props: {
+      readonly value: TValue;
+    }) => Effect.Effect<
+      TSuccess,
+      TFailure,
+      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+    >;
+    readonly onSuccess?: (props: {
+      readonly value: TValue;
+      readonly result: TSuccess;
+    }) => void | Promise<void>;
+    readonly onFailure: (props: { readonly value: TValue; readonly error: TFailure }) => string;
+  }) => {
+    const registry = useContext(RegistryContext);
+    useAtomMount(runtime);
+    const [error, setError] = useState<Option.Option<string>>(Option.none());
+    return {
+      error,
+      clearError: () => {
+        setError(Option.none());
+      },
+      onGroupSubmit: async ({ value }: { readonly value: TValue }) => {
+        setError(Option.none());
+        const result = await runSubmission({
+          registry,
+          submit: () => callbacks.onSubmit({ value }),
+        });
+        if (Result.isSuccess(result)) {
+          await callbacks.onSuccess?.({ value, result: result.success });
+        } else {
+          setError(Option.some(callbacks.onFailure({ value, error: result.failure })));
+        }
+      },
+    };
+  };
+
   function useAppForm<
     TType = void,
     TEncoded = Record<string, never>,
@@ -290,37 +347,17 @@ export const createEffectSchemaFormHook = <
           >;
           readonly value: Value;
         }) => {
-          const submitExit = await Effect.runPromiseExit(
-            AtomRegistry.getResult(
-              registry,
-              runtime.atom(Effect.suspend(() => callbacks.onSubmit({ ...submitProps, value })))
-            )
-          );
-
-          if (Exit.isSuccess(submitExit)) {
-            await callbacks.onSuccess?.({
-              ...submitProps,
-              result: submitExit.value,
-              value,
-            });
-            return;
-          }
-
-          const error = Exit.findErrorOption(submitExit);
-          if (Option.isSome(error)) {
+          const result = await runSubmission({
+            registry,
+            submit: () => callbacks.onSubmit({ ...submitProps, value }),
+          });
+          if (Result.isSuccess(result)) {
+            await callbacks.onSuccess?.({ ...submitProps, result: result.success, value });
+          } else {
             setSubmissionError(
-              Option.some(
-                callbacks.onFailure({
-                  ...submitProps,
-                  error: error.value,
-                  value,
-                })
-              )
+              Option.some(callbacks.onFailure({ ...submitProps, error: result.failure, value }))
             );
-            return;
           }
-
-          throw Cause.squash(submitExit.cause);
         };
 
         if (options.schema === void 0) {
@@ -350,7 +387,7 @@ export const createEffectSchemaFormHook = <
     return Object.assign(form, { reset });
   }
 
-  return { ...formHook, useAppForm };
+  return { ...formHook, useAppForm, useGroupSubmit };
 };
 
 export const useTextFieldState = () => {
