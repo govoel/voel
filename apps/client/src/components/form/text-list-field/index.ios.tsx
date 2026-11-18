@@ -1,5 +1,5 @@
 import { Button, List, Section } from '@expo/ui/swift-ui';
-import { accessibilityLabel, disabled } from '@expo/ui/swift-ui/modifiers';
+import { accessibilityLabel, deleteDisabled, disabled } from '@expo/ui/swift-ui/modifiers';
 
 import { TextListFieldEntry, useTextListFieldState } from '#src/components/form/hooks.tsx';
 import { TextField } from '#src/components/form/text-field/index.ios.tsx';
@@ -13,13 +13,10 @@ export const TextListField = (({ label, purpose, placeholder }) => {
         data={entries}
         keyExtractor={(_, index) => `${index}`}
         recycling={false}
-        {...(isSubmitting
-          ? {}
-          : {
-              onDelete: (indices: ReadonlyArray<number>) => {
-                remove({ indices });
-              },
-            })}>
+        modifiers={[deleteDisabled(isSubmitting)]}
+        onDelete={(indices) => {
+          remove({ indices });
+        }}>
         {({ index }) => (
           <TextListFieldEntry index={index}>
             <TextField
