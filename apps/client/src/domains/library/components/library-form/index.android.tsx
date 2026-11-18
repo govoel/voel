@@ -9,7 +9,7 @@ import {
 } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, size } from '@expo/ui/jetpack-compose/modifiers';
 import { useSelector } from '@tanstack/react-form';
-import { Array, Match } from 'effect';
+import { Array, Match, Option } from 'effect';
 import type { Data } from 'effect';
 import type { ComponentProps } from 'react';
 
@@ -34,7 +34,6 @@ type LibraryFormState = ReturnType<typeof useLibraryFormState>;
 
 type SettingsFields = Data.TaggedEnum.Value<LibraryFormState['settings'], 'Supported'>['fields'];
 
-/** The selected media type's storage settings, in a sheet of their own. */
 const StorageSettings = ({
   form,
   fields,
@@ -91,7 +90,6 @@ const StorageSettings = ({
   </FormLayout>
 );
 
-/** Where the library's files are kept, with the row that opens the plugin's settings. */
 const StorageSection = ({
   form,
   plugin,
@@ -174,7 +172,6 @@ const StorageSection = ({
               Match.when('secondary', () => colors.onSurfaceVariant),
               Match.exhaustive
             )}
-            // Lines up with the row's text, like a text field's supporting text.
             modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
             {message}
           </Text>
@@ -192,7 +189,7 @@ const LibraryFormFields = ({
   onSaved,
 }: ComponentProps<LibraryFormComponent> &
   Pick<Parameters<typeof useLibraryFormState>[0], 'loaded'>) => {
-  const { form, plugin, isSaving, settings, isEditingSettings, editSettings, closeSettings } =
+  const { form, plugin, isSaving, settings, editedSettingsFields, editSettings, closeSettings } =
     useLibraryFormState({ loaded, target, onSaved });
   return (
     <form.AppForm>
@@ -246,20 +243,14 @@ const LibraryFormFields = ({
           )}
         </form.AppField>
       </FormLayout>
-      {isEditingSettings ? (
-        <Sheet onDismissed={closeSettings}>
-          {({ dismiss }) =>
-            // The sheet covers the controls that change the settings, so they stay supported.
-            StorageSettingsState.$match(settings, {
-              NotLoaded: () => null,
-              Unsupported: () => null,
-              Supported: ({ fields }) => (
-                <StorageSettings form={form} fields={fields} onDone={dismiss} />
-              ),
-            })
-          }
-        </Sheet>
-      ) : null}
+      {Option.match(editedSettingsFields, {
+        onNone: () => null,
+        onSome: (fields) => (
+          <Sheet onDismissed={closeSettings}>
+            {({ dismiss }) => <StorageSettings form={form} fields={fields} onDone={dismiss} />}
+          </Sheet>
+        ),
+      })}
     </form.AppForm>
   );
 };

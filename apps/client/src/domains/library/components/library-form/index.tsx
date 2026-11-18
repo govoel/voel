@@ -50,16 +50,9 @@ const targetId = ({ target }: { readonly target: LibraryFormTarget }) =>
 
 type StoragePluginId = typeof Library.jsonCreate.fields.storagePluginId.Type;
 
-/** Splits an npm plugin ID into its `npm:` prefix and package name. */
-class NpmPluginIdParts extends Schema.TemplateLiteralParser(NpmPluginId.parts) {
-  /** Only for IDs that matched `NpmPluginId.is`, which checks the same parts, so it can't throw. */
-  // oxlint-disable-next-line effecttsgo/schema-sync -- see above.
-  public static readonly decodeSync = Schema.decodeSync(this);
-}
+const npmPackageName = (id: typeof NpmPluginId.Type) =>
+  String.slice(NpmPluginId.parts[0].length)(id);
 
-const npmPackageName = (id: typeof NpmPluginId.Type) => NpmPluginIdParts.decodeSync(id)[1];
-
-/** How people name a storage plugin: built in, or an npm package the server installs. */
 const storagePluginName = ({ storagePluginId }: { readonly storagePluginId: StoragePluginId }) =>
   Match.value(storagePluginId).pipe(
     Match.when('builtin:local', () => 'Local folders'),
@@ -67,7 +60,6 @@ const storagePluginName = ({ storagePluginId }: { readonly storagePluginId: Stor
     Match.exhaustive
   );
 
-/** Settings forms are keyed by plain media types, because brands don't survive mapped types. */
 const settingsFormFor = ({
   storage,
   type,
@@ -84,7 +76,6 @@ const unsupportedMediaTypeMessage = ({
   readonly type: typeof MediaType.Encoded;
 }) => `${storagePluginName(storage)} doesn’t support ${mediaTypeLabel({ type })}.`;
 
-/** Settings values are keyed by plain media types too. */
 const settingsValuesFor = <A,>({
   storage,
   type,
@@ -118,10 +109,6 @@ const chosenStoragePluginId = ({
     Match.exhaustive
   );
 
-/**
- * Which storage plugin to use: a built-in one, or an npm package the server installs. Choosing one
- * doesn't load it. Loading an npm plugin installs its package, so that waits until it's asked for.
- */
 class StoragePluginChoice extends Schema.Struct({
   source: StoragePluginSource,
   packageName: Schema.String,
@@ -135,10 +122,6 @@ class StoragePluginChoice extends Schema.Struct({
       }
   )
 ) {
-  /**
-   * The choice, decoded to the plugin's ID. Forms start from a loaded plugin's choice instead of
-   * encoding an ID, so encoding isn't supported.
-   */
   public static readonly storagePluginId = this.pipe(
     Schema.decodeTo(Library.jsonCreate.fields.storagePluginId, {
       decode: SchemaGetter.transform(chosenStoragePluginId),
@@ -147,10 +130,6 @@ class StoragePluginChoice extends Schema.Struct({
   );
 }
 
-/**
- * One media type's storage settings. Text and list values are kept apart so each field's value has
- * the shape its component edits.
- */
 class StorageSettingsValues extends Schema.Struct({
   text: Schema.Record(Schema.String, Schema.String),
   list: Schema.Record(Schema.String, Schema.Array(Schema.String)),
@@ -182,11 +161,6 @@ const storagePluginSettingsInput = ({
     )
   );
 
-/**
- * The library, the storage plugin chosen for it, and the storage plugin it will be saved with: the
- * one whose settings forms were loaded last. Settings are kept for every media type, so switching
- * types never mixes one form's values into another's, and switching back restores what was entered.
- */
 class LibraryFormValues extends Schema.Struct({
   name: Schema.Trim.check(Schema.isNonEmpty({ message: 'Name is required' })).pipe(
     Schema.decodeTo(Library.jsonCreate.fields.name)
@@ -194,7 +168,6 @@ class LibraryFormValues extends Schema.Struct({
   type: Library.jsonCreate.fields.type,
   storageChoice: StoragePluginChoice.storagePluginId,
   storage: Schema.Struct({
-    // Only ever set from a loaded plugin, so it's kept decoded.
     storagePluginId: Schema.toType(Library.jsonCreate.fields.storagePluginId),
     forms: StoragePluginSettingsForms,
     settings: Schema.Record(Schema.toEncoded(MediaType), StorageSettingsValues),
@@ -208,11 +181,6 @@ class LibraryFormValues extends Schema.Struct({
       }
   )
 ) {
-  /**
-   * The values, decoded to the library they save, with the loaded plugin's settings form for the
-   * selected media type. The library schema validates the result. Saved libraries can't be turned
-   * back into form values, so encoding isn't supported.
-   */
   public static readonly library = this.pipe(
     Schema.decodeTo(Library.jsonCreate, {
       decode: SchemaGetter.transformEffect(({ name, type, storage }, options) =>
@@ -249,7 +217,6 @@ const settingsValues = ({ form }: { readonly form: typeof StoragePluginSettingsF
     Match.value(field).pipe(
       Match.discriminatorsExhaustive('kind')({
         TextField: ({ name, initialValue }) => Result.succeed([name, initialValue] as const),
-        // Start an empty list with one blank entry to type into. Blank entries aren't submitted.
         TextListField: ({ name, initialValue }) =>
           Result.fail([
             name,
@@ -261,10 +228,6 @@ const settingsValues = ({ form }: { readonly form: typeof StoragePluginSettingsF
   return { text: Record.fromEntries(text), list: Record.fromEntries(list) };
 };
 
-/**
- * A loaded storage plugin, with each of its settings forms starting from its initial values. Media
- * types it doesn't support have no settings.
- */
 const storageValues = ({ storage }: { readonly storage: LoadedLibraryForm['storage'] }) => ({
   ...storage,
   settings: byMediaType((type) =>
@@ -311,10 +274,6 @@ const isChosenPluginLoaded = ({
 }: Pick<typeof LibraryFormValues.Encoded, 'storageChoice' | 'storage'>) =>
   chosenStoragePluginId(storageChoice) === storage.storagePluginId;
 
-/**
- * Loads the chosen storage plugin's settings forms into the library form, only when asked. Edits
- * keep the library's ID, so the new plugin's forms can start from the saved settings.
- */
 const useStoragePluginLoader = ({
   form,
   target,
@@ -336,23 +295,19 @@ const useStoragePluginLoader = ({
   });
   return {
     loader,
-    /** The chosen plugin isn't the loaded one, so its settings can't be shown or saved yet. */
-    pending: useSelector(form.store, ({ values }) => !isChosenPluginLoaded(values)),
+    isChosenLoaded: useSelector(form.store, ({ values }) => isChosenPluginLoaded(values)),
     choose: (source: typeof StoragePluginSource.Type) => {
       form.setFieldValue('storageChoice.source', source);
       Match.value(source).pipe(
-        // Built-in plugins install nothing, so choosing one is the request to load it.
         Match.when('builtin:local', (id) => {
           if (form.state.values.storage.storagePluginId !== id) {
             void loader.handleSubmit();
           }
         }),
-        // Loading an npm plugin installs its package, so that waits until it's asked for.
         Match.when('npm', () => void 0),
         Match.exhaustive
       );
     },
-    /** Loads the chosen plugin. Resolves with whether its settings for the media type are editable. */
     load: async () => {
       await loader.handleSubmit();
       const { values } = form.state;
@@ -375,7 +330,6 @@ export const storagePluginSources = [
   readonly label: string;
 }>;
 
-/** A storage settings form's fields for a media type, each bound to its form value. */
 const storageSettingsFields = ({
   settingsForm,
   storagePluginId,
@@ -402,7 +356,6 @@ const storageSettingsFields = ({
     )
   );
 
-/** Whether the selected media type's storage settings can be edited, and their fields if so. */
 type StorageSettingsState = Data.TaggedEnum<{
   // oxlint-disable-next-line typescript/no-generated-empty-object-type -- NotLoaded intentionally has no payload.
   NotLoaded: Record<never, never>;
@@ -414,17 +367,16 @@ export const StorageSettingsState = Data.taggedEnum<StorageSettingsState>();
 
 const notLoaded = StorageSettingsState.NotLoaded();
 
-/** The storage settings for the selected media type. */
 const useStorageSettings = ({
   form,
-  pending,
+  isChosenLoaded,
 }: {
   readonly form: ReturnType<typeof useLibraryForm>;
-  readonly pending: boolean;
+  readonly isChosenLoaded: boolean;
 }) => {
   const type = useSelector(form.store, (state) => state.values.type);
   const storage = useSelector(form.store, (state) => state.values.storage);
-  if (pending) {
+  if (!isChosenLoaded) {
     return notLoaded;
   }
   return Option.match(settingsFormFor({ storage, type }), {
@@ -443,22 +395,21 @@ const useStorageSettings = ({
   });
 };
 
-/**
- * Everything a platform's library form renders: the form, its storage plugin loader, the selected
- * media type's storage settings, and whether the sheet editing them is open.
- */
 export const useLibraryFormState = (props: Parameters<typeof useLibraryForm>[0]) => {
   const form = useLibraryForm(props);
   const plugin = useStoragePluginLoader({ form, target: props.target });
   const isSaving = useSelector(form.store, (state) => state.isSubmitting);
-  const settings = useStorageSettings({ form, pending: plugin.pending });
+  const settings = useStorageSettings({ form, isChosenLoaded: plugin.isChosenLoaded });
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   return {
     form,
     plugin,
     isSaving,
     settings,
-    isEditingSettings,
+    editedSettingsFields:
+      isEditingSettings && StorageSettingsState.$is('Supported')(settings)
+        ? Option.some(settings.fields)
+        : Option.none(),
     editSettings: () => {
       setIsEditingSettings(true);
     },
@@ -468,11 +419,6 @@ export const useLibraryFormState = (props: Parameters<typeof useLibraryForm>[0])
   };
 };
 
-/**
- * The row that opens the storage settings, and the notes shown below it. Until the chosen plugin is
- * loaded, the row loads it first, then opens its settings if they support the selected media type.
- * Render inside the form's `AppForm`.
- */
 export const useStorageSettingsRow = ({
   form,
   plugin,
@@ -492,7 +438,6 @@ export const useStorageSettingsRow = ({
       label: 'Load plugin & edit settings',
       enabled: loading.canSubmit && !loading.isSubmitting,
       note: Option.none(),
-      /** Resolves with whether the loaded settings can be edited. */
       prepare: plugin.load,
     }),
     Unsupported: ({ message }) => ({
@@ -538,10 +483,6 @@ export type LibraryFormComponent = ComponentType<{
   readonly onSaved: Parameters<typeof useLibraryForm>[0]['onSaved'];
 }>;
 
-/**
- * Loads what the form starts from, showing progress and failures in the form's layout, then renders
- * `children` with it. Values are loaded once per form, so they don't change while being edited.
- */
 export const LibraryFormLoader = ({
   target,
   title,

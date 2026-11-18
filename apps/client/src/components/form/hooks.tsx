@@ -44,7 +44,6 @@ const tanStackFormHookContexts = createFormHookContexts();
 // submission error of the form, including the ones of its groups.
 const formResetSignal = Atom.family((_form: AnyFormApi) => Atom.make(0));
 
-// Reading the reset signal makes the atom rebuild to `none` whenever the form is reset.
 const makeSubmissionError = (form: AnyFormApi) =>
   Atom.writable(
     (get) => {
@@ -283,7 +282,6 @@ export const createEffectSchemaFormHook = <
     formContext: hookFormContext,
   });
 
-  /** A form from `useAppForm`, validated by its schema. */
   type AppForm<TEncoded, TSubmitMeta> = AppFieldExtendedReactFormApi<
     TEncoded,
     undefined,
@@ -301,10 +299,6 @@ export const createEffectSchemaFormHook = <
     TFormComponents
   >;
 
-  /**
-   * Decodes and submits a value, reporting expected failures through `setError` and rethrowing
-   * defects. Validation already accepted the value, so failing to decode it is a defect.
-   */
   const runSubmission = async <TType, TSuccess, TFailure>({
     registry,
     decoded,
@@ -330,7 +324,6 @@ export const createEffectSchemaFormHook = <
     readonly setError: (message: Option.Option<string>) => void;
   }) => {
     setError(Option.none());
-    // Defects reject the promise, so only expected failures reach `result`.
     const { value, result } = await Effect.runPromise(
       AtomRegistry.getResult(
         registry,
@@ -450,11 +443,6 @@ export const createEffectSchemaFormHook = <
     return Object.assign(form, { reset });
   }
 
-  /**
-   * A part of `form` that's submitted on its own, like a lookup that fills in the rest of the form.
-   * Its schema validates and decodes the group; parent validation still applies to its fields.
-   * Pass the group to a submit button to submit just the group.
-   */
   const useAppFormGroup = <
     TFormData,
     TParentSubmitMeta,
@@ -519,10 +507,6 @@ export const createEffectSchemaFormHook = <
   return { ...formHook, useAppForm, useAppFormGroup };
 };
 
-/**
- * Whether the field's form is saving, or a form group containing the field is being submitted
- * (see `useAppFormGroup`). Either way, the field's value is about to be used, so it can't change.
- */
 const useIsFieldSubmitting = () => {
   const field = useFieldContext<unknown>();
   const isFormSubmitting = useSelector(field.form.store, (state) => state.isSubmitting);
@@ -602,7 +586,6 @@ export const useTextListFieldState = () => {
       field.pushValue('');
     },
     remove: ({ indices }: { readonly indices: Iterable<number> }) => {
-      // Last first, so each removal leaves the remaining indices pointing at the same entries.
       for (const index of Array.sort(indices, Order.flip(Order.Number))) {
         field.removeValue(index);
       }
@@ -611,10 +594,6 @@ export const useTextListFieldState = () => {
   };
 };
 
-/**
- * Binds `children` to one entry of the surrounding list field, so text components like
- * `TextField` edit that entry the same way they edit a standalone field.
- */
 export const TextListFieldEntry = ({
   index,
   children,
@@ -634,10 +613,6 @@ export const TextListFieldEntry = ({
   );
 };
 
-/**
- * The submission state of the surrounding form, or of `group`, a form group from `useAppFormGroup`
- * that's submitted on its own.
- */
 export const useSubmitState = ({
   group,
 }: {

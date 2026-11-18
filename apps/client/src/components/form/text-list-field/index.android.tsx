@@ -17,7 +17,6 @@ export const TextListField = (({ label, purpose, placeholder }) => {
       <Text>{label}</Text>
 
       {Array.map(entries, (_, index) => (
-        // Entries are positional: removing one shifts the rest, and each entry's text follows.
         <TextListFieldEntry key={index} index={index}>
           <TextField
             label={`${label} ${index + 1}`}

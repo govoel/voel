@@ -44,7 +44,6 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
-/** How each media type is shown. Every media type needs an entry. */
 const mediaTypeDisplay = {
   movie: { order: 0, label: 'Movies' },
   show: { order: 1, label: 'TV shows' },
@@ -54,23 +53,17 @@ const mediaTypeDisplay = {
   { readonly order: number; readonly label: string }
 >;
 
-/** Every media type, in display order. */
 export const mediaTypes = Array.sort(
   MediaType.schema.literals,
   Order.mapInput(Order.Number, (type: typeof MediaType.Encoded) => mediaTypeDisplay[type].order)
 );
 
-/** A value for every media type. */
 export const byMediaType = <A>(f: (type: typeof MediaType.Encoded) => A) =>
   Record.map(mediaTypeDisplay, (_, type) => f(type));
 
 export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type'>) =>
   mediaTypeDisplay[type].label;
 
-/**
- * Every settings form a storage plugin offers. With an `id`, the forms start from that library's
- * saved settings, even when they were saved by another plugin.
- */
 export const loadStoragePluginSettingsForms = Effect.fnUntraced(function* ({
   account,
   id,
@@ -87,11 +80,6 @@ export const loadStoragePluginSettingsForms = Effect.fnUntraced(function* ({
   return { storagePluginId, forms };
 });
 
-/**
- * Everything a library form needs before it can render: the library's editable fields and its
- * storage plugin's settings forms. Without an `id`, this describes a new local library.
- * Loaded once per form so background refreshes can't replace values someone is editing.
- */
 export const libraryFormAtom = Atom.family(
   ({
     account,
@@ -126,7 +114,6 @@ export const libraryFormAtom = Atom.family(
         return {
           storage,
           name: library.name,
-          // A new library starts as the first media type its storage plugin supports.
           type: Option.getOrElse(library.type, () =>
             Array.findFirst(mediaTypes, (type) => storage.forms[type] !== void 0).pipe(
               Option.getOrElse(() => Array.headNonEmpty(mediaTypes))

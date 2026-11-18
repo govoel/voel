@@ -13,7 +13,6 @@ export type TextFieldComponent = ComponentType<{
     | { ios: Omit<SwiftTextFieldProps, 'placeholder'> }
     | {
         android: Omit<ComposeTextFieldProps, 'visualTransformation'> & {
-          /** Shown at the end of the field, like a button that acts on its text. */
           trailingIcon?: ReactNode;
         };
       };

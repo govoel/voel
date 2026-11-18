@@ -11,9 +11,7 @@ export const TextListField = (({ label, purpose, placeholder }) => {
     <Section title={label}>
       <List.ForEach
         data={entries}
-        // Entries are positional: removing one shifts the rest, and each entry's text follows.
         keyExtractor={(_, index) => `${index}`}
-        // Each row binds its own form field, so rows can't be recycled across entries.
         recycling={false}
         {...(isSubmitting
           ? {}

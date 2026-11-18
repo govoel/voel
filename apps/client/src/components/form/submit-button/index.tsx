@@ -7,7 +7,6 @@ import type { useSubmitState } from '#src/components/form/hooks.tsx';
 export type SubmitButtonComponent = ComponentType<{
   children: ReactElement | Array<ReactElement>;
   disabled?: boolean;
-  /** A form group to submit on its own, instead of the whole form. */
   group?: NonNullable<Parameters<typeof useSubmitState>[0]>['group'];
   platformProps?:
     | {

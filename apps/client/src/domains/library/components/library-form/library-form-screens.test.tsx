@@ -185,7 +185,6 @@ vi.mock('#src/components/list-state', () => ({
 }));
 vi.mock('#src/components/text', () => ({ Text }));
 vi.mock('#src/components/sheet', () => ({
-  // Opens as soon as it mounts, and stays open until `dismiss` reports it closed.
   Sheet: ({
     children,
     onDismissed,
@@ -234,7 +233,6 @@ vi.mock('@expo/ui/swift-ui', () => ({
       {children}
     </View>
   ),
-  // Options render as text; tests choose one by typing its tag.
   Picker: ({
     label,
     selection,
@@ -481,7 +479,6 @@ describe.each([
     expect(native.hide).not.toHaveBeenCalled();
     expect(navigation.replace).not.toHaveBeenCalled();
 
-    // Choosing another plugin clears the rejection.
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     expect(
       screen.queryByText('A library with this name already exists. Choose another name.')
@@ -518,7 +515,6 @@ describe.each([
     await act(async () => {
       await Effect.runPromise(Deferred.succeed(loading, void 0));
     });
-    // Loading opens the settings it loaded.
     expect(await screen.findByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
     expect(screen.getByLabelText('Package')).toBeEnabled();
     expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
@@ -528,7 +524,6 @@ describe.each([
     });
     expect(screen.queryByRole('button', { name: loadPlugin })).toBeNull();
 
-    // Choosing another package hides the loaded one's settings until it's loaded too.
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-other');
     expect(screen.queryByLabelText('Bucket')).toBeNull();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
@@ -685,7 +680,6 @@ describe.each([
     expect(screen.getByText('Audiobooks')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Storage settings' })).toBeDisabled();
     await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
-    // Settled: validation rejected the submission rather than still running it.
     await waitFor(() => {
       expect(screen.queryByText('Saving')).toBeNull();
       expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();

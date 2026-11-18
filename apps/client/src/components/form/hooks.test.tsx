@@ -560,7 +560,6 @@ describe('createEffectSchemaFormHook', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Form' }));
     expect(await screen.findByText('form failed')).toBeOnTheScreen();
 
-    // The values never changed, so clearing errors must not rely on change listeners.
     await fireEvent.press(screen.getByRole('button', { name: 'Reset' }));
     for (const testID of ['form-error', 'first-error', 'second-error']) {
       expect(screen.getByTestId(testID)).toHaveTextContent('No form error');
