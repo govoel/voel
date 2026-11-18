@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { MediaType } from '@govoel/plugins/library';
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
-import { StoragePluginSettingsForms, StoragePluginSettingsInput } from '@govoel/plugins/storage';
+import { StoragePluginSettingsForms } from '@govoel/plugins/storage';
 import { useSelector } from '@tanstack/react-form';
 import {
   Array,
@@ -163,23 +163,21 @@ const storagePluginSettingsInput = ({
   readonly form: typeof StoragePluginSettingsForm.Encoded;
   readonly values: typeof StorageSettingsValues.Type;
 }) =>
-  StoragePluginSettingsInput.make(
-    Record.fromEntries(
-      Array.map(form, (field) =>
-        Match.value(field).pipe(
-          Match.discriminatorsExhaustive('kind')({
-            TextField: ({ name, initialValue }) =>
-              [name, Option.getOrElse(Record.get(values.text, name), () => initialValue)] as const,
-            TextListField: ({ name }) =>
-              [
-                name,
-                Array.filter(
-                  Option.getOrElse(Record.get(values.list, name), () => []),
-                  String.isNonEmpty
-                ),
-              ] as const,
-          })
-        )
+  Record.fromEntries(
+    Array.map(form, (field) =>
+      Match.value(field).pipe(
+        Match.discriminatorsExhaustive('kind')({
+          TextField: ({ name, initialValue }) =>
+            [name, Option.getOrElse(Record.get(values.text, name), () => initialValue)] as const,
+          TextListField: ({ name }) =>
+            [
+              name,
+              Array.filter(
+                Option.getOrElse(Record.get(values.list, name), () => []),
+                String.isNonEmpty
+              ),
+            ] as const,
+        })
       )
     )
   );
@@ -212,11 +210,11 @@ class LibraryFormValues extends Schema.Struct({
 ) {
   /**
    * The values, decoded to the library they save, with the loaded plugin's settings form for the
-   * selected media type. Saved libraries can't be turned back into form values, so encoding isn't
-   * supported.
+   * selected media type. The library schema validates the result. Saved libraries can't be turned
+   * back into form values, so encoding isn't supported.
    */
   public static readonly library = this.pipe(
-    Schema.decodeTo(Schema.toType(Library.jsonCreate), {
+    Schema.decodeTo(Library.jsonCreate, {
       decode: SchemaGetter.transformEffect(({ name, type, storage }, options) =>
         Effect.fromOption(
           settingsFormFor({ storage, type }),
