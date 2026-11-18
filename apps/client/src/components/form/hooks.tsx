@@ -1,6 +1,11 @@
 import { RegistryContext, useAtomMount, useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { ObservableState } from '@expo/ui';
-import { createFormHook, createFormHookContexts, useSelector } from '@tanstack/react-form';
+import {
+  createFormHook,
+  createFormHookContexts,
+  useField,
+  useSelector,
+} from '@tanstack/react-form';
 import type {
   AnyFieldApi,
   AnyFormApi,
@@ -9,12 +14,24 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
 } from '@tanstack/react-form';
-import { Array, Cause, Effect, Exit, Option, Predicate, Schema, String, Struct } from 'effect';
+import {
+  Array,
+  Cause,
+  Effect,
+  Exit,
+  Number,
+  Option,
+  Order,
+  Predicate,
+  Schema,
+  String,
+  Struct,
+} from 'effect';
 import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import type { ComponentType, Context } from 'react';
+import type { ComponentType, Context, PropsWithChildren } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
@@ -379,6 +396,40 @@ export const useTextFieldState = () => {
       }
     },
   };
+};
+
+/** An editable list of text values. Each row is its own item field, so rows reuse `TextField`. */
+export const useTextListFieldState = () => {
+  const field = useFieldContext<Array<string>>();
+  const form = useFormContext();
+  const indices = useSelector(field.store, (state) => Array.map(state.value, (_, index) => index), {
+    compare: Array.makeEquivalence(Number.Equivalence),
+  });
+  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  return {
+    indices,
+    isSubmitting,
+    add: () => {
+      field.pushValue('');
+    },
+    remove: ({ indices: removed }: { readonly indices: ReadonlyArray<number> }) => {
+      // Removing from the end first keeps the remaining indices valid.
+      for (const index of Array.sort(removed, Order.flip(Order.Number))) {
+        field.removeValue(index);
+      }
+      field.handleBlur();
+    },
+  };
+};
+
+/** Gives the text field rendered inside it the field of one list item. */
+export const TextListFieldItem = ({
+  index,
+  children,
+}: PropsWithChildren<{ readonly index: number }>) => {
+  const { form, name } = useFieldContext<Array<string>>();
+  const item = useField({ form, name: `${name}[${index}]` });
+  return <fieldContext.Provider value={item}>{children}</fieldContext.Provider>;
 };
 
 /**

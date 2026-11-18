@@ -1,5 +1,6 @@
 import { List, Section, VStack } from '@expo/ui/swift-ui';
 import { frame, headerProminence, padding } from '@expo/ui/swift-ui/modifiers';
+import { Array } from 'effect';
 import { requireNativeView } from 'expo';
 import type { PropsWithChildren } from 'react';
 
@@ -16,7 +17,7 @@ const FormLayoutSlot = requireNativeView<
   PropsWithChildren<{ readonly name: 'content' | 'footer' }>
 >('FormLayoutInset', 'FormLayoutSlotView');
 
-export const FormLayout = (({ title, children, footer }) => (
+export const FormLayout = (({ title, children, footer, sections = [] }) => (
   <NativeFormLayoutInset>
     <FormLayoutSlot name="content">
       <List modifiers={[headerProminence('increased'), frame({ maxHeight: Infinity })]}>
@@ -30,6 +31,11 @@ export const FormLayout = (({ title, children, footer }) => (
           }>
           {children}
         </Section>
+        {Array.map(sections, ({ key, title: sectionTitle, content }) => (
+          <Section key={key} title={sectionTitle}>
+            {content}
+          </Section>
+        ))}
       </List>
     </FormLayoutSlot>
     <FormLayoutSlot name="footer">

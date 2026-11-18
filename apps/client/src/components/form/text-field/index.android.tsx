@@ -1,5 +1,5 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
-import { semantics } from '@expo/ui/jetpack-compose/modifiers';
+import { fillMaxWidth, semantics } from '@expo/ui/jetpack-compose/modifiers';
 import { Option } from 'effect';
 
 import { useNativeTextSync, useTextFieldState } from '#src/components/form/hooks.tsx';
@@ -24,7 +24,10 @@ export const TextField = (({
       {...('android' in platformProps ? platformProps.android : {})}
       modifiers={[
         ...(labelVisibility === 'hidden' ? [semantics({ contentDescription: label })] : []),
-        ...('android' in platformProps ? (platformProps.android.modifiers ?? []) : []),
+        // Form fields fill the form's width unless the caller lays them out.
+        ...(('android' in platformProps ? platformProps.android.modifiers : void 0) ?? [
+          fillMaxWidth(),
+        ]),
       ]}
       textStyle={{
         ...materialInputTextStyle,

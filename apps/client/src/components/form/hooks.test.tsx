@@ -1,17 +1,20 @@
 import { useSelector } from '@tanstack/react-form';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Deferred, Effect, Layer, Option, Schema } from 'effect';
+import { Array, Deferred, Effect, Layer, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { ComponentType } from 'react';
 import { useReducer } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, TextInput } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  TextListFieldItem,
   createEffectSchemaFormHook,
   fieldContext,
   formContext,
+  useFieldContext,
   useSubmitState,
+  useTextListFieldState,
 } from '#src/components/form/hooks.tsx';
 
 const EmptyComponent = (() => null) satisfies ComponentType;
@@ -54,6 +57,33 @@ const RetrySubmitButton = () => {
   );
 };
 
+const ItemInput = ({ label }: { readonly label: string }) => {
+  const field = useFieldContext<string>();
+  const value = useSelector(field.store, (state) => state.value);
+  return <TextInput accessibilityLabel={label} value={value} onChangeText={field.handleChange} />;
+};
+const ListField = () => {
+  const { indices, add, remove } = useTextListFieldState();
+  return (
+    <>
+      {Array.map(indices, (index) => (
+        <TextListFieldItem key={index} index={index}>
+          <ItemInput label={`Item ${index + 1}`} />
+        </TextListFieldItem>
+      ))}
+      <Pressable role="button" onPress={add}>
+        <Text>Add</Text>
+      </Pressable>
+      <Pressable
+        role="button"
+        onPress={() => {
+          remove({ indices: [0, 2] });
+        }}>
+        <Text>Remove first and third</Text>
+      </Pressable>
+    </>
+  );
+};
 describe('createEffectSchemaFormHook', () => {
   it('shows each concurrent form its own saved result', async () => {
     const first = await Effect.runPromise(Deferred.make<string>());
@@ -334,5 +364,50 @@ describe('createEffectSchemaFormHook', () => {
       expect(onRejected).toHaveBeenCalledWith(defect);
     });
     expect(onFailure).not.toHaveBeenCalled();
+  });
+  it('edits list items in place and keeps the remaining items when several are removed', async () => {
+    class ListFormInput extends Schema.Class<ListFormInput, { readonly brand: unique symbol }>(
+      'voel/components/form/hooks.test/ListFormInput'
+    )({
+      items: Schema.mutable(Schema.Array(Schema.String)),
+    }) {}
+    const TestForm = () => {
+      const [saved, showSaved] = useReducer(
+        (_saved: string, result: string) => result,
+        'Not saved'
+      );
+      const form = useAppForm({
+        schema: ListFormInput,
+        defaultValues: { items: ['first', 'second', 'third'] },
+        onSubmit: ({ value }) => Effect.succeed(Array.join(value.items, ', ')),
+        onFailure: () => 'failed',
+        onSuccess: ({ result }) => {
+          showSaved(result);
+        },
+      });
+      return (
+        <form.AppForm>
+          <form.AppField name="items" mode="array">
+            {() => <ListField />}
+          </form.AppField>
+          <Pressable role="button" onPress={() => void form.handleSubmit()}>
+            <Text>Submit</Text>
+          </Pressable>
+          <Text>{saved}</Text>
+        </form.AppForm>
+      );
+    };
+
+    await render(<TestForm />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Add' }));
+    await fireEvent.changeText(screen.getByLabelText('Item 4'), 'fourth');
+    await fireEvent.changeText(screen.getByLabelText('Item 2'), 'second edited');
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove first and third' }));
+
+    expect(screen.getByLabelText('Item 1')).toHaveDisplayValue('second edited');
+    expect(screen.getByLabelText('Item 2')).toHaveDisplayValue('fourth');
+    expect(screen.queryByLabelText('Item 3')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByText('second edited, fourth')).toBeOnTheScreen();
   });
 });
