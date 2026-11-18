@@ -36,7 +36,7 @@ import type { Scope } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 import type { Reactivity } from 'effect/reactivity';
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import type { ComponentType, Context, ReactNode } from 'react';
+import type { Context, ReactNode } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
@@ -64,24 +64,7 @@ const groupSubmissionError = Atom.family((form: AnyFormApi) =>
 type FormFieldError = string | StandardSchemaV1Issue;
 
 const getFormFieldErrorMessage = (error: FormFieldError) =>
-  typeof error === 'string' ? error : error.message;
-
-type StandardSchemaFieldContext<TData> = Omit<
-  ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
-  'state'
-> & {
-  readonly state: Omit<
-    ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state'],
-    'meta'
-  > & {
-    readonly meta: Omit<
-      ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state']['meta'],
-      'errors'
-    > & {
-      readonly errors: Array<FormFieldError>;
-    };
-  };
-};
+  Predicate.isString(error) ? error : error.message;
 
 export const {
   fieldContext,
@@ -89,7 +72,22 @@ export const {
   useFieldContext,
   useFormContext,
 }: Omit<typeof tanStackFormHookContexts, 'useFieldContext' | 'useFormContext'> & {
-  readonly useFieldContext: <TData>() => StandardSchemaFieldContext<TData>;
+  readonly useFieldContext: <TData>() => Omit<
+    ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>,
+    'state'
+  > & {
+    readonly state: Omit<
+      ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state'],
+      'meta'
+    > & {
+      readonly meta: Omit<
+        ReturnType<typeof tanStackFormHookContexts.useFieldContext<TData>>['state']['meta'],
+        'errors'
+      > & {
+        readonly errors: Array<FormFieldError>;
+      };
+    };
+  };
   readonly useFormContext: () => Omit<
     ReturnType<typeof tanStackFormHookContexts.useFormContext>,
     'state'
@@ -131,76 +129,6 @@ interface EffectSchemaSubmissionOptions<TProps, TSuccess, TFailure, TServices> {
   readonly onFailure: (props: TProps & { readonly error: TFailure }) => string;
 }
 
-type EffectSchemaFormOptions<
-  TType,
-  TEncoded,
-  TSuccess,
-  TFailure,
-  TEncodingServices,
-  TSubmitMeta,
-  TServices,
-> = Omit<
-  EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>,
-  'onSubmit' | 'validators' | 'defaultValues'
-> &
-  EffectSchemaSubmissionOptions<
-    EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
-    TSuccess,
-    TFailure,
-    TServices
-  > &
-  (
-    | {
-        readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
-        readonly defaultValues?: TEncoded;
-      }
-    | {
-        readonly schema?: never;
-        readonly defaultValues?: never;
-        readonly onSubmit: [Schema.Void['Type']] extends [TType]
-          ? EffectSchemaSubmissionOptions<
-              EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
-              TSuccess,
-              TFailure,
-              TServices
-            >['onSubmit']
-          : never;
-      }
-  );
-
-type EffectSchemaInternalFormOptions<
-  TType,
-  TEncoded,
-  TSuccess,
-  TFailure,
-  TEncodingServices,
-  TSubmitMeta,
-  TServices,
-> = Omit<
-  EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>,
-  'onSubmit' | 'validators' | 'defaultValues'
-> &
-  (
-    | ({
-        readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
-        readonly defaultValues?: TEncoded;
-      } & EffectSchemaSubmissionOptions<
-        EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
-        TSuccess,
-        TFailure,
-        TServices
-      >)
-    | ({
-        readonly schema?: never;
-        readonly defaultValues?: never;
-      } & EffectSchemaSubmissionOptions<
-        EffectSchemaSubmitProps<void, TEncoded, TSubmitMeta>,
-        TSuccess,
-        TFailure,
-        TServices
-      >)
-  );
-
 type EffectSchemaBaseFormGroupOptions<
   TFormData,
   TName extends DeepKeys<TFormData>,
@@ -233,35 +161,10 @@ type EffectSchemaBaseFormGroupOptions<
   TParentSubmitMeta
 >;
 
-type EffectSchemaGroupSubmitProps<
-  TType,
-  TFormData,
-  TName extends DeepKeys<TFormData>,
-  TParentSubmitMeta,
-  TSubmitMeta,
-> = Omit<
-  Parameters<
-    NonNullable<
-      EffectSchemaBaseFormGroupOptions<
-        TFormData,
-        TName,
-        TParentSubmitMeta,
-        TSubmitMeta
-      >['onGroupSubmit']
-    >
-  >[0],
-  'value'
-> & { readonly value: TType };
-
 export const createEffectSchemaFormHook = <
   TServices,
-  // TanStack's createFormHook preserves each component's actual props through an any-based
-  // component map constraint. Keeping that shape here avoids collapsing AppField components
-  // to ComponentType<unknown>, which would make <field.TextField /> unusable.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const TFieldComponents extends Record<string, ComponentType<any>>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const TFormComponents extends Record<string, ComponentType<any>>,
+  const TFieldComponents extends Parameters<typeof createFormHook>[0]['fieldComponents'],
+  const TFormComponents extends Parameters<typeof createFormHook>[0]['formComponents'],
 >({
   fieldComponents,
   fieldContext: hookFieldContext,
@@ -275,7 +178,7 @@ export const createEffectSchemaFormHook = <
   readonly formContext: Context<AnyFormApi>;
   readonly runtime: Atom.AtomRuntime<TServices>;
 }) => {
-  const { useAppForm: useTanStackAppForm, ...formHook } = createFormHook({
+  const { useAppForm: useTanStackAppForm } = createFormHook({
     fieldComponents,
     fieldContext: hookFieldContext,
     formComponents,
@@ -356,26 +259,60 @@ export const createEffectSchemaFormHook = <
     TEncodingServices = never,
     TSubmitMeta = never,
   >(
-    options: EffectSchemaFormOptions<
-      TType,
-      TEncoded,
-      TSuccess,
-      TFailure,
-      TEncodingServices,
-      TSubmitMeta,
-      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
-    >
+    options: Omit<
+      EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>,
+      'onSubmit' | 'validators' | 'defaultValues'
+    > &
+      EffectSchemaSubmissionOptions<
+        EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
+        TSuccess,
+        TFailure,
+        TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+      > &
+      (
+        | {
+            readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
+            readonly defaultValues?: TEncoded;
+          }
+        | {
+            readonly schema?: never;
+            readonly defaultValues?: never;
+            readonly onSubmit: [Schema.Void['Type']] extends [TType]
+              ? EffectSchemaSubmissionOptions<
+                  EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
+                  TSuccess,
+                  TFailure,
+                  TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+                >['onSubmit']
+              : never;
+          }
+      )
   ): AppForm<TEncoded, TSubmitMeta>;
   function useAppForm<TType, TEncoded, TSuccess, TFailure, TEncodingServices, TSubmitMeta>(
-    options: EffectSchemaInternalFormOptions<
-      TType,
-      TEncoded,
-      TSuccess,
-      TFailure,
-      TEncodingServices,
-      TSubmitMeta,
-      TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
-    >
+    options: Omit<
+      EffectSchemaBaseFormOptions<TEncoded, TSubmitMeta>,
+      'onSubmit' | 'validators' | 'defaultValues'
+    > &
+      (
+        | ({
+            readonly schema: Schema.Codec<TType, TEncoded, never, TEncodingServices>;
+            readonly defaultValues?: TEncoded;
+          } & EffectSchemaSubmissionOptions<
+            EffectSchemaSubmitProps<TType, TEncoded, TSubmitMeta>,
+            TSuccess,
+            TFailure,
+            TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+          >)
+        | ({
+            readonly schema?: never;
+            readonly defaultValues?: never;
+          } & EffectSchemaSubmissionOptions<
+            EffectSchemaSubmitProps<void, TEncoded, TSubmitMeta>,
+            TSuccess,
+            TFailure,
+            TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
+          >)
+      )
   ) {
     const props = Struct.omit(options, ['schema', 'onSubmit', 'onFailure', 'onSuccess']);
     const registry = useContext(RegistryContext);
@@ -466,7 +403,19 @@ export const createEffectSchemaFormHook = <
     readonly schema: Schema.Codec<TType, DeepValue<TFormData, TName>, never, TEncodingServices>;
     readonly onSubmitMeta?: TSubmitMeta;
   } & EffectSchemaSubmissionOptions<
-    EffectSchemaGroupSubmitProps<TType, TFormData, TName, TParentSubmitMeta, TSubmitMeta>,
+    Omit<
+      Parameters<
+        NonNullable<
+          EffectSchemaBaseFormGroupOptions<
+            TFormData,
+            TName,
+            TParentSubmitMeta,
+            TSubmitMeta
+          >['onGroupSubmit']
+        >
+      >[0],
+      'value'
+    > & { readonly value: TType },
     TSuccess,
     TFailure,
     TServices | Scope.Scope | AtomRegistry.AtomRegistry | Reactivity.Reactivity
@@ -504,7 +453,7 @@ export const createEffectSchemaFormHook = <
     return Object.assign(group, { submissionError });
   };
 
-  return { ...formHook, useAppForm, useAppFormGroup };
+  return { useAppForm, useAppFormGroup };
 };
 
 const useIsFieldSubmitting = () => {
@@ -646,12 +595,12 @@ export const useSubmitState = ({
         canSubmit,
         isSubmitting,
         errorMessage: Option.orElse(submissionError, () => Array.head(validationErrors)),
-        submit: async () => form.handleSubmit(),
+        submit: form.handleSubmit,
       }
     : {
         canSubmit: group.state.meta.canSubmit,
         isSubmitting: group.state.meta.isSubmitting,
         errorMessage: submissionError,
-        submit: async () => group.handleSubmit(),
+        submit: group.handleSubmit,
       };
 };

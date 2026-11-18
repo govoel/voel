@@ -152,7 +152,7 @@ const StorageSection = ({
               label="Provider"
               selection={field.state.value}
               onSelectionChange={(source) => {
-                plugin.choose(source);
+                plugin.choose({ source });
               }}
               modifiers={[pickerStyle('menu'), disabled(isSaving || row.isLoading)]}>
               {Array.map(storagePluginSources, (option) => (

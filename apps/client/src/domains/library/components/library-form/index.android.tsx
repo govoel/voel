@@ -32,15 +32,13 @@ import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
 
 type LibraryFormState = ReturnType<typeof useLibraryFormState>;
 
-type SettingsFields = Data.TaggedEnum.Value<LibraryFormState['settings'], 'Supported'>['fields'];
-
 const StorageSettings = ({
   form,
   fields,
   onDone,
 }: {
   readonly form: LibraryFormState['form'];
-  readonly fields: SettingsFields;
+  readonly fields: Data.TaggedEnum.Value<LibraryFormState['settings'], 'Supported'>['fields'];
   readonly onDone: () => void | Promise<void>;
 }) => (
   <FormLayout
@@ -114,7 +112,7 @@ const StorageSection = ({
                   selected={field.state.value === option.source}
                   enabled={!isSaving && !row.isLoading}
                   onClick={() => {
-                    plugin.choose(option.source);
+                    plugin.choose({ source: option.source });
                   }}>
                   <SegmentedButton.Label>
                     <Text>{option.label}</Text>

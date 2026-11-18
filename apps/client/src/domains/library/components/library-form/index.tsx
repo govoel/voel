@@ -50,13 +50,10 @@ const targetId = ({ target }: { readonly target: LibraryFormTarget }) =>
 
 type StoragePluginId = typeof Library.jsonCreate.fields.storagePluginId.Type;
 
-const npmPackageName = (id: typeof NpmPluginId.Type) =>
-  String.slice(NpmPluginId.parts[0].length)(id);
-
 const storagePluginName = ({ storagePluginId }: { readonly storagePluginId: StoragePluginId }) =>
   Match.value(storagePluginId).pipe(
     Match.when('builtin:local', () => 'Local folders'),
-    Match.when(NpmPluginId.is, (id) => `“${npmPackageName(id)}”`),
+    Match.when(NpmPluginId.is, (id) => `“${String.slice(NpmPluginId.parts[0].length)(id)}”`),
     Match.exhaustive
   );
 
@@ -91,7 +88,7 @@ const storagePluginChoice = ({ storagePluginId }: { readonly storagePluginId: St
     Match.when('builtin:local', () => ({ source: 'builtin:local' as const, packageName: '' })),
     Match.when(NpmPluginId.is, (id) => ({
       source: 'npm' as const,
-      packageName: npmPackageName(id),
+      packageName: String.slice(NpmPluginId.parts[0].length)(id),
     })),
     Match.exhaustive
   );
@@ -230,12 +227,13 @@ const settingsValues = ({ form }: { readonly form: typeof StoragePluginSettingsF
 
 const storageValues = ({ storage }: { readonly storage: LoadedLibraryForm['storage'] }) => ({
   ...storage,
-  settings: byMediaType((type) =>
-    Option.match(settingsFormFor({ storage, type }), {
-      onNone: () => ({ text: {}, list: {} }),
-      onSome: (form) => settingsValues({ form }),
-    })
-  ),
+  settings: byMediaType({
+    valueFor: (type) =>
+      Option.match(settingsFormFor({ storage, type }), {
+        onNone: () => ({ text: {}, list: {} }),
+        onSome: (form) => settingsValues({ form }),
+      }),
+  }),
 });
 
 const useLibraryForm = ({
@@ -296,7 +294,7 @@ const useStoragePluginLoader = ({
   return {
     loader,
     isChosenLoaded: useSelector(form.store, ({ values }) => isChosenPluginLoaded(values)),
-    choose: (source: typeof StoragePluginSource.Type) => {
+    choose: ({ source }: { readonly source: typeof StoragePluginSource.Type }) => {
       form.setFieldValue('storageChoice.source', source);
       Match.value(source).pipe(
         Match.when('builtin:local', (id) => {
@@ -356,14 +354,14 @@ const storageSettingsFields = ({
     )
   );
 
-type StorageSettingsState = Data.TaggedEnum<{
-  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- NotLoaded intentionally has no payload.
-  NotLoaded: Record<never, never>;
-  Unsupported: { readonly message: string };
-  Supported: { readonly fields: ReturnType<typeof storageSettingsFields> };
-}>;
-
-export const StorageSettingsState = Data.taggedEnum<StorageSettingsState>();
+export const StorageSettingsState = Data.taggedEnum<
+  Data.TaggedEnum<{
+    // oxlint-disable-next-line typescript/no-generated-empty-object-type -- NotLoaded intentionally has no payload.
+    NotLoaded: Record<never, never>;
+    Unsupported: { readonly message: string };
+    Supported: { readonly fields: ReturnType<typeof storageSettingsFields> };
+  }>
+>();
 
 const notLoaded = StorageSettingsState.NotLoaded();
 

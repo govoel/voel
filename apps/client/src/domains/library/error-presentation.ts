@@ -8,14 +8,14 @@ import type { ApiClient } from '#src/api-client.ts';
 import { accountFailureMessage } from '#src/domains/accounts/error-presentation.ts';
 import { clientFailureMessage } from '#src/errors.ts';
 
-// Every endpoint in the library API contributes, including endpoints the UI
-// does not call yet. Extending its contract makes this presenter non-exhaustive.
-type LibraryError =
-  | HttpApiEndpoint.Errors<HttpApiGroup.Endpoints<typeof Api.groups.library>>
-  | Effect.Error<ReturnType<typeof ApiClient.make>>
-  | Parameters<typeof clientFailureMessage>[0]['error'];
-
-export const libraryFailureMessage = ({ error }: { readonly error: LibraryError }) =>
+export const libraryFailureMessage = ({
+  error,
+}: {
+  readonly error:
+    | HttpApiEndpoint.Errors<HttpApiGroup.Endpoints<typeof Api.groups.library>>
+    | Effect.Error<ReturnType<typeof ApiClient.make>>
+    | Parameters<typeof clientFailureMessage>[0]['error'];
+}) =>
   Match.value(error).pipe(
     Match.tagsExhaustive({
       UnauthorizedError: () => 'Your session has expired. Sign in again.',

@@ -29,7 +29,7 @@ const navigation = vi.hoisted(() => ({
   replace: vi.fn(),
   dismissTo: vi.fn(),
   back: vi.fn(),
-  params: {} as Record<string, string>,
+  params: { id: '' },
 }));
 const api = vi.hoisted(() => ({
   load: vi.fn<
@@ -284,7 +284,7 @@ const account = AccountKey.make({
   userId: AccountKey.fields.userId.make('admin'),
 });
 const libraryId = Library.fields.id.make(7);
-const roots = (initialValue: ReadonlyArray<string>) => [
+const roots = ({ initialValue }: { readonly initialValue: ReadonlyArray<string> }) => [
   {
     kind: 'TextListField',
     name: 'roots',
@@ -318,7 +318,11 @@ const loadedForm = Effect.fnUntraced(function* ({
 }) {
   return { ...library, storage: yield* loadedStorage({ storagePluginId, forms }) };
 });
-const localForms = { audiobook: roots([]), movie: roots([]), show: roots([]) };
+const localForms = {
+  audiobook: roots({ initialValue: [] }),
+  movie: roots({ initialValue: [] }),
+  show: roots({ initialValue: [] }),
+};
 const bucketForms = {
   movie: [
     {
@@ -331,14 +335,12 @@ const bucketForms = {
     } as const,
   ],
 };
-const localDraft = () => loadedForm({ name: '', type: 'movie', forms: localForms });
-
 const npmPluginWarning =
   'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.';
 const loadPlugin = 'Load plugin & edit settings';
 
 const registries = new Set<AtomRegistry.AtomRegistry>();
-const renderScreen = async (content: Parameters<typeof render>[0]) => {
+const renderScreen = async ({ content }: { readonly content: Parameters<typeof render>[0] }) => {
   const registry = AtomRegistry.make();
   registries.add(registry);
   return render(content, {
@@ -350,9 +352,6 @@ const renderScreen = async (content: Parameters<typeof render>[0]) => {
       </RegistryContext.Provider>
     ),
   });
-};
-const editStorageSettings = async () => {
-  await submit({ label: 'Storage settings' });
 };
 const submit = async ({ label }: { readonly label: string }) => {
   const button = screen.getByRole('button', { name: label });
@@ -367,7 +366,7 @@ beforeEach(() => {
   navigation.replace.mockClear();
   navigation.dismissTo.mockClear();
   navigation.params = { id: String(libraryId) };
-  api.load.mockReset().mockReturnValue(localDraft());
+  api.load.mockReset().mockReturnValue(loadedForm({ name: '', type: 'movie', forms: localForms }));
   api.loadPlugin.mockReset().mockImplementation(({ storagePluginId }) =>
     loadedStorage({
       storagePluginId,
@@ -391,10 +390,10 @@ describe.each([
   it('submits the selected type’s settings without blank entries, then opens the library', async () => {
     const dismissed = await Effect.runPromise(Deferred.make<undefined>());
     native.hide.mockImplementation(async () => Effect.runPromise(Deferred.await(dismissed)));
-    await renderScreen(<CreateLibraryScreen />);
+    await renderScreen({ content: <CreateLibraryScreen /> });
 
     await fireEvent.changeText(await screen.findByLabelText('Name'), '  Films  ');
-    await editStorageSettings();
+    await submit({ label: 'Storage settings' });
     await fireEvent.changeText(screen.getByLabelText('Directories 1'), '/media/old');
     await fireEvent.press(screen.getByRole('button', { name: 'Add to Directories' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Add to Directories' }));
@@ -435,9 +434,9 @@ describe.each([
   });
 
   it('keeps settings per media type', async () => {
-    await renderScreen(<CreateLibraryScreen />);
+    await renderScreen({ content: <CreateLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Shows');
-    await editStorageSettings();
+    await submit({ label: 'Storage settings' });
     await fireEvent.changeText(screen.getByLabelText('Directories 1'), '/media/movies');
     await fireEvent.changeText(screen.getByLabelText('Media type'), 'show');
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('');
@@ -464,7 +463,7 @@ describe.each([
     api.create.mockReturnValue(
       Effect.fail(LibraryNameConflictError.make({ libraryName: Library.fields.name.make('Films') }))
     );
-    await renderScreen(<CreateLibraryScreen />);
+    await renderScreen({ content: <CreateLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Name'), '   ');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
@@ -486,7 +485,7 @@ describe.each([
   });
 
   it('loads an npm plugin only when asked, and saves with its settings', async () => {
-    await renderScreen(<CreateLibraryScreen />);
+    await renderScreen({ content: <CreateLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
     expect(screen.queryByText(npmPluginWarning)).toBeNull();
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
@@ -546,7 +545,7 @@ describe.each([
   });
 
   it('explains, instead of opening settings, when a loaded plugin doesn’t support the type', async () => {
-    await renderScreen(<CreateLibraryScreen />);
+    await renderScreen({ content: <CreateLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Media type'), 'show');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
@@ -561,8 +560,8 @@ describe.each([
   });
 
   it('loads local folders as soon as they’re chosen, starting their settings afresh', async () => {
-    await renderScreen(<CreateLibraryScreen />);
-    await editStorageSettings();
+    await renderScreen({ content: <CreateLibraryScreen /> });
+    await submit({ label: 'Storage settings' });
     await fireEvent.changeText(await screen.findByLabelText('Directories 1'), '/media/films');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
@@ -580,7 +579,7 @@ describe.each([
     api.loadPlugin.mockReturnValue(
       Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
     );
-    await renderScreen(<CreateLibraryScreen />);
+    await renderScreen({ content: <CreateLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'not-a-plugin');
@@ -598,7 +597,7 @@ describe.each([
     });
 
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
-    await editStorageSettings();
+    await submit({ label: 'Storage settings' });
     expect(screen.getByLabelText('Directories 1')).toBeOnTheScreen();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Create library' })).toBeEnabled();
@@ -607,7 +606,7 @@ describe.each([
 
   it('explains why the form can’t load', async () => {
     api.load.mockReturnValue(Effect.fail(ForbiddenError.make()));
-    await renderScreen(<CreateLibraryScreen />);
+    await renderScreen({ content: <CreateLibraryScreen /> });
     expect(
       await screen.findByText('Only server administrators can manage libraries.')
     ).toBeOnTheScreen();
@@ -625,15 +624,15 @@ describe.each([
         name: 'Films',
         type: 'movie',
         forms: {
-          audiobook: roots(['/media/films']),
-          movie: roots(['/media/films']),
-          show: roots(['/media/films']),
+          audiobook: roots({ initialValue: ['/media/films'] }),
+          movie: roots({ initialValue: ['/media/films'] }),
+          show: roots({ initialValue: ['/media/films'] }),
         },
       })
     );
-    await renderScreen(<EditLibraryScreen />);
+    await renderScreen({ content: <EditLibraryScreen /> });
     expect(await screen.findByLabelText('Name')).toHaveDisplayValue('Films');
-    await editStorageSettings();
+    await submit({ label: 'Storage settings' });
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
     expect(api.load).toHaveBeenCalledWith({ account, id: Option.some(libraryId) });
 
@@ -668,7 +667,7 @@ describe.each([
         forms: bucketForms,
       })
     );
-    await renderScreen(<EditLibraryScreen />);
+    await renderScreen({ content: <EditLibraryScreen /> });
     expect(
       await screen.findByText(
         '“@voel/storage@1.2.0” doesn’t support TV shows. Choose another media type.'
@@ -687,7 +686,7 @@ describe.each([
     expect(api.update).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText('Media type'), 'movie');
-    await editStorageSettings();
+    await submit({ label: 'Storage settings' });
     expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
     await submit({ label: 'Save changes' });
     await waitFor(() => {
@@ -705,7 +704,7 @@ describe.each([
   });
 
   it('loads another plugin with the library’s saved settings', async () => {
-    await renderScreen(<EditLibraryScreen />);
+    await renderScreen({ content: <EditLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await submit({ label: loadPlugin });
@@ -719,7 +718,7 @@ describe.each([
 
   it('rejects links without a valid library ID', async () => {
     navigation.params = { id: 'nope' };
-    await renderScreen(<EditLibraryScreen />);
+    await renderScreen({ content: <EditLibraryScreen /> });
     expect(screen.getByText('This link is invalid.')).toBeOnTheScreen();
     expect(api.load).not.toHaveBeenCalled();
   });

@@ -58,8 +58,11 @@ export const mediaTypes = Array.sort(
   Order.mapInput(Order.Number, (type: typeof MediaType.Encoded) => mediaTypeDisplay[type].order)
 );
 
-export const byMediaType = <A>(f: (type: typeof MediaType.Encoded) => A) =>
-  Record.map(mediaTypeDisplay, (_, type) => f(type));
+export const byMediaType = <A>({
+  valueFor,
+}: {
+  readonly valueFor: (type: typeof MediaType.Encoded) => A;
+}) => Record.map(mediaTypeDisplay, (_, type) => valueFor(type));
 
 export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type'>) =>
   mediaTypeDisplay[type].label;
