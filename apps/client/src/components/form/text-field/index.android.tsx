@@ -1,6 +1,6 @@
 import { TextField as ComposeTextField, useNativeState } from '@expo/ui/jetpack-compose';
 import { semantics } from '@expo/ui/jetpack-compose/modifiers';
-import { Option } from 'effect';
+import { Option, Struct } from 'effect';
 
 import { useNativeTextSync, useTextFieldState } from '#src/components/form/hooks.tsx';
 import { textInputPresets } from '#src/components/form/input-presets/index.android.ts';
@@ -21,7 +21,7 @@ export const TextField = (({
 
   return (
     <ComposeTextField
-      {...('android' in platformProps ? platformProps.android : {})}
+      {...('android' in platformProps ? Struct.omit(platformProps.android, ['trailingIcon']) : {})}
       modifiers={[
         ...(labelVisibility === 'hidden' ? [semantics({ contentDescription: label })] : []),
         ...('android' in platformProps ? (platformProps.android.modifiers ?? []) : []),
@@ -52,6 +52,12 @@ export const TextField = (({
       <ComposeTextField.Placeholder>
         <Text>{placeholder}</Text>
       </ComposeTextField.Placeholder>
+
+      {'android' in platformProps && platformProps.android.trailingIcon !== void 0 ? (
+        <ComposeTextField.TrailingIcon>
+          {platformProps.android.trailingIcon}
+        </ComposeTextField.TrailingIcon>
+      ) : null}
 
       {Option.match(errorMessage, {
         onNone: () => null,

@@ -1,0 +1,285 @@
+import ChevronRight from '@expo/material-symbols/chevron_right.xml';
+import {
+  Button,
+  Column,
+  Icon,
+  LoadingIndicator,
+  SegmentedButton,
+  SingleChoiceSegmentedButtonRow,
+} from '@expo/ui/jetpack-compose';
+import { fillMaxWidth, padding, size } from '@expo/ui/jetpack-compose/modifiers';
+import { Array, Match, Option } from 'effect';
+import type { ComponentProps } from 'react';
+
+import { FormLayout } from '#src/components/form/layout';
+import { ListState } from '#src/components/list-state';
+import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
+import { Sheet } from '#src/components/sheet';
+import { Text } from '#src/components/text';
+import { useMaterialColors } from '#src/constants/material.ts';
+import { Spacing } from '#src/constants/theme.ts';
+import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
+import {
+  LibraryFormLoader,
+  StorageStatus,
+  mediaTypeOptions,
+  sourceOptions,
+  useLibraryForm,
+} from '#src/domains/library/components/library-form/index.tsx';
+
+const SettingsRow = ({
+  label,
+  enabled,
+  loading = false,
+  onPress,
+}: {
+  readonly label: string;
+  readonly enabled: boolean;
+  readonly loading?: boolean;
+  readonly onPress?: () => void;
+}) => (
+  <SegmentedList>
+    <SegmentedListItem
+      index={0}
+      count={1}
+      enabled={enabled}
+      {...(onPress === void 0 ? {} : { onClick: onPress })}>
+      <SegmentedListItem.HeadlineContent>
+        <Text>{label}</Text>
+      </SegmentedListItem.HeadlineContent>
+      <SegmentedListItem.TrailingContent>
+        {loading ? (
+          <LoadingIndicator modifiers={[size(24, 24)]} />
+        ) : (
+          <Icon source={ChevronRight} size={24} />
+        )}
+      </SegmentedListItem.TrailingContent>
+    </SegmentedListItem>
+  </SegmentedList>
+);
+
+const Note = ({ color, children }: { readonly color: string; readonly children: string }) => (
+  <Text variant="caption" color={color} modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
+    {children}
+  </Text>
+);
+
+const LoadedLibraryForm = ({
+  title,
+  submitLabel,
+  ...props
+}: ComponentProps<LibraryFormComponent> &
+  Pick<Parameters<typeof useLibraryForm>[0], 'initial'>) => {
+  const model = useLibraryForm(props);
+  const { form, status } = model;
+  const colors = useMaterialColors();
+  return (
+    <form.AppForm>
+      <FormLayout
+        {...(title !== void 0 ? { title } : {})}
+        footer={
+          <form.SubmitButton
+            disabled={!StorageStatus.$is('Ready')(status)}
+            platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
+            <Text>{submitLabel}</Text>
+          </form.SubmitButton>
+        }
+        sections={
+          <>
+            <Text variant="h4" modifiers={[padding(0, Spacing.two, 0, 0)]}>
+              Storage
+            </Text>
+            <form.AppField name="pluginChoice.source">
+              {(field) => (
+                <>
+                  <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+                    {Array.map(sourceOptions, ({ source, label }) => (
+                      <SegmentedButton
+                        key={source}
+                        selected={field.state.value === source}
+                        enabled={!model.isSaving}
+                        onClick={() => {
+                          field.handleChange(source);
+                        }}>
+                        <SegmentedButton.Label>
+                          <Text>{label}</Text>
+                        </SegmentedButton.Label>
+                      </SegmentedButton>
+                    ))}
+                  </SingleChoiceSegmentedButtonRow>
+                  {Match.value(field.state.value).pipe(
+                    Match.when('builtin:local', () => null),
+                    Match.when('npm', () => (
+                      <form.AppField name="pluginChoice.packageName">
+                        {(packageField) => (
+                          <packageField.TextField
+                            purpose="text"
+                            label="Package"
+                            placeholder="voel-storage-plugin"
+                            platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                          />
+                        )}
+                      </form.AppField>
+                    )),
+                    Match.exhaustive
+                  )}
+                </>
+              )}
+            </form.AppField>
+            <Column verticalArrangement={{ spacedBy: Spacing.two }}>
+              {StorageStatus.$match(status, {
+                NoPackage: () => (
+                  <SettingsRow label="Load plugin & edit settings" enabled={false} />
+                ),
+                NotLoaded: (notLoaded) => (
+                  <SettingsRow
+                    label="Load plugin & edit settings"
+                    enabled={!model.isSaving}
+                    onPress={() => void model.loadSettings(notLoaded)}
+                  />
+                ),
+                Loading: () => (
+                  <SettingsRow label="Load plugin & edit settings" enabled={false} loading />
+                ),
+                Failed: (failed) => (
+                  <>
+                    <SettingsRow
+                      label="Load plugin & edit settings"
+                      enabled={!model.isSaving}
+                      onPress={() => void model.loadSettings(failed)}
+                    />
+                    <Note color={colors.error}>{failed.message}</Note>
+                  </>
+                ),
+                Unsupported: ({ message }) => (
+                  <>
+                    <SettingsRow label="Storage settings" enabled={false} />
+                    <Note color={colors.error}>{message}</Note>
+                  </>
+                ),
+                Ready: () => (
+                  <SettingsRow
+                    label="Storage settings"
+                    enabled={!model.isSaving}
+                    onPress={() => {
+                      model.editSettings();
+                    }}
+                  />
+                ),
+              })}
+              {Match.value(model.source).pipe(
+                Match.literalsExhaustive({
+                  'builtin:local': () => null,
+                  npm: () => (
+                    <Note color={colors.onSurfaceVariant}>
+                      Loading a plugin downloads it and runs its code on your server. Only use
+                      plugins you trust.
+                    </Note>
+                  ),
+                })
+              )}
+            </Column>
+          </>
+        }>
+        <form.AppField name="name">
+          {(field) => (
+            <field.TextField
+              purpose="name"
+              label="Name"
+              placeholder="Library name"
+              platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="type">
+          {(field) => (
+            <>
+              <Text>Media type</Text>
+              <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
+                {Array.map(mediaTypeOptions, ({ type, label }) => (
+                  <SegmentedButton
+                    key={type}
+                    selected={field.state.value === type}
+                    enabled={!model.isSaving}
+                    onClick={() => {
+                      field.handleChange(type);
+                      field.handleBlur();
+                    }}>
+                    <SegmentedButton.Label>
+                      <Text>{label}</Text>
+                    </SegmentedButton.Label>
+                  </SegmentedButton>
+                ))}
+              </SingleChoiceSegmentedButtonRow>
+            </>
+          )}
+        </form.AppField>
+      </FormLayout>
+      {Option.match(model.settingsSheet, {
+        onNone: () => null,
+        onSome: ({ form: settingsForm, path }) => (
+          <Sheet
+            onDismissed={() => {
+              model.closeSettings();
+            }}>
+            {({ dismiss }) => (
+              <FormLayout
+                title="Storage settings"
+                footer={
+                  <Button
+                    modifiers={[fillMaxWidth()]}
+                    onClick={() => {
+                      void dismiss();
+                    }}>
+                    <Text>Done</Text>
+                  </Button>
+                }>
+                {Array.match(settingsForm, {
+                  onEmpty: () => (
+                    <ListState kind="empty" message="No settings are required for this plugin." />
+                  ),
+                  onNonEmpty: (fields) =>
+                    Array.map(fields, (settingsField) =>
+                      Match.value(settingsField).pipe(
+                        Match.discriminatorsExhaustive('kind')({
+                          TextField: ({ name, label, placeholder, purpose }) => (
+                            <form.AppField key={name} name={`${path}.${name}`}>
+                              {(field) => (
+                                <field.TextField
+                                  label={label}
+                                  placeholder={placeholder}
+                                  purpose={purpose}
+                                  platformProps={{ android: { modifiers: [fillMaxWidth()] } }}
+                                />
+                              )}
+                            </form.AppField>
+                          ),
+                          TextListField: ({ name, label, placeholder, purpose }) => (
+                            <form.AppField key={name} name={`${path}.${name}`}>
+                              {(field) => (
+                                <field.TextListField
+                                  label={label}
+                                  placeholder={placeholder}
+                                  purpose={purpose}
+                                />
+                              )}
+                            </form.AppField>
+                          ),
+                        })
+                      )
+                    ),
+                })}
+              </FormLayout>
+            )}
+          </Sheet>
+        ),
+      })}
+    </form.AppForm>
+  );
+};
+
+export const LibraryForm = ((props) => (
+  <LibraryFormLoader {...props}>
+    {(initial) => <LoadedLibraryForm {...props} initial={initial} />}
+  </LibraryFormLoader>
+)) satisfies LibraryFormComponent;

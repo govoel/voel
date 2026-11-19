@@ -11,6 +11,7 @@ import type { PropsWithChildren } from 'react';
 import { LibraryParams } from '#src/app/accounts/(selected)/server/libraries/[id]/index.ts';
 import { AndroidAccountsSheet } from '#src/components/android-sheet/index.tsx';
 import { DetailRows } from '#src/components/detail-rows';
+import { InvalidLinkScreen } from '#src/components/invalid-link-screen';
 import { ListState } from '#src/components/list-state';
 import { MutationConfirmation } from '#src/components/mutation-confirmation';
 import { SegmentedList, SegmentedListItem } from '#src/components/segmented-list/index.tsx';
@@ -141,48 +142,9 @@ const LibraryDetails = ({ id }: typeof LibraryParams.Type) => {
 
 export default function ServerLibraryScreen() {
   const params = useRouteParams(LibraryParams);
-  const router = useRouter();
   return Result.match(params, {
     onFailure: (error) =>
-      Match.value(error).pipe(
-        Match.tagsExhaustive({
-          SchemaError: () => (
-            <AndroidAccountsSheet>
-              <LazyColumn
-                contentPadding={{
-                  start: Spacing.three,
-                  end: Spacing.three,
-                  bottom: Spacing.three,
-                }}>
-                <Text variant="h4" modifiers={[padding(0, 0, 0, Spacing.two)]}>
-                  Invalid Link
-                </Text>
-                <SegmentedList>
-                  <SegmentedListItem index={0} count={2} enabled={false}>
-                    <SegmentedListItem.HeadlineContent>
-                      <Text>This link is invalid.</Text>
-                    </SegmentedListItem.HeadlineContent>
-                  </SegmentedListItem>
-                  <SegmentedListItem
-                    index={1}
-                    count={2}
-                    onClick={() => {
-                      if (router.canGoBack()) {
-                        router.back();
-                      } else {
-                        router.replace('/');
-                      }
-                    }}>
-                    <SegmentedListItem.HeadlineContent>
-                      <Text>Back</Text>
-                    </SegmentedListItem.HeadlineContent>
-                  </SegmentedListItem>
-                </SegmentedList>
-              </LazyColumn>
-            </AndroidAccountsSheet>
-          ),
-        })
-      ),
+      Match.value(error).pipe(Match.tagsExhaustive({ SchemaError: () => <InvalidLinkScreen /> })),
     onSuccess: ({ id }) => <LibraryDetails key={id} id={id} />,
   });
 }

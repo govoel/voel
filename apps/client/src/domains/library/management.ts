@@ -1,4 +1,5 @@
-import { Array, Effect, Match, Option, Stream } from 'effect';
+import type { MediaType } from '@govoel/plugins/library';
+import { Array, Effect, Match, Option, Schema, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import type { Library, StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
@@ -43,6 +44,69 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
+export const mediaTypes = ['movie', 'show', 'audiobook'] as const satisfies ReadonlyArray<
+  typeof MediaType.Encoded
+>;
+
+export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type'>) =>
+  Match.value(type).pipe(
+    Match.literalsExhaustive({
+      movie: () => 'Movies',
+      show: () => 'TV shows',
+      audiobook: () => 'Audiobooks',
+    })
+  );
+
+export const storagePluginFormsAtom = Atom.family(
+  ({
+    account,
+    id,
+    storagePluginId,
+  }: {
+    readonly account: AccountKey;
+    readonly id: Option.Option<typeof Library.fields.id.Type>;
+    readonly storagePluginId: typeof Library.jsonCreate.fields.storagePluginId.Type;
+  }) =>
+    AppRuntime.atom(
+      Effect.fnUntraced(function* () {
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        return yield* client.library.getStoragePluginSettingsForms({
+          payload: { id, storagePluginId },
+        });
+      })
+    ).pipe(Atom.withReactivity(['library']), Atom.withLabel('storagePluginFormsAtom'))
+);
+
+export const createLibrary = Effect.fnUntraced(
+  function* ({
+    account,
+    library,
+  }: {
+    readonly account: AccountKey;
+    readonly library: typeof Library.jsonCreate.Type;
+  }) {
+    const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+    return yield* client.library.create({ payload: library });
+  },
+  Reactivity.mutation(['library'])
+);
+
+export const updateLibrary = Effect.fnUntraced(
+  function* ({
+    account,
+    id,
+    library,
+  }: {
+    readonly account: AccountKey;
+    readonly id: typeof Library.fields.id.Type;
+    readonly library: typeof Library.jsonUpdate.Type;
+  }) {
+    const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+    return yield* client.library.update({ params: { id }, payload: library });
+  },
+  Reactivity.mutation(['library'])
+);
+
 export const deleteLibrary = Effect.fnUntraced(
   function* ({
     account,
@@ -57,22 +121,26 @@ export const deleteLibrary = Effect.fnUntraced(
   Reactivity.mutation(['library'])
 );
 
-export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Type, 'type'>) =>
-  Match.value(type).pipe(
-    Match.when('movie', () => 'Movies'),
-    Match.when('show', () => 'TV shows'),
-    Match.when('audiobook', () => 'Audiobooks'),
-    Match.exhaustive
+export const StorageSource = Schema.Literals(['builtin:local', 'npm']);
+
+export const storageSourceLabel = ({ source }: { readonly source: typeof StorageSource.Type }) =>
+  Match.value(source).pipe(
+    Match.literalsExhaustive({
+      'builtin:local': () => 'Local folders',
+      npm: () => 'Custom plugin',
+    })
   );
 
 export const storageProviderLabel = ({
   storagePluginId,
 }: Pick<typeof Library.json.Type, 'storagePluginId'>) =>
-  Match.value(storagePluginId).pipe(
-    Match.when('builtin:local', () => 'Local folders'),
-    Match.when(NpmPluginId.is, () => 'Custom plugin'),
-    Match.exhaustive
-  );
+  storageSourceLabel({
+    source: Match.value(storagePluginId).pipe(
+      Match.when('builtin:local', () => 'builtin:local' as const),
+      Match.when(NpmPluginId.is, () => 'npm' as const),
+      Match.exhaustive
+    ),
+  });
 
 export const storageStatusLabel = ({
   status,

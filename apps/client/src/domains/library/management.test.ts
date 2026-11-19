@@ -11,11 +11,14 @@ import { ApiClientMap } from '#src/api-client.ts';
 import { AccountManager } from '#src/domains/accounts/manager.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
+  createLibrary,
   deleteLibrary,
   libraryStorageDetails,
   libraryStorageErrors,
   listLibrariesAtom,
   serverLibraryAtom,
+  storagePluginFormsAtom,
+  updateLibrary,
 } from '#src/domains/library/management.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
 import { TestServerControllerClient } from '#src/testing/server-controller/client.ts';
@@ -43,7 +46,7 @@ const makeManagementTestLayer = () =>
     })
   ).pipe(Layer.provideMerge(makeClientTestLayers()));
 
-const createInput = (name: string) => ({
+const createInput = ({ name }: Pick<typeof Library.jsonCreate.Encoded, 'name'>) => ({
   name: Library.jsonCreate.fields.name.make(name),
   type: Library.jsonCreate.fields.type.make('movie'),
   storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
@@ -64,7 +67,9 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const empty = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(empty).toBeInstanceOf(Cause.NoSuchElementError);
 
-        const created = yield* client.library.create({ payload: createInput('Only library') });
+        const created = yield* client.library.create({
+          payload: createInput({ name: 'Only library' }),
+        });
         yield* Atom.refresh(query);
         const populated = yield* Atom.getResult(query, { suspendOnWaiting: true });
         expect(populated.items).toMatchObject([{ id: created.id, name: 'Only library' }]);
@@ -72,6 +77,106 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         yield* deleteLibrary({ account: account.key, id: created.id });
         const deleted = yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
         expect(deleted).toBeInstanceOf(Cause.NoSuchElementError);
+      },
+      (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
+    )
+  );
+
+  iit.effect(
+    'loads forms for new and saved libraries, and refreshes queries after saving',
+    Effect.fnUntraced(
+      function* () {
+        const manager = yield* AccountManager;
+        const server = yield* setupTestServerWithUsers({ userCount: 1 });
+        const [account] = yield* signInTestServerUsers(manager, server);
+
+        const localPluginId = Library.jsonCreate.fields.storagePluginId.make('builtin:local');
+        const draft = yield* Atom.getResult(
+          storagePluginFormsAtom({
+            account: account.key,
+            id: Option.none(),
+            storagePluginId: localPluginId,
+          })
+        );
+        const emptyRoots = {
+          kind: 'TextListField',
+          name: 'roots',
+          label: 'Directories',
+          placeholder: '/path/to/media',
+          purpose: 'text',
+          initialValue: [],
+        };
+        expect(draft).toEqual({ audiobook: [emptyRoots], movie: [emptyRoots], show: [emptyRoots] });
+
+        const query = listLibrariesAtom(account.key);
+        yield* Atom.mount(query);
+        yield* Atom.getResult(query, { suspendOnWaiting: true }).pipe(Effect.flip);
+        const created = yield* createLibrary({
+          account: account.key,
+          library: {
+            ...createInput({ name: 'Films' }),
+            storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/media/films'] }),
+          },
+        });
+        const listed = yield* Atom.getResult(query, { suspendOnWaiting: true });
+        expect(listed.items).toMatchObject([{ id: created.id, name: 'Films' }]);
+
+        const saved = yield* Atom.getResult(
+          storagePluginFormsAtom({
+            account: account.key,
+            id: Option.some(created.id),
+            storagePluginId: localPluginId,
+          })
+        );
+        const savedRoots = { ...emptyRoots, initialValue: ['/media/films'] };
+        expect(saved).toEqual({ audiobook: [savedRoots], movie: [savedRoots], show: [savedRoots] });
+
+        const detail = serverLibraryAtom({ account: account.key, id: created.id });
+        yield* Atom.mount(detail);
+        yield* Atom.getResult(detail);
+        yield* updateLibrary({
+          account: account.key,
+          id: created.id,
+          library: {
+            name: Library.jsonUpdate.fields.name.make('Shows'),
+            type: Library.jsonUpdate.fields.type.make('show'),
+            storagePluginId: localPluginId,
+            storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/media/shows'] }),
+          },
+        });
+        const updated = yield* Atom.toStreamResult(detail).pipe(
+          Stream.filter((library) => library.name === 'Shows'),
+          Stream.runHead
+        );
+        expect(Option.getOrThrow(updated)).toMatchObject({
+          type: 'show',
+          storagePluginSettings: { roots: ['/media/shows'] },
+        });
+
+        const rejected = yield* updateLibrary({
+          account: account.key,
+          id: created.id,
+          library: {
+            name: Library.jsonUpdate.fields.name.make('Shows'),
+            type: Library.jsonUpdate.fields.type.make('show'),
+            storagePluginId: localPluginId,
+            storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['relative'] }),
+          },
+        }).pipe(Effect.flip);
+        expect(libraryFailureMessage({ error: rejected })).toBe(
+          'Directories must be non-empty absolute paths without NUL characters'
+        );
+
+        yield* deleteLibrary({ account: account.key, id: created.id });
+        const missing = yield* Atom.getResult(
+          storagePluginFormsAtom({
+            account: account.key,
+            id: Option.some(created.id),
+            storagePluginId: localPluginId,
+          }),
+          { suspendOnWaiting: true }
+        ).pipe(Effect.flip);
+        expect(libraryFailureMessage({ error: missing })).toBe('This library no longer exists.');
       },
       (effect) => effect.pipe(Effect.provide(makeManagementTestLayer()))
     )
@@ -86,7 +191,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const [account] = yield* signInTestServerUsers(manager, server);
         const client = yield* ApiClientMap.use((clients) => clients.acquire(account.key));
         const created = yield* Effect.forEach(Array.range(1, 21), (n) =>
-          client.library.create({ payload: createInput(String(n)) })
+          client.library.create({ payload: createInput({ name: String(n) }) })
         );
         const query = listLibrariesAtom(account.key);
         yield* Atom.mount(query);
@@ -177,11 +282,15 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const [first] = yield* signInTestServerUsers(manager, firstServer);
         const clients = yield* ApiClientMap;
         const firstClient = yield* clients.acquire(first.key);
-        const created = yield* firstClient.library.create({ payload: createInput('First server') });
+        const created = yield* firstClient.library.create({
+          payload: createInput({ name: 'First server' }),
+        });
         const secondServer = yield* setupTestServerWithUsers({ userCount: 1 });
         const [second] = yield* signInTestServerUsers(manager, secondServer);
         const secondClient = yield* clients.acquire(second.key);
-        const other = yield* secondClient.library.create({ payload: createInput('Second server') });
+        const other = yield* secondClient.library.create({
+          payload: createInput({ name: 'Second server' }),
+        });
         expect(other.id).toEqual(created.id);
         const firstDetail = serverLibraryAtom({ account: first.key, id: created.id });
         const secondDetail = serverLibraryAtom({ account: second.key, id: other.id });

@@ -1,0 +1,39 @@
+import { Button, List, Section } from '@expo/ui/swift-ui';
+import { accessibilityLabel, deleteDisabled, disabled } from '@expo/ui/swift-ui/modifiers';
+
+import { TextListFieldEntry, useTextListFieldState } from '#src/components/form/hooks.tsx';
+import { TextField } from '#src/components/form/text-field/index.ios.tsx';
+import type { TextListFieldComponent } from '#src/components/form/text-list-field/index.tsx';
+
+export const TextListField = (({ label, purpose, placeholder }) => {
+  const { entries, isSubmitting, add, remove } = useTextListFieldState();
+  return (
+    <Section title={label}>
+      <List.ForEach
+        data={entries}
+        keyExtractor={(_, index) => `${index}`}
+        recycling={false}
+        modifiers={[deleteDisabled(isSubmitting)]}
+        onDelete={(indices) => {
+          remove({ indices });
+        }}>
+        {({ index }) => (
+          <TextListFieldEntry index={index}>
+            <TextField
+              label={`${label} ${index + 1}`}
+              labelVisibility="hidden"
+              purpose={purpose}
+              placeholder={placeholder}
+            />
+          </TextListFieldEntry>
+        )}
+      </List.ForEach>
+      <Button
+        systemImage="plus.circle.fill"
+        label="Add"
+        modifiers={[accessibilityLabel(`Add to ${label}`), disabled(isSubmitting)]}
+        onPress={add}
+      />
+    </Section>
+  );
+}) satisfies TextListFieldComponent;
