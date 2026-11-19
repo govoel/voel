@@ -104,7 +104,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(draft).toEqual({
           name: '',
           type: 'movie',
-          storage: {
+          plugin: {
             storagePluginId: 'builtin:local',
             forms: { audiobook: [emptyRoots], movie: [emptyRoots], show: [emptyRoots] },
           },
@@ -130,7 +130,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(saved).toEqual({
           name: 'Films',
           type: 'movie',
-          storage: {
+          plugin: {
             storagePluginId: 'builtin:local',
             forms: { audiobook: [savedRoots], movie: [savedRoots], show: [savedRoots] },
           },
@@ -145,7 +145,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           library: {
             name: Library.jsonUpdate.fields.name.make('Shows'),
             type: Library.jsonUpdate.fields.type.make('show'),
-            storagePluginId: saved.storage.storagePluginId,
+            storagePluginId: saved.plugin.storagePluginId,
             storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/media/shows'] }),
           },
         });
@@ -164,7 +164,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           library: {
             name: Library.jsonUpdate.fields.name.make('Shows'),
             type: Library.jsonUpdate.fields.type.make('show'),
-            storagePluginId: saved.storage.storagePluginId,
+            storagePluginId: saved.plugin.storagePluginId,
             storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['relative'] }),
           },
         }).pipe(Effect.flip);

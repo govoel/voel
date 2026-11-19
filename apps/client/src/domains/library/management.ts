@@ -1,5 +1,5 @@
-import { MediaType } from '@govoel/plugins/library';
-import { Array, Effect, Match, Option, Order, Record, Stream } from 'effect';
+import type { MediaType } from '@govoel/plugins/library';
+import { Array, Effect, Match, Option, Record, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
@@ -44,30 +44,17 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
-const mediaTypeDisplay = {
-  movie: { order: 0, label: 'Movies' },
-  show: { order: 1, label: 'TV shows' },
-  audiobook: { order: 2, label: 'Audiobooks' },
-} satisfies Record.ReadonlyRecord<
-  typeof MediaType.Encoded,
-  { readonly order: number; readonly label: string }
->;
-
-export const mediaTypes = Array.sort(
-  MediaType.schema.literals,
-  Order.mapInput(Order.Number, (type: typeof MediaType.Encoded) => mediaTypeDisplay[type].order)
-);
-
-export const byMediaType = <A>({
-  valueFor,
-}: {
-  readonly valueFor: (type: typeof MediaType.Encoded) => A;
-}) => Record.map(mediaTypeDisplay, (_, type) => valueFor(type));
+/** Key order is display order. */
+export const mediaTypeLabels = {
+  movie: 'Movies',
+  show: 'TV shows',
+  audiobook: 'Audiobooks',
+} satisfies Record.ReadonlyRecord<typeof MediaType.Encoded, string>;
 
 export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type'>) =>
-  mediaTypeDisplay[type].label;
+  mediaTypeLabels[type];
 
-export const loadStoragePluginSettingsForms = Effect.fnUntraced(function* ({
+export const loadStoragePlugin = Effect.fnUntraced(function* ({
   account,
   id,
   storagePluginId,
@@ -93,36 +80,28 @@ export const libraryFormAtom = Atom.family(
   }) =>
     AppRuntime.atom(
       Effect.fnUntraced(function* () {
-        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-        const saved = yield* Effect.transposeOption(
-          Option.map(id, (libraryId) => client.library.get({ params: { id: libraryId } }))
-        );
-        const library = Option.match(saved, {
-          onNone: () => ({
-            name: '',
-            type: Option.none(),
-            storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
+        return yield* Option.match(id, {
+          onSome: Effect.fnUntraced(function* (libraryId) {
+            const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+            const { name, type, storagePluginId } = yield* client.library.get({
+              params: { id: libraryId },
+            });
+            const plugin = yield* loadStoragePlugin({ account, id, storagePluginId });
+            return { name, type, plugin };
           }),
-          onSome: ({ name, type, storagePluginId }) => ({
-            name,
-            type: Option.some(type),
-            storagePluginId,
+          onNone: Effect.fnUntraced(function* () {
+            const plugin = yield* loadStoragePlugin({
+              account,
+              id,
+              storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
+            });
+            const firstSupportedType = Array.findFirst(
+              Record.keys(mediaTypeLabels),
+              (type) => plugin.forms[type] !== void 0
+            ).pipe(Option.getOrElse(() => 'movie' as const));
+            return { name: '', type: firstSupportedType, plugin };
           }),
         });
-        const storage = yield* loadStoragePluginSettingsForms({
-          account,
-          id,
-          storagePluginId: library.storagePluginId,
-        });
-        return {
-          storage,
-          name: library.name,
-          type: Option.getOrElse(library.type, () =>
-            Array.findFirst(mediaTypes, (type) => storage.forms[type] !== void 0).pipe(
-              Option.getOrElse(() => Array.headNonEmpty(mediaTypes))
-            )
-          ),
-        };
       })
     ).pipe(Atom.withLabel('libraryFormAtom'))
 );
@@ -171,12 +150,17 @@ export const deleteLibrary = Effect.fnUntraced(
   Reactivity.mutation(['library'])
 );
 
+export const storageSourceLabels = {
+  'builtin:local': 'Local folders',
+  npm: 'Custom plugin',
+} as const;
+
 export const storageProviderLabel = ({
   storagePluginId,
 }: Pick<typeof Library.json.Type, 'storagePluginId'>) =>
   Match.value(storagePluginId).pipe(
-    Match.when('builtin:local', () => 'Local folders'),
-    Match.when(NpmPluginId.is, () => 'Custom plugin'),
+    Match.when('builtin:local', () => storageSourceLabels['builtin:local']),
+    Match.when(NpmPluginId.is, () => storageSourceLabels.npm),
     Match.exhaustive
   );
 

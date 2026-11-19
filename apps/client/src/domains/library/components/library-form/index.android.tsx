@@ -8,9 +8,7 @@ import {
   SingleChoiceSegmentedButtonRow,
 } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, size } from '@expo/ui/jetpack-compose/modifiers';
-import { useSelector } from '@tanstack/react-form';
-import { Array, Match, Option } from 'effect';
-import type { Data } from 'effect';
+import { Array, Match, Option, Record } from 'effect';
 import type { ComponentProps } from 'react';
 
 import { FormLayout } from '#src/components/form/layout';
@@ -21,24 +19,20 @@ import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
 import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
+import type { LibraryFormModel } from '#src/domains/library/components/library-form/model.tsx';
 import {
   LibraryFormLoader,
-  StorageSettingsState,
-  storagePluginSources,
-  useLibraryFormState,
-  useStorageSettingsRow,
-} from '#src/domains/library/components/library-form/index.tsx';
-import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
+  pluginSourceOptions,
+} from '#src/domains/library/components/library-form/model.tsx';
+import { mediaTypeLabels } from '#src/domains/library/management.ts';
 
-type LibraryFormState = ReturnType<typeof useLibraryFormState>;
-
-const StorageSettings = ({
+const SettingsSheetContent = ({
   form,
   fields,
   onDone,
 }: {
-  readonly form: LibraryFormState['form'];
-  readonly fields: Data.TaggedEnum.Value<LibraryFormState['settings'], 'Supported'>['fields'];
+  readonly form: LibraryFormModel['form'];
+  readonly fields: Option.Option.Value<LibraryFormModel['editedSettingsFields']>;
   readonly onDone: () => void | Promise<void>;
 }) => (
   <FormLayout
@@ -55,8 +49,8 @@ const StorageSettings = ({
     {Array.match(fields, {
       onEmpty: () => <ListState kind="empty" message="No settings are required for this plugin." />,
       onNonEmpty: (nonEmpty) =>
-        Array.map(nonEmpty, (descriptor) =>
-          Match.value(descriptor).pipe(
+        Array.map(nonEmpty, (settingsField) =>
+          Match.value(settingsField).pipe(
             Match.discriminatorsExhaustive('kind')({
               TextField: ({ key, path, label, placeholder, purpose }) => (
                 <form.AppField key={key} name={path}>
@@ -88,34 +82,28 @@ const StorageSettings = ({
   </FormLayout>
 );
 
-const StorageSection = ({
-  form,
-  plugin,
-  settings,
-  onEdit,
-}: Parameters<typeof useStorageSettingsRow>[0]) => {
-  const row = useStorageSettingsRow({ form, plugin, settings, onEdit });
-  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
+const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
+  const { form } = model;
   const colors = useMaterialColors();
   return (
     <>
       <Text variant="h4" modifiers={[padding(0, Spacing.two, 0, 0)]}>
         Storage
       </Text>
-      <form.AppField name="storageChoice.source">
+      <form.AppField name="pluginChoice.source">
         {(field) => (
           <>
             <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-              {Array.map(storagePluginSources, (option) => (
+              {Array.map(pluginSourceOptions, ([source, label]) => (
                 <SegmentedButton
-                  key={option.source}
-                  selected={field.state.value === option.source}
-                  enabled={!isSaving && !row.isLoading}
+                  key={source}
+                  selected={field.state.value === source}
+                  enabled={model.canChoosePluginSource}
                   onClick={() => {
-                    plugin.choose({ source: option.source });
+                    model.choosePluginSource({ source });
                   }}>
                   <SegmentedButton.Label>
-                    <Text>{option.label}</Text>
+                    <Text>{label}</Text>
                   </SegmentedButton.Label>
                 </SegmentedButton>
               ))}
@@ -123,7 +111,7 @@ const StorageSection = ({
             {Match.value(field.state.value).pipe(
               Match.when('builtin:local', () => null),
               Match.when('npm', () => (
-                <form.AppField name="storageChoice.packageName">
+                <form.AppField name="pluginChoice.packageName">
                   {(packageField) => (
                     <packageField.TextField
                       purpose="text"
@@ -144,15 +132,15 @@ const StorageSection = ({
           <SegmentedListItem
             index={0}
             count={1}
-            enabled={row.enabled}
+            enabled={model.canOpenSettings}
             onClick={() => {
-              void row.open();
+              void model.openSettings();
             }}>
             <SegmentedListItem.HeadlineContent>
-              <Text>{row.label}</Text>
+              <Text>{model.settingsButtonLabel}</Text>
             </SegmentedListItem.HeadlineContent>
             <SegmentedListItem.TrailingContent>
-              {row.isLoading ? (
+              {model.isLoadingPlugin ? (
                 <LoadingIndicator modifiers={[size(24, 24)]} />
               ) : (
                 <Icon source={ChevronRight} size={24} />
@@ -160,7 +148,7 @@ const StorageSection = ({
             </SegmentedListItem.TrailingContent>
           </SegmentedListItem>
         </SegmentedList>
-        {Array.map(row.notes, ({ tone, message }) => (
+        {Array.map(model.storageNotes, ({ tone, message }) => (
           <Text
             key={message}
             variant="caption"
@@ -179,33 +167,23 @@ const StorageSection = ({
 };
 
 const LibraryFormFields = ({
-  loaded,
-  target,
+  model,
   title,
   submitLabel,
-  onSaved,
-}: ComponentProps<LibraryFormComponent> &
-  Pick<Parameters<typeof useLibraryFormState>[0], 'loaded'>) => {
-  const { form, plugin, isSaving, settings, editedSettingsFields, editSettings, closeSettings } =
-    useLibraryFormState({ loaded, target, onSaved });
+}: ComponentProps<LibraryFormComponent> & { readonly model: LibraryFormModel }) => {
+  const { form, closeSettings } = model;
   return (
     <form.AppForm>
       <FormLayout
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={StorageSettingsState.$match(settings, {
-              NotLoaded: () => true,
-              Unsupported: () => true,
-              Supported: () => false,
-            })}
+            disabled={!model.canSave}
             platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
             <Text>{submitLabel}</Text>
           </form.SubmitButton>
         }
-        sections={
-          <StorageSection form={form} plugin={plugin} settings={settings} onEdit={editSettings} />
-        }>
+        sections={<StorageSection model={model} />}>
         <form.AppField name="name">
           {(field) => (
             <field.TextField
@@ -221,17 +199,17 @@ const LibraryFormFields = ({
             <>
               <Text>Media type</Text>
               <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-                {Array.map(mediaTypes, (type) => (
+                {Array.map(Record.toEntries(mediaTypeLabels), ([type, label]) => (
                   <SegmentedButton
                     key={type}
                     selected={field.state.value === type}
-                    enabled={!isSaving}
+                    enabled={!model.isSaving}
                     onClick={() => {
                       field.handleChange(type);
                       field.handleBlur();
                     }}>
                     <SegmentedButton.Label>
-                      <Text>{mediaTypeLabel({ type })}</Text>
+                      <Text>{label}</Text>
                     </SegmentedButton.Label>
                   </SegmentedButton>
                 ))}
@@ -240,11 +218,11 @@ const LibraryFormFields = ({
           )}
         </form.AppField>
       </FormLayout>
-      {Option.match(editedSettingsFields, {
+      {Option.match(model.editedSettingsFields, {
         onNone: () => null,
         onSome: (fields) => (
           <Sheet onDismissed={closeSettings}>
-            {({ dismiss }) => <StorageSettings form={form} fields={fields} onDone={dismiss} />}
+            {({ dismiss }) => <SettingsSheetContent form={form} fields={fields} onDone={dismiss} />}
           </Sheet>
         ),
       })}
@@ -254,6 +232,6 @@ const LibraryFormFields = ({
 
 export const LibraryForm = ((props) => (
   <LibraryFormLoader {...props}>
-    {(loaded) => <LibraryFormFields {...props} loaded={loaded} />}
+    {(model) => <LibraryFormFields {...props} model={model} />}
   </LibraryFormLoader>
 )) satisfies LibraryFormComponent;

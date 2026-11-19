@@ -11,9 +11,7 @@ import {
   tag,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { useSelector } from '@tanstack/react-form';
-import { Array, Match, Option } from 'effect';
-import type { Data } from 'effect';
+import { Array, Match, Option, Record } from 'effect';
 import type { ComponentProps } from 'react';
 
 import { FormLayout } from '#src/components/form/layout';
@@ -22,27 +20,23 @@ import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
 import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
+import type { LibraryFormModel } from '#src/domains/library/components/library-form/model.tsx';
 import {
   LibraryFormLoader,
-  StorageSettingsState,
-  storagePluginSources,
-  useLibraryFormState,
-  useStorageSettingsRow,
-} from '#src/domains/library/components/library-form/index.tsx';
-import { mediaTypeLabel, mediaTypes } from '#src/domains/library/management.ts';
+  pluginSourceOptions,
+} from '#src/domains/library/components/library-form/model.tsx';
+import { mediaTypeLabels } from '#src/domains/library/management.ts';
 
-type LibraryFormState = ReturnType<typeof useLibraryFormState>;
+type SettingsField = Option.Option.Value<LibraryFormModel['editedSettingsFields']>[number];
 
-type SettingsFields = Data.TaggedEnum.Value<LibraryFormState['settings'], 'Supported'>['fields'];
-
-const StorageSettingsField = ({
+const SettingsField = ({
   form,
-  descriptor,
+  field: settingsField,
 }: {
-  readonly form: LibraryFormState['form'];
-  readonly descriptor: SettingsFields[number];
+  readonly form: LibraryFormModel['form'];
+  readonly field: SettingsField;
 }) =>
-  Match.value(descriptor).pipe(
+  Match.value(settingsField).pipe(
     Match.discriminatorsExhaustive('kind')({
       TextField: ({ path, label, placeholder, purpose }) => (
         <form.AppField name={path}>
@@ -59,13 +53,13 @@ const StorageSettingsField = ({
     })
   );
 
-const StorageSettings = ({
+const SettingsSheetContent = ({
   form,
   fields,
   onDone,
 }: {
-  readonly form: LibraryFormState['form'];
-  readonly fields: SettingsFields;
+  readonly form: LibraryFormModel['form'];
+  readonly fields: ReadonlyArray<SettingsField>;
   readonly onDone: () => void | Promise<void>;
 }) => (
   <FormLayout
@@ -91,17 +85,11 @@ const StorageSettings = ({
           (group) =>
             Match.value(Array.headNonEmpty(group)).pipe(
               Match.discriminatorsExhaustive('kind')({
-                TextListField: (list) => (
-                  <StorageSettingsField key={list.key} form={form} descriptor={list} />
-                ),
+                TextListField: (list) => <SettingsField key={list.key} form={form} field={list} />,
                 TextField: ({ key }) => (
                   <Section key={key}>
-                    {Array.map(group, (descriptor) => (
-                      <StorageSettingsField
-                        key={descriptor.key}
-                        form={form}
-                        descriptor={descriptor}
-                      />
+                    {Array.map(group, (field) => (
+                      <SettingsField key={field.key} form={form} field={field} />
                     ))}
                   </Section>
                 ),
@@ -109,24 +97,19 @@ const StorageSettings = ({
             )
         ),
     })}>
-    {Array.isReadonlyArrayEmpty(fields) ? (
-      <ListState kind="empty" message="No settings are required for this plugin." />
-    ) : null}
+    {Array.match(fields, {
+      onEmpty: () => <ListState kind="empty" message="No settings are required for this plugin." />,
+      onNonEmpty: () => null,
+    })}
   </FormLayout>
 );
 
-const StorageSection = ({
-  form,
-  plugin,
-  settings,
-  onEdit,
-}: Parameters<typeof useStorageSettingsRow>[0]) => {
-  const row = useStorageSettingsRow({ form, plugin, settings, onEdit });
-  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
+const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
+  const { form } = model;
   return (
     <Section
       title="Storage"
-      footer={Array.match(row.notes, {
+      footer={Array.match(model.storageNotes, {
         onEmpty: () => null,
         onNonEmpty: (notes) => (
           <VStack alignment="leading" spacing={Spacing.two}>
@@ -145,26 +128,26 @@ const StorageSection = ({
           </VStack>
         ),
       })}>
-      <form.AppField name="storageChoice.source">
+      <form.AppField name="pluginChoice.source">
         {(field) => (
           <>
             <Picker
               label="Provider"
               selection={field.state.value}
               onSelectionChange={(source) => {
-                plugin.choose({ source });
+                model.choosePluginSource({ source });
               }}
-              modifiers={[pickerStyle('menu'), disabled(isSaving || row.isLoading)]}>
-              {Array.map(storagePluginSources, (option) => (
-                <Text key={option.source} modifiers={[tag(option.source)]}>
-                  {option.label}
+              modifiers={[pickerStyle('menu'), disabled(!model.canChoosePluginSource)]}>
+              {Array.map(pluginSourceOptions, ([source, label]) => (
+                <Text key={source} modifiers={[tag(source)]}>
+                  {label}
                 </Text>
               ))}
             </Picker>
             {Match.value(field.state.value).pipe(
               Match.when('builtin:local', () => null),
               Match.when('npm', () => (
-                <form.AppField name="storageChoice.packageName">
+                <form.AppField name="pluginChoice.packageName">
                   {(packageField) => (
                     <packageField.TextField
                       purpose="text"
@@ -180,14 +163,14 @@ const StorageSection = ({
         )}
       </form.AppField>
       <Button
-        modifiers={[tint('primary'), disabled(!row.enabled)]}
+        modifiers={[tint('primary'), disabled(!model.canOpenSettings)]}
         onPress={() => {
-          void row.open();
+          void model.openSettings();
         }}>
         <HStack>
-          <Text>{row.label}</Text>
+          <Text>{model.settingsButtonLabel}</Text>
           <Spacer />
-          {row.isLoading ? (
+          {model.isLoadingPlugin ? (
             <ProgressView />
           ) : (
             <Icon
@@ -197,7 +180,7 @@ const StorageSection = ({
                 // An explicit style isn't dimmed by `disabled`, so it dims along with the row.
                 foregroundStyle({
                   type: 'hierarchical',
-                  style: row.enabled ? 'secondary' : 'quaternary',
+                  style: model.canOpenSettings ? 'secondary' : 'quaternary',
                 }),
               ]}
             />
@@ -209,34 +192,24 @@ const StorageSection = ({
 };
 
 const LibraryFormFields = ({
-  loaded,
-  target,
+  model,
   title,
   submitLabel,
-  onSaved,
-}: ComponentProps<LibraryFormComponent> &
-  Pick<Parameters<typeof useLibraryFormState>[0], 'loaded'>) => {
-  const { form, plugin, isSaving, settings, editedSettingsFields, editSettings, closeSettings } =
-    useLibraryFormState({ loaded, target, onSaved });
+}: ComponentProps<LibraryFormComponent> & { readonly model: LibraryFormModel }) => {
+  const { form, closeSettings } = model;
   return (
     <form.AppForm>
       <FormLayout
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={StorageSettingsState.$match(settings, {
-              NotLoaded: () => true,
-              Unsupported: () => true,
-              Supported: () => false,
-            })}
+            disabled={!model.canSave}
             platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
             containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
             <Text>{submitLabel}</Text>
           </form.SubmitButton>
         }
-        sections={
-          <StorageSection form={form} plugin={plugin} settings={settings} onEdit={editSettings} />
-        }>
+        sections={<StorageSection model={model} />}>
         <form.AppField name="name">
           {(field) => <field.TextField purpose="name" label="Name" placeholder="Library name" />}
         </form.AppField>
@@ -249,21 +222,21 @@ const LibraryFormFields = ({
                 field.handleChange(type);
                 field.handleBlur();
               }}
-              modifiers={[pickerStyle('menu'), disabled(isSaving)]}>
-              {Array.map(mediaTypes, (type) => (
+              modifiers={[pickerStyle('menu'), disabled(model.isSaving)]}>
+              {Array.map(Record.toEntries(mediaTypeLabels), ([type, label]) => (
                 <Text key={type} modifiers={[tag(type)]}>
-                  {mediaTypeLabel({ type })}
+                  {label}
                 </Text>
               ))}
             </Picker>
           )}
         </form.AppField>
       </FormLayout>
-      {Option.match(editedSettingsFields, {
+      {Option.match(model.editedSettingsFields, {
         onNone: () => null,
         onSome: (fields) => (
           <Sheet onDismissed={closeSettings}>
-            {({ dismiss }) => <StorageSettings form={form} fields={fields} onDone={dismiss} />}
+            {({ dismiss }) => <SettingsSheetContent form={form} fields={fields} onDone={dismiss} />}
           </Sheet>
         ),
       })}
@@ -273,6 +246,6 @@ const LibraryFormFields = ({
 
 export const LibraryForm = ((props) => (
   <LibraryFormLoader {...props}>
-    {(loaded) => <LibraryFormFields {...props} loaded={loaded} />}
+    {(model) => <LibraryFormFields {...props} model={model} />}
   </LibraryFormLoader>
 )) satisfies LibraryFormComponent;

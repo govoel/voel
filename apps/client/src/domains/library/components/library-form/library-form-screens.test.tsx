@@ -40,7 +40,7 @@ const api = vi.hoisted(() => ({
       Atom.Failure<ReturnType<typeof Management.libraryFormAtom>>
     >
   >(),
-  loadPlugin: vi.fn<typeof Management.loadStoragePluginSettingsForms>(),
+  loadPlugin: vi.fn<typeof Management.loadStoragePlugin>(),
   create: vi.fn<typeof Management.createLibrary>(),
   update: vi.fn<typeof Management.updateLibrary>(),
 }));
@@ -58,7 +58,7 @@ vi.mock('#src/domains/library/management.ts', async (importOriginal) => {
     libraryFormAtom: Atom.family((request: Parameters<typeof original.libraryFormAtom>[0]) =>
       Atom.make(effect.suspend(() => api.load(request)))
     ),
-    loadStoragePluginSettingsForms: api.loadPlugin,
+    loadStoragePlugin: api.loadPlugin,
     createLibrary: api.create,
     updateLibrary: api.update,
   };
@@ -294,7 +294,7 @@ const roots = ({ initialValue }: { readonly initialValue: ReadonlyArray<string> 
     initialValue,
   } as const,
 ];
-const loadedStorage = Effect.fnUntraced(function* ({
+const loadedPlugin = Effect.fnUntraced(function* ({
   storagePluginId,
   forms,
 }: {
@@ -316,7 +316,7 @@ const loadedForm = Effect.fnUntraced(function* ({
   readonly storagePluginId?: typeof StoragePluginId.Encoded;
   readonly forms: typeof StoragePluginSettingsForms.Encoded;
 }) {
-  return { ...library, storage: yield* loadedStorage({ storagePluginId, forms }) };
+  return { ...library, plugin: yield* loadedPlugin({ storagePluginId, forms }) };
 });
 const localForms = {
   audiobook: roots({ initialValue: [] }),
@@ -368,7 +368,7 @@ beforeEach(() => {
   navigation.params = { id: String(libraryId) };
   api.load.mockReset().mockReturnValue(loadedForm({ name: '', type: 'movie', forms: localForms }));
   api.loadPlugin.mockReset().mockImplementation(({ storagePluginId }) =>
-    loadedStorage({
+    loadedPlugin({
       storagePluginId,
       forms: storagePluginId === 'builtin:local' ? localForms : bucketForms,
     })
@@ -502,7 +502,7 @@ describe.each([
     const loading = await Effect.runPromise(Deferred.make<undefined>());
     api.loadPlugin.mockImplementationOnce(({ storagePluginId }) =>
       Deferred.await(loading).pipe(
-        Effect.andThen(loadedStorage({ storagePluginId, forms: bucketForms }))
+        Effect.andThen(loadedPlugin({ storagePluginId, forms: bucketForms }))
       )
     );
     await submit({ label: loadPlugin });
