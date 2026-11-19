@@ -43,7 +43,6 @@ import {
 } from '#src/domains/library/management.ts';
 
 type StoragePluginId = typeof Library.jsonCreate.fields.storagePluginId.Type;
-type SettingsForm = typeof StoragePluginSettingsForm.Encoded;
 
 export type LibraryFormComponent = ComponentType<{
   readonly id: Option.Option<typeof Library.fields.id.Type>;
@@ -164,7 +163,7 @@ type StorageStatus =
   | {
       readonly _tag: 'Ready';
       readonly storagePluginId: StoragePluginId;
-      readonly form: SettingsForm;
+      readonly form: typeof StoragePluginSettingsForm.Encoded;
       readonly values: typeof SettingsValues.Type;
     };
 
@@ -285,9 +284,6 @@ class LibraryFormValues extends Schema.Struct({
     })
   );
 }
-
-const npmPluginWarning =
-  'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.';
 
 export const sourceOptions = Array.map(StorageSource.literals, (source) => ({
   source,
@@ -417,7 +413,12 @@ export const useLibraryForm = ({
       Match.value(values.pluginChoice.source).pipe(
         Match.literalsExhaustive({
           'builtin:local': () => Option.none(),
-          npm: () => Option.some({ tone: 'secondary' as const, message: npmPluginWarning }),
+          npm: () =>
+            Option.some({
+              tone: 'secondary' as const,
+              message:
+                'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.',
+            }),
         })
       ),
     ]),
@@ -445,8 +446,6 @@ export const useLibraryForm = ({
     }),
   };
 };
-
-export type LibraryFormModel = ReturnType<typeof useLibraryForm>;
 
 export const LibraryFormLoader = ({
   id,
