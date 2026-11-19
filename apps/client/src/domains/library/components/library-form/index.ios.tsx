@@ -22,36 +22,46 @@ import { Spacing } from '#src/constants/theme.ts';
 import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
 import {
   LibraryFormLoader,
+  StorageStatus,
   mediaTypeOptions,
   sourceOptions,
   useLibraryForm,
 } from '#src/domains/library/components/library-form/index.tsx';
 
-const SettingsField = ({
-  form,
-  field: settingsField,
+const SettingsRow = ({
+  label,
+  enabled,
+  loading = false,
+  onPress,
 }: {
-  readonly form: ReturnType<typeof useLibraryForm>['form'];
-  readonly field: Option.Option.Value<
-    ReturnType<typeof useLibraryForm>['settingsSheet']
-  >['fields'][number];
-}) =>
-  Match.value(settingsField).pipe(
-    Match.discriminatorsExhaustive('kind')({
-      TextField: ({ path, label, placeholder, purpose }) => (
-        <form.AppField name={path}>
-          {(field) => <field.TextField label={label} placeholder={placeholder} purpose={purpose} />}
-        </form.AppField>
-      ),
-      TextListField: ({ path, label, placeholder, purpose }) => (
-        <form.AppField name={path}>
-          {(field) => (
-            <field.TextListField label={label} placeholder={placeholder} purpose={purpose} />
-          )}
-        </form.AppField>
-      ),
-    })
-  );
+  readonly label: string;
+  readonly enabled: boolean;
+  readonly loading?: boolean;
+  readonly onPress?: () => void;
+}) => (
+  <Button
+    modifiers={[tint('primary'), disabled(!enabled)]}
+    {...(onPress === void 0 ? {} : { onPress })}>
+    <HStack>
+      <Text>{label}</Text>
+      <Spacer />
+      {loading ? (
+        <ProgressView />
+      ) : (
+        <Icon
+          name="chevron.right"
+          modifiers={[
+            font({ textStyle: 'footnote', weight: 'semibold' }),
+            foregroundStyle({
+              type: 'hierarchical',
+              style: enabled ? 'secondary' : 'quaternary',
+            }),
+          ]}
+        />
+      )}
+    </HStack>
+  </Button>
+);
 
 const LoadedLibraryForm = ({
   title,
@@ -60,14 +70,18 @@ const LoadedLibraryForm = ({
 }: ComponentProps<LibraryFormComponent> &
   Pick<Parameters<typeof useLibraryForm>[0], 'initial'>) => {
   const model = useLibraryForm(props);
-  const { form } = model;
+  const { form, status } = model;
+  const problem = Match.value(status).pipe(
+    Match.tag('Failed', 'Unsupported', ({ message }) => Option.some(message)),
+    Match.orElse(() => Option.none())
+  );
   return (
     <form.AppForm>
       <FormLayout
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={!model.canSave}
+            disabled={!StorageStatus.$is('Ready')(status)}
             platformProps={{ ios: { modifiers: [buttonStyle('borderedProminent')] } }}
             containerModifiers={{ ios: [frame({ maxWidth: Infinity })] }}>
             <Text>{submitLabel}</Text>
@@ -76,25 +90,31 @@ const LoadedLibraryForm = ({
         sections={
           <Section
             title="Storage"
-            footer={Array.match(model.storageNotes, {
-              onEmpty: () => null,
-              onNonEmpty: (notes) => (
+            footer={
+              Option.isNone(problem) && model.source === 'builtin:local' ? null : (
                 <VStack alignment="leading" spacing={Spacing.two}>
-                  {Array.map(notes, ({ tone, message }) => (
-                    <Text
-                      key={message}
-                      variant="caption"
-                      {...Match.value(tone).pipe(
-                        Match.when('critical', () => ({ color: 'red' })),
-                        Match.when('secondary', () => ({})),
-                        Match.exhaustive
-                      )}>
-                      {message}
-                    </Text>
-                  ))}
+                  {Option.match(problem, {
+                    onNone: () => null,
+                    onSome: (message) => (
+                      <Text variant="caption" color="red">
+                        {message}
+                      </Text>
+                    ),
+                  })}
+                  {Match.value(model.source).pipe(
+                    Match.literalsExhaustive({
+                      'builtin:local': () => null,
+                      npm: () => (
+                        <Text variant="caption">
+                          Loading a plugin downloads it and runs its code on your server. Only use
+                          plugins you trust.
+                        </Text>
+                      ),
+                    })
+                  )}
                 </VStack>
-              ),
-            })}>
+              )
+            }>
             <form.AppField name="pluginChoice.source">
               {(field) => (
                 <>
@@ -102,7 +122,7 @@ const LoadedLibraryForm = ({
                     label="Provider"
                     selection={field.state.value}
                     onSelectionChange={field.handleChange}
-                    modifiers={[pickerStyle('menu'), disabled(!model.canChooseSource)]}>
+                    modifiers={[pickerStyle('menu'), disabled(model.isSaving)]}>
                     {Array.map(sourceOptions, ({ source, label }) => (
                       <Text key={source} modifiers={[tag(source)]}>
                         {label}
@@ -110,47 +130,54 @@ const LoadedLibraryForm = ({
                     ))}
                   </Picker>
                   {Match.value(field.state.value).pipe(
-                    Match.when('builtin:local', () => null),
-                    Match.when('npm', () => (
-                      <form.AppField name="pluginChoice.packageName">
-                        {(packageField) => (
-                          <packageField.TextField
-                            purpose="text"
-                            label="Package"
-                            placeholder="voel-storage-plugin"
-                          />
-                        )}
-                      </form.AppField>
-                    )),
-                    Match.exhaustive
+                    Match.literalsExhaustive({
+                      'builtin:local': () => null,
+                      npm: () => (
+                        <form.AppField name="pluginChoice.packageName">
+                          {(packageField) => (
+                            <packageField.TextField
+                              purpose="text"
+                              label="Package"
+                              placeholder="voel-storage-plugin"
+                            />
+                          )}
+                        </form.AppField>
+                      ),
+                    })
                   )}
                 </>
               )}
             </form.AppField>
-            <Button
-              modifiers={[tint('primary'), disabled(!model.settingsButton.enabled)]}
-              onPress={() => {
-                void model.openSettings();
-              }}>
-              <HStack>
-                <Text>{model.settingsButton.label}</Text>
-                <Spacer />
-                {model.isLoadingPlugin ? (
-                  <ProgressView />
-                ) : (
-                  <Icon
-                    name="chevron.right"
-                    modifiers={[
-                      font({ textStyle: 'footnote', weight: 'semibold' }),
-                      foregroundStyle({
-                        type: 'hierarchical',
-                        style: model.settingsButton.enabled ? 'secondary' : 'quaternary',
-                      }),
-                    ]}
-                  />
-                )}
-              </HStack>
-            </Button>
+            {StorageStatus.$match(status, {
+              NoPackage: () => <SettingsRow label="Load plugin & edit settings" enabled={false} />,
+              NotLoaded: (notLoaded) => (
+                <SettingsRow
+                  label="Load plugin & edit settings"
+                  enabled={!model.isSaving}
+                  onPress={() => void model.loadSettings(notLoaded)}
+                />
+              ),
+              Loading: () => (
+                <SettingsRow label="Load plugin & edit settings" enabled={false} loading />
+              ),
+              Failed: (failed) => (
+                <SettingsRow
+                  label="Load plugin & edit settings"
+                  enabled={!model.isSaving}
+                  onPress={() => void model.loadSettings(failed)}
+                />
+              ),
+              Unsupported: () => <SettingsRow label="Storage settings" enabled={false} />,
+              Ready: () => (
+                <SettingsRow
+                  label="Storage settings"
+                  enabled={!model.isSaving}
+                  onPress={() => {
+                    model.editSettings();
+                  }}
+                />
+              ),
+            })}
           </Section>
         }>
         <form.AppField name="name">
@@ -177,8 +204,11 @@ const LoadedLibraryForm = ({
       </FormLayout>
       {Option.match(model.settingsSheet, {
         onNone: () => null,
-        onSome: ({ fields, close }) => (
-          <Sheet onDismissed={close}>
+        onSome: ({ form: settingsForm, path }) => (
+          <Sheet
+            onDismissed={() => {
+              model.closeSettings();
+            }}>
             {({ dismiss }) => (
               <FormLayout
                 title="Storage settings"
@@ -192,25 +222,41 @@ const LoadedLibraryForm = ({
                     <Text modifiers={[frame({ maxWidth: Infinity })]}>Done</Text>
                   </Button>
                 }
-                sections={Array.match(fields, {
+                sections={Array.match(settingsForm, {
                   onEmpty: () => null,
-                  onNonEmpty: (nonEmpty) =>
+                  onNonEmpty: (fields) =>
                     Array.map(
                       Array.groupWith(
-                        nonEmpty,
+                        fields,
                         (previous, next) =>
                           previous.kind === 'TextField' && next.kind === 'TextField'
                       ),
                       (group) =>
                         Match.value(Array.headNonEmpty(group)).pipe(
                           Match.discriminatorsExhaustive('kind')({
-                            TextListField: (list) => (
-                              <SettingsField key={list.key} form={form} field={list} />
+                            TextListField: ({ name, label, placeholder, purpose }) => (
+                              <form.AppField key={name} name={`${path}.${name}`}>
+                                {(field) => (
+                                  <field.TextListField
+                                    label={label}
+                                    placeholder={placeholder}
+                                    purpose={purpose}
+                                  />
+                                )}
+                              </form.AppField>
                             ),
-                            TextField: ({ key }) => (
-                              <Section key={key}>
-                                {Array.map(group, (field) => (
-                                  <SettingsField key={field.key} form={form} field={field} />
+                            TextField: ({ name: first }) => (
+                              <Section key={first}>
+                                {Array.map(group, ({ name, label, placeholder, purpose }) => (
+                                  <form.AppField key={name} name={`${path}.${name}`}>
+                                    {(field) => (
+                                      <field.TextField
+                                        label={label}
+                                        placeholder={placeholder}
+                                        purpose={purpose}
+                                      />
+                                    )}
+                                  </form.AppField>
                                 ))}
                               </Section>
                             ),
@@ -218,7 +264,7 @@ const LoadedLibraryForm = ({
                         )
                     ),
                 })}>
-                {Array.match(fields, {
+                {Array.match(settingsForm, {
                   onEmpty: () => (
                     <ListState kind="empty" message="No settings are required for this plugin." />
                   ),

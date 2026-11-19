@@ -21,10 +21,48 @@ import { Spacing } from '#src/constants/theme.ts';
 import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
 import {
   LibraryFormLoader,
+  StorageStatus,
   mediaTypeOptions,
   sourceOptions,
   useLibraryForm,
 } from '#src/domains/library/components/library-form/index.tsx';
+
+const SettingsRow = ({
+  label,
+  enabled,
+  loading = false,
+  onPress,
+}: {
+  readonly label: string;
+  readonly enabled: boolean;
+  readonly loading?: boolean;
+  readonly onPress?: () => void;
+}) => (
+  <SegmentedList>
+    <SegmentedListItem
+      index={0}
+      count={1}
+      enabled={enabled}
+      {...(onPress === void 0 ? {} : { onClick: onPress })}>
+      <SegmentedListItem.HeadlineContent>
+        <Text>{label}</Text>
+      </SegmentedListItem.HeadlineContent>
+      <SegmentedListItem.TrailingContent>
+        {loading ? (
+          <LoadingIndicator modifiers={[size(24, 24)]} />
+        ) : (
+          <Icon source={ChevronRight} size={24} />
+        )}
+      </SegmentedListItem.TrailingContent>
+    </SegmentedListItem>
+  </SegmentedList>
+);
+
+const Note = ({ color, children }: { readonly color: string; readonly children: string }) => (
+  <Text variant="caption" color={color} modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
+    {children}
+  </Text>
+);
 
 const LoadedLibraryForm = ({
   title,
@@ -33,7 +71,7 @@ const LoadedLibraryForm = ({
 }: ComponentProps<LibraryFormComponent> &
   Pick<Parameters<typeof useLibraryForm>[0], 'initial'>) => {
   const model = useLibraryForm(props);
-  const { form } = model;
+  const { form, status } = model;
   const colors = useMaterialColors();
   return (
     <form.AppForm>
@@ -41,7 +79,7 @@ const LoadedLibraryForm = ({
         {...(title !== void 0 ? { title } : {})}
         footer={
           <form.SubmitButton
-            disabled={!model.canSave}
+            disabled={!StorageStatus.$is('Ready')(status)}
             platformProps={{ android: { modifiers: [fillMaxWidth()] } }}>
             <Text>{submitLabel}</Text>
           </form.SubmitButton>
@@ -59,7 +97,7 @@ const LoadedLibraryForm = ({
                       <SegmentedButton
                         key={source}
                         selected={field.state.value === source}
-                        enabled={model.canChooseSource}
+                        enabled={!model.isSaving}
                         onClick={() => {
                           field.handleChange(source);
                         }}>
@@ -89,39 +127,57 @@ const LoadedLibraryForm = ({
               )}
             </form.AppField>
             <Column verticalArrangement={{ spacedBy: Spacing.two }}>
-              <SegmentedList>
-                <SegmentedListItem
-                  index={0}
-                  count={1}
-                  enabled={model.settingsButton.enabled}
-                  onClick={() => {
-                    void model.openSettings();
-                  }}>
-                  <SegmentedListItem.HeadlineContent>
-                    <Text>{model.settingsButton.label}</Text>
-                  </SegmentedListItem.HeadlineContent>
-                  <SegmentedListItem.TrailingContent>
-                    {model.isLoadingPlugin ? (
-                      <LoadingIndicator modifiers={[size(24, 24)]} />
-                    ) : (
-                      <Icon source={ChevronRight} size={24} />
-                    )}
-                  </SegmentedListItem.TrailingContent>
-                </SegmentedListItem>
-              </SegmentedList>
-              {Array.map(model.storageNotes, ({ tone, message }) => (
-                <Text
-                  key={message}
-                  variant="caption"
-                  color={Match.value(tone).pipe(
-                    Match.when('critical', () => colors.error),
-                    Match.when('secondary', () => colors.onSurfaceVariant),
-                    Match.exhaustive
-                  )}
-                  modifiers={[padding(Spacing.three, 0, Spacing.three, 0)]}>
-                  {message}
-                </Text>
-              ))}
+              {StorageStatus.$match(status, {
+                NoPackage: () => (
+                  <SettingsRow label="Load plugin & edit settings" enabled={false} />
+                ),
+                NotLoaded: (notLoaded) => (
+                  <SettingsRow
+                    label="Load plugin & edit settings"
+                    enabled={!model.isSaving}
+                    onPress={() => void model.loadSettings(notLoaded)}
+                  />
+                ),
+                Loading: () => (
+                  <SettingsRow label="Load plugin & edit settings" enabled={false} loading />
+                ),
+                Failed: (failed) => (
+                  <>
+                    <SettingsRow
+                      label="Load plugin & edit settings"
+                      enabled={!model.isSaving}
+                      onPress={() => void model.loadSettings(failed)}
+                    />
+                    <Note color={colors.error}>{failed.message}</Note>
+                  </>
+                ),
+                Unsupported: ({ message }) => (
+                  <>
+                    <SettingsRow label="Storage settings" enabled={false} />
+                    <Note color={colors.error}>{message}</Note>
+                  </>
+                ),
+                Ready: () => (
+                  <SettingsRow
+                    label="Storage settings"
+                    enabled={!model.isSaving}
+                    onPress={() => {
+                      model.editSettings();
+                    }}
+                  />
+                ),
+              })}
+              {Match.value(model.source).pipe(
+                Match.literalsExhaustive({
+                  'builtin:local': () => null,
+                  npm: () => (
+                    <Note color={colors.onSurfaceVariant}>
+                      Loading a plugin downloads it and runs its code on your server. Only use
+                      plugins you trust.
+                    </Note>
+                  ),
+                })
+              )}
             </Column>
           </>
         }>
@@ -161,8 +217,11 @@ const LoadedLibraryForm = ({
       </FormLayout>
       {Option.match(model.settingsSheet, {
         onNone: () => null,
-        onSome: ({ fields, close }) => (
-          <Sheet onDismissed={close}>
+        onSome: ({ form: settingsForm, path }) => (
+          <Sheet
+            onDismissed={() => {
+              model.closeSettings();
+            }}>
             {({ dismiss }) => (
               <FormLayout
                 title="Storage settings"
@@ -175,16 +234,16 @@ const LoadedLibraryForm = ({
                     <Text>Done</Text>
                   </Button>
                 }>
-                {Array.match(fields, {
+                {Array.match(settingsForm, {
                   onEmpty: () => (
                     <ListState kind="empty" message="No settings are required for this plugin." />
                   ),
-                  onNonEmpty: (nonEmpty) =>
-                    Array.map(nonEmpty, (settingsField) =>
+                  onNonEmpty: (fields) =>
+                    Array.map(fields, (settingsField) =>
                       Match.value(settingsField).pipe(
                         Match.discriminatorsExhaustive('kind')({
-                          TextField: ({ key, path, label, placeholder, purpose }) => (
-                            <form.AppField key={key} name={path}>
+                          TextField: ({ name, label, placeholder, purpose }) => (
+                            <form.AppField key={name} name={`${path}.${name}`}>
                               {(field) => (
                                 <field.TextField
                                   label={label}
@@ -195,8 +254,8 @@ const LoadedLibraryForm = ({
                               )}
                             </form.AppField>
                           ),
-                          TextListField: ({ key, path, label, placeholder, purpose }) => (
-                            <form.AppField key={key} name={path}>
+                          TextListField: ({ name, label, placeholder, purpose }) => (
+                            <form.AppField key={name} name={`${path}.${name}`}>
                               {(field) => (
                                 <field.TextListField
                                   label={label}

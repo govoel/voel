@@ -20,11 +20,10 @@ import { Spacing } from '#src/constants/theme.ts';
 export const SubmitButton = (({
   children,
   disabled = false,
-  group,
   platformProps = {},
   containerModifiers = {},
 }) => {
-  const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState({ group });
+  const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
   return (
     <>
       {Option.match(errorMessage, {
@@ -49,7 +48,7 @@ export const SubmitButton = (({
           disabledModifier(!canSubmit || isSubmitting || disabled),
         ]}
         onPress={() => {
-          void submit();
+          void form.handleSubmit();
         }}>
         <HStack
           alignment="center"

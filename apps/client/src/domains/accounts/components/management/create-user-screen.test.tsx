@@ -57,9 +57,12 @@ vi.mock('#src/components/form', async () => {
     );
   };
   const SubmitButton = ({ children }: PropsWithChildren) => {
-    const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState();
+    const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
     return (
-      <Pressable role="button" disabled={!canSubmit || isSubmitting} onPress={() => void submit()}>
+      <Pressable
+        role="button"
+        disabled={!canSubmit || isSubmitting}
+        onPress={() => void form.handleSubmit()}>
         {children}
         {isSubmitting ? <Text>Saving</Text> : null}
         {Option.match(errorMessage, {

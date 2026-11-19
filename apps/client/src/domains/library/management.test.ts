@@ -1,6 +1,6 @@
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Cause, Effect, Layer, Option, Result, Stream } from 'effect';
+import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
@@ -13,11 +13,11 @@ import { libraryFailureMessage } from '#src/domains/library/error-presentation.t
 import {
   createLibrary,
   deleteLibrary,
-  libraryFormAtom,
   libraryStorageDetails,
   libraryStorageErrors,
   listLibrariesAtom,
   serverLibraryAtom,
+  storagePluginFormsAtom,
   updateLibrary,
 } from '#src/domains/library/management.ts';
 import { AppRuntime } from '#src/runtime/index.ts';
@@ -90,8 +90,13 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         const server = yield* setupTestServerWithUsers({ userCount: 1 });
         const [account] = yield* signInTestServerUsers(manager, server);
 
+        const localPluginId = Library.jsonCreate.fields.storagePluginId.make('builtin:local');
         const draft = yield* Atom.getResult(
-          libraryFormAtom({ account: account.key, id: Option.none() })
+          storagePluginFormsAtom({
+            account: account.key,
+            id: Option.none(),
+            storagePluginId: localPluginId,
+          })
         );
         const emptyRoots = {
           kind: 'TextListField',
@@ -101,15 +106,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           purpose: 'text',
           initialValue: [],
         };
-        expect(draft).toEqual({
-          name: '',
-          type: 'movie',
-          storagePluginId: 'builtin:local',
-          plugin: Result.succeed({
-            storagePluginId: 'builtin:local',
-            forms: { audiobook: [emptyRoots], movie: [emptyRoots], show: [emptyRoots] },
-          }),
-        });
+        expect(draft).toEqual({ audiobook: [emptyRoots], movie: [emptyRoots], show: [emptyRoots] });
 
         const query = listLibrariesAtom(account.key);
         yield* Atom.mount(query);
@@ -125,18 +122,14 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(listed.items).toMatchObject([{ id: created.id, name: 'Films' }]);
 
         const saved = yield* Atom.getResult(
-          libraryFormAtom({ account: account.key, id: Option.some(created.id) })
+          storagePluginFormsAtom({
+            account: account.key,
+            id: Option.some(created.id),
+            storagePluginId: localPluginId,
+          })
         );
         const savedRoots = { ...emptyRoots, initialValue: ['/media/films'] };
-        expect(saved).toEqual({
-          name: 'Films',
-          type: 'movie',
-          storagePluginId: 'builtin:local',
-          plugin: Result.succeed({
-            storagePluginId: 'builtin:local',
-            forms: { audiobook: [savedRoots], movie: [savedRoots], show: [savedRoots] },
-          }),
-        });
+        expect(saved).toEqual({ audiobook: [savedRoots], movie: [savedRoots], show: [savedRoots] });
 
         const detail = serverLibraryAtom({ account: account.key, id: created.id });
         yield* Atom.mount(detail);
@@ -147,7 +140,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           library: {
             name: Library.jsonUpdate.fields.name.make('Shows'),
             type: Library.jsonUpdate.fields.type.make('show'),
-            storagePluginId: saved.storagePluginId,
+            storagePluginId: localPluginId,
             storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/media/shows'] }),
           },
         });
@@ -166,7 +159,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           library: {
             name: Library.jsonUpdate.fields.name.make('Shows'),
             type: Library.jsonUpdate.fields.type.make('show'),
-            storagePluginId: saved.storagePluginId,
+            storagePluginId: localPluginId,
             storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['relative'] }),
           },
         }).pipe(Effect.flip);
@@ -176,7 +169,12 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
 
         yield* deleteLibrary({ account: account.key, id: created.id });
         const missing = yield* Atom.getResult(
-          libraryFormAtom({ account: account.key, id: Option.some(created.id) })
+          storagePluginFormsAtom({
+            account: account.key,
+            id: Option.some(created.id),
+            storagePluginId: localPluginId,
+          }),
+          { suspendOnWaiting: true }
         ).pipe(Effect.flip);
         expect(libraryFailureMessage({ error: missing })).toBe('This library no longer exists.');
       },

@@ -1,9 +1,9 @@
 import type { MediaType } from '@govoel/plugins/library';
-import { Array, Effect, Match, Option, Result, Schema, Stream } from 'effect';
+import { Array, Effect, Match, Option, Schema, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
-import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
-import { Library, StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
+import type { Library, StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
+import { StoragePluginHealth } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
 import { ApiClientMap } from '#src/api-client.ts';
@@ -57,63 +57,28 @@ export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type
     })
   );
 
-export const loadStoragePlugin = Effect.fnUntraced(function* ({
-  account,
-  id,
-  storagePluginId,
-}: {
-  readonly account: AccountKey;
-  readonly id: Option.Option<typeof Library.fields.id.Type>;
-  readonly storagePluginId: typeof Library.jsonCreate.fields.storagePluginId.Type;
-}) {
-  const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-  const forms = yield* client.library.getStoragePluginSettingsForms({
-    payload: { id, storagePluginId },
-  });
-  return { storagePluginId, forms };
-});
-
-export const libraryFormAtom = Atom.family(
+export const storagePluginFormsAtom = Atom.family(
   ({
     account,
     id,
+    storagePluginId,
   }: {
     readonly account: AccountKey;
     readonly id: Option.Option<typeof Library.fields.id.Type>;
+    readonly storagePluginId: typeof Library.jsonCreate.fields.storagePluginId.Type;
   }) =>
     AppRuntime.atom(
       Effect.fnUntraced(function* () {
-        return yield* Option.match(id, {
-          onSome: Effect.fnUntraced(function* (libraryId) {
-            const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
-            const { name, type, storagePluginId } = yield* client.library.get({
-              params: { id: libraryId },
-            });
-            const plugin = yield* Effect.result(
-              loadStoragePlugin({ account, id, storagePluginId })
-            );
-            return { name, type, storagePluginId, plugin };
-          }),
-          onNone: Effect.fnUntraced(function* () {
-            const plugin = yield* loadStoragePlugin({
-              account,
-              id,
-              storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
-            });
-            const firstSupportedType = Array.findFirst(
-              mediaTypes,
-              (type) => plugin.forms[type] !== void 0
-            ).pipe(Option.getOrElse(() => 'movie' as const));
-            return {
-              name: '',
-              type: firstSupportedType,
-              storagePluginId: plugin.storagePluginId,
-              plugin: Result.succeed(plugin),
-            };
-          }),
+        const client = yield* ApiClientMap.use((clients) => clients.acquire(account));
+        return yield* client.library.getStoragePluginSettingsForms({
+          payload: { id, storagePluginId },
         });
       })
-    ).pipe(Atom.withLabel('libraryFormAtom'))
+    ).pipe(
+      Atom.withReactivity(['library']),
+      Atom.setIdleTTL('5 minutes'),
+      Atom.withLabel('storagePluginFormsAtom')
+    )
 );
 
 export const createLibrary = Effect.fnUntraced(

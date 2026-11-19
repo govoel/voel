@@ -9,7 +9,7 @@ import { TextField } from '#src/components/form/text-field/index.android.tsx';
 import { TextListField } from '#src/components/form/text-list-field/index.android.tsx';
 import { AppRuntime } from '#src/runtime/index.ts';
 
-export const { useAppForm, useAppFormGroup } = createEffectSchemaFormHook({
+export const { useAppForm } = createEffectSchemaFormHook({
   runtime: AppRuntime,
   fieldContext,
   formContext,

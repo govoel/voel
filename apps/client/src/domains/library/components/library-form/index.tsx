@@ -1,48 +1,51 @@
-import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { RegistryContext, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import type { MediaType } from '@govoel/plugins/library';
 import type { StoragePluginSettingsForm } from '@govoel/plugins/storage';
-import { StoragePluginSettingsForms } from '@govoel/plugins/storage';
 import { useSelector } from '@tanstack/react-form';
 import {
   Array,
-  Boolean,
   Data,
   Effect,
+  Exit,
+  HashSet,
   Match,
   Option,
+  Predicate,
   Record,
-  Result,
   Schema,
   SchemaGetter,
   SchemaIssue,
   String,
   pipe,
 } from 'effect';
-import { AsyncResult } from 'effect/reactivity';
-import type { Atom } from 'effect/reactivity';
-import { useState } from 'react';
+import { Base64Url } from 'effect/encoding';
+import { AsyncResult, Atom, AtomRegistry } from 'effect/reactivity';
+import { useContext, useReducer, useState } from 'react';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
 
 import { Library } from '@repo/spec-api/domains/library/schema.ts';
 import { NpmPluginId } from '@repo/spec-api/domains/plugins/schema.ts';
 
-import { useAppForm, useAppFormGroup } from '#src/components/form';
+import { useAppForm } from '#src/components/form';
 import { FormLayout } from '#src/components/form/layout';
 import { ListState } from '#src/components/list-state';
+import type { AccountKey } from '#src/domains/accounts/schema.ts';
 import { useSelectedAccount } from '#src/domains/accounts/scope.ts';
 import { libraryFailureMessage } from '#src/domains/library/error-presentation.ts';
 import {
   StorageSource,
   createLibrary,
-  libraryFormAtom,
-  loadStoragePlugin,
   mediaTypeLabel,
   mediaTypes,
+  serverLibraryAtom,
+  storagePluginFormsAtom,
   storageSourceLabel,
   updateLibrary,
 } from '#src/domains/library/management.ts';
 
 type StoragePluginId = typeof Library.jsonCreate.fields.storagePluginId.Type;
+
+type StoragePluginForms = Atom.Success<ReturnType<typeof storagePluginFormsAtom>>;
 
 export type LibraryFormComponent = ComponentType<{
   readonly id: Option.Option<typeof Library.fields.id.Type>;
@@ -101,119 +104,42 @@ class PluginChoice extends Schema.Struct({
     );
 }
 
-class SettingsValues extends Schema.Struct({
-  text: Schema.Record(Schema.String, Schema.String),
-  list: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-}) {}
+const settingsKey = (storagePluginId: StoragePluginId) => Base64Url.encode(storagePluginId);
 
-const PluginLoad = Schema.TaggedUnion({
-  NotLoaded: {},
-  Loaded: {
-    storagePluginId: Schema.toType(Library.jsonCreate.fields.storagePluginId),
-    forms: Schema.toEncoded(StoragePluginSettingsForms),
-    settings: Schema.Record(Schema.String, SettingsValues),
-  },
-});
-
-const loadedPlugin = ({
-  storagePluginId,
-  forms,
-}: Effect.Success<ReturnType<typeof loadStoragePlugin>>) =>
-  PluginLoad.cases.Loaded.make({
-    storagePluginId,
-    forms,
-    settings: Record.fromEntries(
-      Array.map(
-        mediaTypes,
-        (type) =>
-          [
-            type,
-            Option.match(Option.fromUndefinedOr(forms[type]), {
-              onNone: () => ({ text: {}, list: {} }),
-              onSome: (form) => {
-                const [text, list] = Array.partition(form, (field) =>
-                  Match.value(field).pipe(
-                    Match.discriminatorsExhaustive('kind')({
-                      TextField: ({ name, initialValue }) =>
-                        Result.succeed([name, initialValue] as const),
-                      TextListField: ({ name, initialValue }) =>
-                        Result.fail([
-                          name,
-                          Array.match(initialValue, {
-                            onEmpty: () => [''],
-                            onNonEmpty: (values) => values,
-                          }),
-                        ] as const),
-                    })
-                  )
-                );
-                return { text: Record.fromEntries(text), list: Record.fromEntries(list) };
-              },
-            }),
-          ] as const
+const initialSettings = (forms: StoragePluginForms) =>
+  Record.fromEntries(
+    Array.getSomes(
+      Array.map(mediaTypes, (type) =>
+        Option.map(
+          Option.fromUndefinedOr(forms[type]),
+          (form) =>
+            [
+              type,
+              Record.fromEntries(
+                Array.map(
+                  form,
+                  (field) =>
+                    [
+                      field.name,
+                      Match.value(field).pipe(
+                        Match.discriminatorsExhaustive('kind')({
+                          TextField: ({ initialValue }): string | ReadonlyArray<string> =>
+                            initialValue,
+                          TextListField: ({ initialValue }) =>
+                            Array.match(initialValue, {
+                              onEmpty: () => [''],
+                              onNonEmpty: (values) => values,
+                            }),
+                        })
+                      ),
+                    ] as const
+                )
+              ),
+            ] as const
+        )
       )
-    ),
-  });
-
-type StorageStatus = Data.TaggedEnum<{
-  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- NotLoaded intentionally has no payload.
-  NotLoaded: Record<never, never>;
-  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- Loading intentionally has no payload.
-  Loading: Record<never, never>;
-  Failed: { readonly message: string };
-  Unsupported: { readonly message: string };
-  Ready: {
-    readonly storagePluginId: StoragePluginId;
-    readonly form: typeof StoragePluginSettingsForm.Encoded;
-    readonly values: typeof SettingsValues.Type;
-  };
-}>;
-
-const StorageStatus = Data.taggedEnum<StorageStatus>();
-
-const isReady = StorageStatus.$is('Ready');
-
-const storageStatus = ({
-  storagePluginId,
-  type,
-  plugin,
-  loadError,
-}: {
-  readonly storagePluginId: StoragePluginId;
-  readonly type: typeof MediaType.Encoded;
-  readonly plugin: typeof PluginLoad.Type;
-  readonly loadError: Option.Option<string>;
-}) => {
-  const notLoaded = () =>
-    Option.match(loadError, {
-      onNone: () => StorageStatus.NotLoaded(),
-      onSome: (message) => StorageStatus.Failed({ message }),
-    });
-  return PluginLoad.match(plugin, {
-    NotLoaded: notLoaded,
-    Loaded: (loaded) =>
-      loaded.storagePluginId === storagePluginId
-        ? Option.match(
-            Option.all({
-              form: Option.fromUndefinedOr(loaded.forms[type]),
-              values: Record.get(loaded.settings, type),
-            }),
-            {
-              onNone: () =>
-                StorageStatus.Unsupported({
-                  message: `${Match.value(PluginChoice.of(loaded)).pipe(
-                    Match.discriminatorsExhaustive('source')({
-                      'builtin:local': ({ source }) => storageSourceLabel({ source }),
-                      npm: ({ packageName }) => `“${packageName}”`,
-                    })
-                  )} doesn’t support ${mediaTypeLabel({ type })}. Choose another media type.`,
-                }),
-              onSome: ({ form, values }) => StorageStatus.Ready({ storagePluginId, form, values }),
-            }
-          )
-        : notLoaded(),
-  });
-};
+    )
+  );
 
 class LibraryFormValues extends Schema.Struct({
   name: Schema.Trim.check(Schema.isNonEmpty({ message: 'Name is required' })).pipe(
@@ -221,69 +147,172 @@ class LibraryFormValues extends Schema.Struct({
   ),
   type: Library.jsonCreate.fields.type,
   pluginChoice: PluginChoice.storagePluginId,
-  plugin: PluginLoad,
+  settings: Schema.Record(
+    Schema.String,
+    Schema.Record(
+      Schema.String,
+      Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Array(Schema.String)]))
+    )
+  ),
 }) {
   public static readonly library = this.pipe(
     Schema.decodeTo(Library.jsonCreate, {
-      decode: SchemaGetter.transformEffect(({ name, type, pluginChoice, plugin }, options) =>
-        Match.value(
-          storageStatus({ storagePluginId: pluginChoice, type, plugin, loadError: Option.none() })
-        ).pipe(
-          Match.tag('NotLoaded', 'Failed', () =>
-            Effect.fail(
-              new SchemaIssue.Pointer(
-                ['plugin'],
-                new SchemaIssue.InvalidValue(
-                  { message: 'Load the storage plugin before saving.' },
-                  plugin,
-                  options
-                )
-              )
-            )
-          ),
-          Match.tag('Unsupported', ({ message }) =>
-            Effect.fail(
-              new SchemaIssue.Pointer(
-                ['type'],
-                new SchemaIssue.InvalidValue({ message }, type, options)
-              )
-            )
-          ),
-          Match.tag('Ready', ({ storagePluginId, form, values }) =>
-            Effect.succeed({
-              name,
-              type,
-              storagePluginId,
-              storagePluginSettings: Record.fromEntries(
-                Array.map(form, (field) =>
-                  Match.value(field).pipe(
-                    Match.discriminatorsExhaustive('kind')({
-                      TextField: ({ name: fieldName, initialValue }) =>
-                        [
-                          fieldName,
-                          Option.getOrElse(Record.get(values.text, fieldName), () => initialValue),
-                        ] as const,
-                      TextListField: ({ name: fieldName }) =>
-                        [
-                          fieldName,
-                          Array.filter(
-                            Option.getOrElse(Record.get(values.list, fieldName), () => []),
-                            String.isNonEmpty
-                          ),
-                        ] as const,
-                    })
-                  )
-                )
+      decode: SchemaGetter.transformEffect(({ name, type, pluginChoice, settings }) =>
+        Option.match(
+          Option.flatMap(Record.get(settings, settingsKey(pluginChoice)), Record.get(type)),
+          {
+            onNone: () =>
+              Effect.fail(
+                new SchemaIssue.InvalidValue({
+                  message: 'Load the storage plugin’s settings before saving.',
+                })
               ),
-            })
-          ),
-          Match.exhaustive
+            onSome: (values) =>
+              Effect.succeed({
+                name,
+                type,
+                storagePluginId: pluginChoice,
+                storagePluginSettings: Record.map(values, (value) =>
+                  Predicate.isString(value) ? value : Array.filter(value, String.isNonEmpty)
+                ),
+              }),
+          }
         )
       ),
       encode: SchemaGetter.forbiddenEncoding,
     })
   );
 }
+
+type StorageStatus =
+  | { readonly _tag: 'NoPackage' }
+  | { readonly _tag: 'NotLoaded'; readonly storagePluginId: StoragePluginId }
+  | { readonly _tag: 'Loading' }
+  | { readonly _tag: 'Failed'; readonly storagePluginId: StoragePluginId; readonly message: string }
+  | { readonly _tag: 'Unsupported'; readonly message: string }
+  | {
+      readonly _tag: 'Ready';
+      readonly form: typeof StoragePluginSettingsForm.Type;
+      readonly path: `settings.${string}.${typeof MediaType.Encoded}`;
+    };
+
+export const StorageStatus = Data.taggedEnum<StorageStatus>();
+
+const storageStatus = ({
+  pluginChoice,
+  type,
+  settings,
+  requested,
+  forms,
+}: Pick<typeof LibraryFormValues.Encoded, 'pluginChoice' | 'settings'> & {
+  readonly type: typeof MediaType.Encoded;
+  readonly requested: HashSet.HashSet<StoragePluginId>;
+  readonly forms: AsyncResult.AsyncResult<
+    StoragePluginForms,
+    Atom.Failure<ReturnType<typeof storagePluginFormsAtom>>
+  >;
+}): StorageStatus =>
+  Option.match(PluginChoice.decodeStoragePluginId(pluginChoice), {
+    onNone: () => StorageStatus.NoPackage(),
+    onSome: (storagePluginId) => {
+      if (!HashSet.has(requested, storagePluginId)) {
+        return StorageStatus.NotLoaded({ storagePluginId });
+      }
+      if (forms.waiting) {
+        return StorageStatus.Loading();
+      }
+      return AsyncResult.matchWithError(forms, {
+        onInitial: () => StorageStatus.Loading(),
+        onError: (error) =>
+          StorageStatus.Failed({ storagePluginId, message: libraryFailureMessage({ error }) }),
+        onDefect: () =>
+          StorageStatus.Failed({ storagePluginId, message: 'Unable to load this plugin.' }),
+        onSuccess: ({ value }) =>
+          Option.match(Option.fromUndefinedOr(value[type]), {
+            onNone: () =>
+              StorageStatus.Unsupported({
+                message: `${Match.value(PluginChoice.of({ storagePluginId })).pipe(
+                  Match.discriminatorsExhaustive('source')({
+                    'builtin:local': ({ source }) => storageSourceLabel({ source }),
+                    npm: ({ packageName }) => `“${packageName}”`,
+                  })
+                )} doesn’t support ${mediaTypeLabel({ type })}. Choose another media type.`,
+              }),
+            onSome: (form) =>
+              Option.match(
+                Option.flatMap(
+                  Record.get(settings, settingsKey(storagePluginId)),
+                  Record.get(type)
+                ),
+                {
+                  onNone: () => StorageStatus.NotLoaded({ storagePluginId }),
+                  onSome: () =>
+                    StorageStatus.Ready({
+                      form,
+                      path: `settings.${settingsKey(storagePluginId)}.${type}`,
+                    }),
+                }
+              ),
+          }),
+      });
+    },
+  });
+
+const notRequested = Atom.make(
+  AsyncResult.initial<StoragePluginForms, Atom.Failure<ReturnType<typeof storagePluginFormsAtom>>>()
+);
+
+const libraryFormAtom = Atom.family(
+  ({
+    account,
+    id,
+  }: {
+    readonly account: AccountKey;
+    readonly id: Option.Option<typeof Library.fields.id.Type>;
+  }) =>
+    Atom.make(
+      Effect.fnUntraced(function* (get) {
+        const library = yield* Option.match(id, {
+          onNone: () => Effect.succeedNone,
+          onSome: (libraryId) =>
+            get
+              .resultOnce(serverLibraryAtom({ account, id: libraryId }), {
+                suspendOnWaiting: true,
+              })
+              .pipe(Effect.asSome),
+        });
+        const storagePluginId = Option.match(library, {
+          onNone: () => Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
+          onSome: (saved) => saved.storagePluginId,
+        });
+        const plugins = yield* Effect.forEach(
+          Array.dedupe([
+            Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
+            storagePluginId,
+          ]),
+          (pluginId) =>
+            get.resultOnce(storagePluginFormsAtom({ account, id, storagePluginId: pluginId })).pipe(
+              Effect.option,
+              Effect.map((forms) => ({ storagePluginId: pluginId, forms }))
+            ),
+          { concurrency: 'unbounded' }
+        );
+        return Option.match(library, {
+          onNone: () => ({
+            name: '',
+            type: Array.findFirst(mediaTypes, (type) =>
+              Array.some(plugins, ({ forms }) =>
+                Option.exists(forms, (loaded) => loaded[type] !== void 0)
+              )
+            ).pipe(Option.getOrElse(() => 'movie' as const)),
+            storagePluginId,
+            plugins,
+          }),
+          onSome: ({ name, type }) => ({ name, type, storagePluginId, plugins }),
+        });
+      })
+    ).pipe(Atom.withLabel('libraryFormAtom'))
+);
 
 export const sourceOptions = Array.map(StorageSource.literals, (source) => ({
   source,
@@ -303,6 +332,14 @@ export const useLibraryForm = ({
   readonly initial: Atom.Success<ReturnType<typeof libraryFormAtom>>;
 }) => {
   const account = useSelectedAccount();
+  const registry = useContext(RegistryContext);
+  const formsAtom = (storagePluginId: StoragePluginId) =>
+    storagePluginFormsAtom({ account, id, storagePluginId });
+  const [requested, request] = useReducer(
+    (current: HashSet.HashSet<StoragePluginId>, storagePluginId: StoragePluginId) =>
+      HashSet.add(current, storagePluginId),
+    HashSet.fromIterable(Array.map(initial.plugins, ({ storagePluginId }) => storagePluginId))
+  );
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const form = useAppForm({
     schema: LibraryFormValues.library,
@@ -310,21 +347,16 @@ export const useLibraryForm = ({
       name: initial.name,
       type: initial.type,
       pluginChoice: PluginChoice.of(initial),
-      plugin: Result.match(initial.plugin, {
-        onSuccess: loadedPlugin,
-        onFailure: () => PluginLoad.cases.NotLoaded.make({}),
-      }),
-    },
-    listeners: {
-      onChange: ({ fieldApi, formApi }) => {
-        if (
-          fieldApi.name === 'pluginChoice.source' &&
-          formApi.state.values.pluginChoice.source === 'builtin:local' &&
-          needsLoad(formApi.state.values)
-        ) {
-          void pluginLoader.handleSubmit();
-        }
-      },
+      settings: Record.fromEntries(
+        Array.getSomes(
+          Array.map(initial.plugins, ({ storagePluginId, forms }) =>
+            Option.map(
+              forms,
+              (loaded) => [settingsKey(storagePluginId), initialSettings(loaded)] as const
+            )
+          )
+        )
+      ),
     },
     onSubmit: ({ value: library }) =>
       Option.match(id, {
@@ -334,116 +366,56 @@ export const useLibraryForm = ({
     onFailure: libraryFailureMessage,
     onSuccess: async ({ result }) => onSaved({ id: result.id }),
   });
-  const pluginLoader = useAppFormGroup({
-    form,
-    name: 'pluginChoice',
-    schema: PluginChoice.storagePluginId,
-    onSubmit: ({ value }) => loadStoragePlugin({ account, id, storagePluginId: value }),
-    onFailure: libraryFailureMessage,
-    onSuccess: ({ result }) => {
-      form.setFieldValue('plugin', loadedPlugin(result));
-    },
-  });
-  const pluginLoadError = useAtomValue(pluginLoader.submissionError);
-  const savedPluginLoadError = Option.map(Result.getFailure(initial.plugin), (error) =>
-    libraryFailureMessage({ error })
-  );
-  const statusOf = ({
-    pluginChoice,
-    type,
-    plugin,
-  }: Pick<typeof LibraryFormValues.Encoded, 'pluginChoice' | 'type' | 'plugin'>) =>
-    Option.match(PluginChoice.decodeStoragePluginId(pluginChoice), {
-      onNone: () => StorageStatus.NotLoaded(),
-      onSome: (storagePluginId) =>
-        storageStatus({
-          storagePluginId,
-          type,
-          plugin,
-          loadError: Option.orElse(pluginLoadError, () =>
-            Option.filter(savedPluginLoadError, () => storagePluginId === initial.storagePluginId)
-          ),
-        }),
-    });
-  const needsLoad = (values: Parameters<typeof statusOf>[0]) =>
-    Match.value(statusOf(values)).pipe(
-      Match.tagsExhaustive({
-        NotLoaded: () => true,
-        Failed: () => true,
-        Unsupported: () => false,
-        Ready: () => false,
-      })
-    );
   const values = useSelector(form.store, (state) => state.values);
-  const isSaving = useSelector(form.store, (state) => state.isSubmitting);
-  const isLoadingPlugin = pluginLoader.state.meta.isSubmitting;
-  const canLoadPlugin = !isSaving && pluginLoader.state.meta.canSubmit;
-  const status: StorageStatus = Boolean.match(isLoadingPlugin, {
-    onTrue: () => StorageStatus.Loading(),
-    onFalse: () => statusOf(values),
+  const chosen = Option.filter(
+    PluginChoice.decodeStoragePluginId(values.pluginChoice),
+    (pluginId) => HashSet.has(requested, pluginId)
+  );
+  const status = storageStatus({
+    ...values,
+    requested,
+    forms: useAtomValue(Option.match(chosen, { onNone: () => notRequested, onSome: formsAtom })),
   });
 
   return {
     form,
-    isSaving,
-    isLoadingPlugin,
-    canSave: isReady(status),
-    canChooseSource: !isSaving && !isLoadingPlugin,
-    settingsButton: StorageStatus.$match(status, {
-      NotLoaded: () => ({ label: 'Load plugin & edit settings', enabled: canLoadPlugin }),
-      Loading: () => ({ label: 'Load plugin & edit settings', enabled: false }),
-      Failed: () => ({ label: 'Load plugin & edit settings', enabled: canLoadPlugin }),
-      Unsupported: () => ({ label: 'Storage settings', enabled: false }),
-      Ready: () => ({ label: 'Storage settings', enabled: !isSaving }),
-    }),
-    openSettings: async () => {
-      if (needsLoad(form.state.values)) {
-        await pluginLoader.handleSubmit();
-      }
-      setIsEditingSettings(isReady(statusOf(form.state.values)));
+    status,
+    source: values.pluginChoice.source,
+    isSaving: useSelector(form.store, (state) => state.isSubmitting),
+    settingsSheet: Option.liftPredicate(status, StorageStatus.$is('Ready')).pipe(
+      Option.filter(() => isEditingSettings)
+    ),
+    editSettings: () => {
+      setIsEditingSettings(true);
     },
-    storageNotes: Array.getSomes([
-      StorageStatus.$match(status, {
-        NotLoaded: () => Option.none(),
-        Loading: () => Option.none(),
-        Failed: ({ message }) => Option.some({ tone: 'critical' as const, message }),
-        Unsupported: ({ message }) => Option.some({ tone: 'critical' as const, message }),
-        Ready: () => Option.none(),
-      }),
-      Match.value(values.pluginChoice.source).pipe(
-        Match.literalsExhaustive({
-          'builtin:local': () => Option.none(),
-          npm: () =>
-            Option.some({
-              tone: 'secondary' as const,
-              message:
-                'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.',
-            }),
-        })
-      ),
-    ]),
-    settingsSheet: StorageStatus.$match(status, {
-      NotLoaded: () => Option.none(),
-      Loading: () => Option.none(),
-      Failed: () => Option.none(),
-      Unsupported: () => Option.none(),
-      Ready: ({ form: settingsForm, storagePluginId }) =>
-        Option.some({
-          fields: Array.map(settingsForm, (field) => ({
-            ...field,
-            key: `${storagePluginId}.${values.type}.${field.name}`,
-            path: Match.value(field).pipe(
-              Match.discriminatorsExhaustive('kind')({
-                TextField: ({ name }) => `plugin.settings.${values.type}.text.${name}` as const,
-                TextListField: ({ name }) => `plugin.settings.${values.type}.list.${name}` as const,
-              })
-            ),
-          })),
-          close: () => {
-            setIsEditingSettings(false);
-          },
-        }).pipe(Option.filter(() => isEditingSettings)),
-    }),
+    closeSettings: () => {
+      setIsEditingSettings(false);
+    },
+    loadSettings: async ({ storagePluginId }: { readonly storagePluginId: StoragePluginId }) => {
+      const atom = formsAtom(storagePluginId);
+      request(storagePluginId);
+      if (AsyncResult.isFailure(registry.get(atom))) {
+        registry.refresh(atom);
+      }
+      const loaded = await Effect.runPromiseExit(
+        AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true })
+      );
+      if (Exit.isFailure(loaded)) {
+        return;
+      }
+      const key = settingsKey(storagePluginId);
+      if (!Record.has(form.state.values.settings, key)) {
+        form.setFieldValue(`settings.${key}`, initialSettings(loaded.value));
+      }
+      const type: typeof MediaType.Encoded = form.state.values.type;
+      setIsEditingSettings(
+        loaded.value[type] !== void 0 &&
+          Option.contains(
+            PluginChoice.decodeStoragePluginId(form.state.values.pluginChoice),
+            storagePluginId
+          )
+      );
+    },
   };
 };
 

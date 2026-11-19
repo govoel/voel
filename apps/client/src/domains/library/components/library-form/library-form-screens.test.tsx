@@ -32,15 +32,27 @@ const navigation = vi.hoisted(() => ({
   params: { id: '' },
 }));
 const api = vi.hoisted(() => ({
-  load: vi.fn<
-    (
-      request: Parameters<typeof Management.libraryFormAtom>[0]
-    ) => Effect.Effect<
-      Atom.Success<ReturnType<typeof Management.libraryFormAtom>>,
-      Atom.Failure<ReturnType<typeof Management.libraryFormAtom>>
-    >
-  >(),
-  loadPlugin: vi.fn<typeof Management.loadStoragePlugin>(),
+  getLibrary:
+    vi.fn<
+      (
+        request: Parameters<typeof Management.serverLibraryAtom>[0]
+      ) => Effect.Effect<
+        Pick<
+          Atom.Success<ReturnType<typeof Management.serverLibraryAtom>>,
+          'name' | 'type' | 'storagePluginId'
+        >,
+        Atom.Failure<ReturnType<typeof Management.serverLibraryAtom>>
+      >
+    >(),
+  loadPlugin:
+    vi.fn<
+      (
+        request: Parameters<typeof Management.storagePluginFormsAtom>[0]
+      ) => Effect.Effect<
+        Atom.Success<ReturnType<typeof Management.storagePluginFormsAtom>>,
+        Atom.Failure<ReturnType<typeof Management.storagePluginFormsAtom>>
+      >
+    >(),
   create: vi.fn<typeof Management.createLibrary>(),
   update: vi.fn<typeof Management.updateLibrary>(),
 }));
@@ -55,10 +67,13 @@ vi.mock('#src/domains/library/management.ts', async (importOriginal) => {
   const original = await importOriginal<typeof Management>();
   return {
     ...original,
-    libraryFormAtom: Atom.family((request: Parameters<typeof original.libraryFormAtom>[0]) =>
-      Atom.make(effect.suspend(() => api.load(request)))
+    serverLibraryAtom: Atom.family((request: Parameters<typeof original.serverLibraryAtom>[0]) =>
+      Atom.make(effect.suspend(() => api.getLibrary(request)))
     ),
-    loadStoragePlugin: api.loadPlugin,
+    storagePluginFormsAtom: Atom.family(
+      (request: Parameters<typeof original.storagePluginFormsAtom>[0]) =>
+        Atom.make(effect.suspend(() => api.loadPlugin(request))).pipe(Atom.setIdleTTL('5 minutes'))
+    ),
     createLibrary: api.create,
     updateLibrary: api.update,
   };
@@ -110,17 +125,14 @@ vi.mock('#src/components/form', async () => {
   const SubmitButton = ({
     children,
     disabled = false,
-    group,
-  }: PropsWithChildren<
-    { readonly disabled?: boolean } & NonNullable<Parameters<typeof useSubmitState>[0]>
-  >) => {
-    const { submit, canSubmit, isSubmitting, errorMessage } = useSubmitState({ group });
+  }: PropsWithChildren<{ readonly disabled?: boolean }>) => {
+    const { form, canSubmit, isSubmitting, errorMessage } = useSubmitState();
     return (
       <>
         <Pressable
           role="button"
           disabled={!canSubmit || isSubmitting || disabled}
-          onPress={() => void submit()}>
+          onPress={() => void form.handleSubmit()}>
           {children}
         </Pressable>
         {isSubmitting ? <Text>Saving</Text> : null}
@@ -294,47 +306,27 @@ const roots = ({ initialValue }: { readonly initialValue: ReadonlyArray<string> 
     initialValue,
   } as const,
 ];
-const loadedPlugin = Effect.fnUntraced(function* ({
-  storagePluginId,
-  forms,
-}: {
-  readonly storagePluginId: typeof StoragePluginId.Encoded;
-  readonly forms: typeof StoragePluginSettingsForms.Encoded;
-}) {
-  return {
-    storagePluginId: yield* Schema.decodeEffect(StoragePluginId)(storagePluginId),
-    forms: yield* StoragePluginSettingsForms.decodeEffect(forms),
-  };
-});
-const loadedForm = Effect.fnUntraced(function* ({
-  forms,
+const decodeForms = StoragePluginSettingsForms.decodeEffect;
+const savedLibrary = Effect.fnUntraced(function* ({
+  name,
+  type,
   storagePluginId = 'builtin:local',
-  ...library
 }: {
   readonly name: string;
   readonly type: typeof Library.json.fields.type.Encoded;
   readonly storagePluginId?: typeof StoragePluginId.Encoded;
-  readonly forms: typeof StoragePluginSettingsForms.Encoded;
-}) {
-  const plugin = yield* loadedPlugin({ storagePluginId, forms });
-  return { ...library, storagePluginId: plugin.storagePluginId, plugin: Result.succeed(plugin) };
-});
-const brokenPluginForm = Effect.fnUntraced(function* ({
-  name,
-  type,
-  storagePluginId,
-}: {
-  readonly name: string;
-  readonly type: typeof Library.json.fields.type.Encoded;
-  readonly storagePluginId: typeof StoragePluginId.Encoded;
 }) {
   return {
     name: Library.json.fields.name.make(name),
     type: Library.json.fields.type.make(type),
     storagePluginId: yield* Schema.decodeEffect(StoragePluginId)(storagePluginId),
-    plugin: Result.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' })),
   };
 });
+const npmLoads = () =>
+  Array.filterMap(api.loadPlugin.mock.calls, ([request]) =>
+    request.storagePluginId === 'builtin:local' ? Result.failVoid : Result.succeed(request)
+  );
+const pluginLoadError = PluginLoadError.make({ message: 'Failed to install or load plugin' });
 const localForms = {
   audiobook: roots({ initialValue: [] }),
   movie: roots({ initialValue: [] }),
@@ -383,13 +375,12 @@ beforeEach(() => {
   navigation.replace.mockClear();
   navigation.dismissTo.mockClear();
   navigation.params = { id: String(libraryId) };
-  api.load.mockReset().mockReturnValue(loadedForm({ name: '', type: 'movie', forms: localForms }));
-  api.loadPlugin.mockReset().mockImplementation(({ storagePluginId }) =>
-    loadedPlugin({
-      storagePluginId,
-      forms: storagePluginId === 'builtin:local' ? localForms : bucketForms,
-    })
-  );
+  api.getLibrary.mockReset().mockReturnValue(savedLibrary({ name: 'Films', type: 'movie' }));
+  api.loadPlugin
+    .mockReset()
+    .mockImplementation(({ storagePluginId }) =>
+      decodeForms(storagePluginId === 'builtin:local' ? localForms : bucketForms)
+    );
   api.create.mockReset().mockReturnValue(Effect.succeed({ id: libraryId }));
   api.update.mockReset().mockReturnValue(Effect.succeed({ id: libraryId }));
 });
@@ -511,33 +502,23 @@ describe.each([
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
 
     await fireEvent.changeText(screen.getByLabelText('Package'), '   ');
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: loadPlugin })).toBeDisabled();
-    });
+    expect(screen.getByRole('button', { name: loadPlugin })).toBeDisabled();
     await fireEvent.changeText(screen.getByLabelText('Package'), ' voel-storage-s3 ');
-    expect(api.loadPlugin).not.toHaveBeenCalled();
+    expect(npmLoads()).toEqual([]);
     const loading = await Effect.runPromise(Deferred.make<undefined>());
-    api.loadPlugin.mockImplementationOnce(({ storagePluginId }) =>
-      Deferred.await(loading).pipe(
-        Effect.andThen(loadedPlugin({ storagePluginId, forms: bucketForms }))
-      )
+    api.loadPlugin.mockImplementationOnce(() =>
+      Deferred.await(loading).pipe(Effect.andThen(decodeForms(bucketForms)))
     );
     await submit({ label: loadPlugin });
-    await waitFor(() => {
-      expect(screen.getByLabelText('Package')).toBeDisabled();
-    });
-    expect(screen.getByLabelText('Name')).toBeEnabled();
-    expect(screen.getByText('Loading')).toBeOnTheScreen();
+    expect(await screen.findByText('Loading')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: `${loadPlugin} Loading` })).toBeDisabled();
     await act(async () => {
       await Effect.runPromise(Deferred.succeed(loading, void 0));
     });
     expect(await screen.findByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
-    expect(screen.getByLabelText('Package')).toBeEnabled();
-    expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
-      account,
-      id: Option.none(),
-      storagePluginId: 'npm:voel-storage-s3',
-    });
+    expect(npmLoads()).toEqual([
+      { account, id: Option.none(), storagePluginId: 'npm:voel-storage-s3' },
+    ]);
     expect(screen.queryByRole('button', { name: loadPlugin })).toBeNull();
 
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-other');
@@ -545,7 +526,7 @@ describe.each([
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await fireEvent.changeText(screen.getByLabelText('Bucket'), 'films');
-    expect(api.loadPlugin).toHaveBeenCalledOnce();
+    expect(npmLoads()).toHaveLength(1);
 
     await submit({ label: 'Create library' });
     await waitFor(() => {
@@ -576,49 +557,39 @@ describe.each([
     expect(screen.getByRole('button', { name: 'Storage settings' })).toBeDisabled();
   });
 
-  it('loads local folders as soon as they’re chosen, starting their settings afresh', async () => {
+  it('keeps each plugin’s settings when switching between them', async () => {
     await renderScreen({ content: <CreateLibraryScreen /> });
     await submit({ label: 'Storage settings' });
     await fireEvent.changeText(await screen.findByLabelText('Directories 1'), '/media/films');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
-    await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
-    expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
-
-    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await submit({ label: loadPlugin });
-    await screen.findByLabelText('Bucket');
+    await fireEvent.changeText(await screen.findByLabelText('Bucket'), 'films');
+
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
-    expect(await screen.findByLabelText('Directories 1')).toHaveDisplayValue('');
+    expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
+    expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('films');
+    expect(npmLoads()).toHaveLength(1);
   });
 
-  it('keeps the loaded plugin when another can’t be loaded, until the choice changes', async () => {
-    api.loadPlugin.mockReturnValue(
-      Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
+  it('shows why a plugin can’t be loaded, and keeps the others usable', async () => {
+    api.loadPlugin.mockImplementation(({ storagePluginId }) =>
+      storagePluginId === 'builtin:local' ? decodeForms(localForms) : Effect.fail(pluginLoadError)
     );
+    const pluginError =
+      'Unable to install or load this plugin. Check the package name and try again.';
     await renderScreen({ content: <CreateLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Name'), 'Films');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     await fireEvent.changeText(screen.getByLabelText('Package'), 'not-a-plugin');
     await submit({ label: loadPlugin });
-    expect(
-      await screen.findByText(
-        'Unable to install or load this plugin. Check the package name and try again.'
-      )
-    ).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: loadPlugin })).toBeOnTheScreen();
+    expect(await screen.findByText(pluginError)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: loadPlugin })).toBeEnabled();
     expect(screen.queryByLabelText('Bucket')).toBeNull();
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
-    await waitFor(() => {
-      expect(screen.getByLabelText('Package')).toBeEnabled();
-    });
     await fireEvent.changeText(screen.getByLabelText('Package'), 'another-plugin');
-    await fireEvent.changeText(screen.getByLabelText('Package'), 'not-a-plugin');
-    expect(
-      screen.queryByText(
-        'Unable to install or load this plugin. Check the package name and try again.'
-      )
-    ).toBeNull();
+    expect(screen.queryByText(pluginError)).toBeNull();
 
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
     await submit({ label: 'Storage settings' });
@@ -628,13 +599,13 @@ describe.each([
     });
   });
 
-  it('explains why the form can’t load', async () => {
-    api.load.mockReturnValue(Effect.fail(ForbiddenError.make()));
+  it('explains why local folders can’t be loaded', async () => {
+    api.loadPlugin.mockReturnValue(Effect.fail(ForbiddenError.make()));
     await renderScreen({ content: <CreateLibraryScreen /> });
     expect(
       await screen.findByText('Only server administrators can manage libraries.')
     ).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Name')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
   });
 });
 
@@ -643,22 +614,23 @@ describe.each([
   { platform: 'Android', EditLibraryScreen: AndroidEditLibraryScreen },
 ])('$platform library editing', ({ EditLibraryScreen }) => {
   it('starts from saved values and saves back to the library', async () => {
-    api.load.mockReturnValue(
-      loadedForm({
-        name: 'Films',
-        type: 'movie',
-        forms: {
-          audiobook: roots({ initialValue: ['/media/films'] }),
-          movie: roots({ initialValue: ['/media/films'] }),
-          show: roots({ initialValue: ['/media/films'] }),
-        },
+    api.loadPlugin.mockReturnValue(
+      decodeForms({
+        audiobook: roots({ initialValue: ['/media/films'] }),
+        movie: roots({ initialValue: ['/media/films'] }),
+        show: roots({ initialValue: ['/media/films'] }),
       })
     );
     await renderScreen({ content: <EditLibraryScreen /> });
     expect(await screen.findByLabelText('Name')).toHaveDisplayValue('Films');
     await submit({ label: 'Storage settings' });
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
-    expect(api.load).toHaveBeenCalledWith({ account, id: Option.some(libraryId) });
+    expect(api.getLibrary).toHaveBeenCalledWith({ account, id: libraryId });
+    expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
+      account,
+      id: Option.some(libraryId),
+      storagePluginId: 'builtin:local',
+    });
 
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Movies');
     await submit({ label: 'Save changes' });
@@ -683,13 +655,8 @@ describe.each([
   });
 
   it('flags a saved media type the plugin no longer supports', async () => {
-    api.load.mockReturnValue(
-      loadedForm({
-        name: 'Shows',
-        type: 'show',
-        storagePluginId: 'npm:@voel/storage@1.2.0',
-        forms: bucketForms,
-      })
+    api.getLibrary.mockReturnValue(
+      savedLibrary({ name: 'Shows', type: 'show', storagePluginId: 'npm:@voel/storage@1.2.0' })
     );
     await renderScreen({ content: <EditLibraryScreen /> });
     expect(
@@ -733,20 +700,23 @@ describe.each([
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await submit({ label: loadPlugin });
     await screen.findByLabelText('Bucket');
-    expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
-      account,
-      id: Option.some(libraryId),
-      storagePluginId: 'npm:voel-storage-s3',
-    });
+    expect(npmLoads()).toEqual([
+      { account, id: Option.some(libraryId), storagePluginId: 'npm:voel-storage-s3' },
+    ]);
   });
 
   it('lets a saved plugin that can’t be loaded be retried or replaced', async () => {
-    api.load.mockReturnValue(
-      brokenPluginForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
+    api.getLibrary.mockReturnValue(
+      savedLibrary({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
     );
-    api.loadPlugin.mockReturnValueOnce(
-      Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
-    );
+    let attempts = 0;
+    api.loadPlugin.mockImplementation(({ storagePluginId }) => {
+      if (storagePluginId === 'builtin:local') {
+        return decodeForms(localForms);
+      }
+      attempts += 1;
+      return attempts <= 2 ? Effect.fail(pluginLoadError) : decodeForms(bucketForms);
+    });
     const pluginError =
       'Unable to install or load this plugin. Check the package name and try again.';
     await renderScreen({ content: <EditLibraryScreen /> });
@@ -762,11 +732,7 @@ describe.each([
 
     await submit({ label: loadPlugin });
     await waitFor(() => {
-      expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
-        account,
-        id: Option.some(libraryId),
-        storagePluginId: 'npm:voel-storage-s3',
-      });
+      expect(npmLoads()).toHaveLength(2);
     });
     expect(await screen.findByText(pluginError)).toBeOnTheScreen();
     expect(screen.queryByLabelText('Bucket')).toBeNull();
@@ -793,8 +759,11 @@ describe.each([
   });
 
   it('switches a saved plugin that can’t be loaded to local folders', async () => {
-    api.load.mockReturnValue(
-      brokenPluginForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
+    api.getLibrary.mockReturnValue(
+      savedLibrary({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
+    );
+    api.loadPlugin.mockImplementation(({ storagePluginId }) =>
+      storagePluginId === 'builtin:local' ? decodeForms(localForms) : Effect.fail(pluginLoadError)
     );
     await renderScreen({ content: <EditLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Provider'), 'builtin:local');
@@ -822,6 +791,15 @@ describe.each([
     navigation.params = { id: 'nope' };
     await renderScreen({ content: <EditLibraryScreen /> });
     expect(screen.getByText('This link is invalid.')).toBeOnTheScreen();
-    expect(api.load).not.toHaveBeenCalled();
+    expect(api.getLibrary).not.toHaveBeenCalled();
+  });
+
+  it('explains why the form can’t load', async () => {
+    api.getLibrary.mockReturnValue(Effect.fail(ForbiddenError.make()));
+    await renderScreen({ content: <EditLibraryScreen /> });
+    expect(
+      await screen.findByText('Only server administrators can manage libraries.')
+    ).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Name')).toBeNull();
   });
 });
