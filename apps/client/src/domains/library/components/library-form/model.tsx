@@ -43,7 +43,6 @@ import {
 
 type StoragePluginId = typeof Library.jsonCreate.fields.storagePluginId.Type;
 type SettingsForm = typeof StoragePluginSettingsForm.Encoded;
-type LoadedPlugin = Effect.Success<ReturnType<typeof loadStoragePlugin>>;
 
 const savedLibraryId = ({ target }: { readonly target: LibraryFormTarget }) =>
   LibraryFormTarget.$match(target, {
@@ -126,7 +125,7 @@ class SettingsValues extends Schema.Struct({
   list: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 }) {}
 
-const PluginState = Schema.TaggedUnion({
+const PluginLoad = Schema.TaggedUnion({
   NotLoaded: {},
   Loaded: {
     storagePluginId: Schema.toType(Library.jsonCreate.fields.storagePluginId),
@@ -135,14 +134,14 @@ const PluginState = Schema.TaggedUnion({
   },
 });
 
-const loadedPlugin = ({
+const loadedPluginFor = ({
   storagePluginId,
-  state,
+  plugin,
 }: {
   readonly storagePluginId: typeof Library.jsonCreate.fields.storagePluginId.Encoded;
-  readonly state: typeof PluginState.Type;
+  readonly plugin: typeof PluginLoad.Type;
 }) =>
-  Option.liftPredicate(state, PluginState.isAnyOf(['Loaded'])).pipe(
+  Option.liftPredicate(plugin, PluginLoad.isAnyOf(['Loaded'])).pipe(
     Option.filter((loaded) => loaded.storagePluginId === storagePluginId)
   );
 
@@ -188,8 +187,12 @@ const submittedSettings = ({
     )
   );
 
-const pluginValues = ({ plugin }: { readonly plugin: LoadedPlugin }) =>
-  PluginState.cases.Loaded.make({
+const pluginValues = ({
+  plugin,
+}: {
+  readonly plugin: Effect.Success<ReturnType<typeof loadStoragePlugin>>;
+}) =>
+  PluginLoad.cases.Loaded.make({
     ...plugin,
     settings: Record.map(mediaTypeLabels, (_, type) =>
       Option.match(Option.fromUndefinedOr(plugin.forms[type]), {
@@ -231,34 +234,34 @@ class LibraryFormValues extends Schema.Struct({
   ),
   type: Library.jsonCreate.fields.type,
   pluginChoice: PluginChoice.storagePluginId,
-  plugin: PluginState,
+  plugin: PluginLoad,
 }) {
   public static readonly library = this.pipe(
     Schema.decodeTo(Library.jsonCreate, {
       decode: SchemaGetter.transformEffect(
-        Effect.fnUntraced(function* ({ name, type, pluginChoice, plugin: state }, options) {
+        Effect.fnUntraced(function* ({ name, type, pluginChoice, plugin }, options) {
           const mediaType: typeof MediaType.Encoded = type;
-          const plugin = yield* Effect.fromOption(
-            loadedPlugin({ storagePluginId: pluginChoice, state }),
+          const loaded = yield* Effect.fromOption(
+            loadedPluginFor({ storagePluginId: pluginChoice, plugin }),
             () =>
               new SchemaIssue.Pointer(
                 ['plugin'],
                 new SchemaIssue.InvalidValue(
                   { message: 'Load the storage plugin before saving.' },
-                  state,
+                  plugin,
                   options
                 )
               )
           );
           const form = yield* Effect.fromOption(
-            Option.fromUndefinedOr(plugin.forms[mediaType]),
+            Option.fromUndefinedOr(loaded.forms[mediaType]),
             () =>
               new SchemaIssue.Pointer(
                 ['type'],
                 new SchemaIssue.InvalidValue(
                   {
                     message: unsupportedTypeMessage({
-                      storagePluginId: plugin.storagePluginId,
+                      storagePluginId: loaded.storagePluginId,
                       type,
                     }),
                   },
@@ -270,10 +273,10 @@ class LibraryFormValues extends Schema.Struct({
           return {
             name,
             type,
-            storagePluginId: plugin.storagePluginId,
+            storagePluginId: loaded.storagePluginId,
             storagePluginSettings: submittedSettings({
               form,
-              values: plugin.settings[mediaType],
+              values: loaded.settings[mediaType],
             }),
           };
         })
@@ -296,7 +299,7 @@ const settingsStatus = (
   values: Pick<typeof LibraryFormValues.Encoded, 'type' | 'pluginChoice' | 'plugin'>
 ) =>
   Option.match(
-    loadedPlugin({ storagePluginId: pluginIdFor(values.pluginChoice), state: values.plugin }),
+    loadedPluginFor({ storagePluginId: pluginIdFor(values.pluginChoice), plugin: values.plugin }),
     {
       onNone: () => SettingsStatus.PluginNotLoaded(),
       onSome: ({ storagePluginId, forms }) =>
@@ -314,22 +317,22 @@ const npmPluginWarning =
   'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.';
 
 const useLibraryForm = ({
-  loaded,
+  initial,
   target,
   onSaved,
 }: Pick<ComponentProps<LibraryFormComponent>, 'target' | 'onSaved'> & {
-  readonly loaded: Atom.Success<ReturnType<typeof libraryFormAtom>>;
+  readonly initial: Atom.Success<ReturnType<typeof libraryFormAtom>>;
 }) => {
   const account = useSelectedAccount();
   const form = useAppForm({
     schema: LibraryFormValues.library,
     defaultValues: {
-      name: loaded.name,
-      type: loaded.type,
-      pluginChoice: pluginChoiceFor(loaded),
-      plugin: Result.match(loaded.plugin, {
+      name: initial.name,
+      type: initial.type,
+      pluginChoice: pluginChoiceFor(initial),
+      plugin: Result.match(initial.plugin, {
         onSuccess: (plugin) => pluginValues({ plugin }),
-        onFailure: () => PluginState.cases.NotLoaded.make({}),
+        onFailure: () => PluginLoad.cases.NotLoaded.make({}),
       }),
     },
     onSubmit: ({ value: library }) =>
@@ -351,17 +354,17 @@ const useLibraryForm = ({
       form.setFieldValue('plugin', pluginValues({ plugin: result }));
     },
   });
-  const loadError = useAtomValue(pluginLoader.submissionError);
+  const pluginLoadError = useAtomValue(pluginLoader.submissionError);
   const isLoadingPlugin = pluginLoader.state.meta.isSubmitting;
   const isSaving = useSelector(form.store, (state) => state.isSubmitting);
   const values = useSelector(form.store, (state) => state.values);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const status = settingsStatus(values);
-  const savedPluginError = Result.getFailure(loaded.plugin).pipe(
+  const savedPluginLoadError = Result.getFailure(initial.plugin).pipe(
     Option.filter(
       () =>
         SettingsStatus.$is('PluginNotLoaded')(status) &&
-        pluginIdFor(values.pluginChoice) === loaded.storagePluginId
+        pluginIdFor(values.pluginChoice) === initial.storagePluginId
     ),
     Option.map((error) => libraryFailureMessage({ error }))
   );
@@ -412,7 +415,7 @@ const useLibraryForm = ({
     },
     storageNotes: Array.getSomes([
       Option.map(
-        Option.orElse(loadError, () => savedPluginError),
+        Option.orElse(pluginLoadError, () => savedPluginLoadError),
         (message) => ({
           tone: 'critical' as const,
           message,
@@ -498,7 +501,7 @@ export const LibraryFormLoader = ({
       </FormLayout>
     ),
     onSuccess: ({ value }) => (
-      <LoadedLibraryForm loaded={value} target={target} onSaved={onSaved}>
+      <LoadedLibraryForm initial={value} target={target} onSaved={onSaved}>
         {children}
       </LoadedLibraryForm>
     ),

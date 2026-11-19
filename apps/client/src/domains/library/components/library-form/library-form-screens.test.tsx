@@ -319,7 +319,7 @@ const loadedForm = Effect.fnUntraced(function* ({
   const plugin = yield* loadedPlugin({ storagePluginId, forms });
   return { ...library, storagePluginId: plugin.storagePluginId, plugin: Result.succeed(plugin) };
 });
-const unloadableForm = Effect.fnUntraced(function* ({
+const brokenPluginForm = Effect.fnUntraced(function* ({
   name,
   type,
   storagePluginId,
@@ -735,7 +735,7 @@ describe.each([
 
   it('lets a saved plugin that can’t be loaded be retried or replaced', async () => {
     api.load.mockReturnValue(
-      unloadableForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
+      brokenPluginForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
     );
     api.loadPlugin.mockReturnValueOnce(
       Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
@@ -787,7 +787,7 @@ describe.each([
 
   it('switches a saved plugin that can’t be loaded to local folders', async () => {
     api.load.mockReturnValue(
-      unloadableForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
+      brokenPluginForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
     );
     await renderScreen({ content: <EditLibraryScreen /> });
     await fireEvent.changeText(await screen.findByLabelText('Provider'), 'builtin:local');
