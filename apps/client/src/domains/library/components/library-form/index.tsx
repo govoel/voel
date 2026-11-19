@@ -16,6 +16,7 @@ import {
   SchemaGetter,
   SchemaIssue,
   String,
+  pipe,
 } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
@@ -84,6 +85,8 @@ class PluginChoice extends Schema.Struct({
     })
   );
 
+  public static readonly decodeStoragePluginId = Schema.decodeOption(this.storagePluginId);
+
   public static readonly of = ({
     storagePluginId,
   }: {
@@ -93,7 +96,7 @@ class PluginChoice extends Schema.Struct({
       Match.when('builtin:local', () => ({ source: 'builtin:local' as const, packageName: '' })),
       Match.when(NpmPluginId.is, (id) => ({
         source: 'npm' as const,
-        packageName: String.slice(NpmPluginId.parts[0].length)(id),
+        packageName: pipe(id, String.slice(NpmPluginId.parts[0].length)),
       })),
       Match.exhaustive
     );
@@ -166,6 +169,8 @@ type StorageStatus =
     };
 
 const StorageStatus = Data.taggedEnum<StorageStatus>();
+
+const isReady = StorageStatus.$is('Ready');
 
 /** Whether the chosen plugin's settings for the chosen media type can be edited and saved. */
 const storageStatus = ({
@@ -315,7 +320,7 @@ export const useLibraryForm = ({
     type,
     plugin,
   }: Pick<typeof LibraryFormValues.Encoded, 'pluginChoice' | 'type' | 'plugin'>) =>
-    Option.match(Schema.decodeOption(PluginChoice.storagePluginId)(pluginChoice), {
+    Option.match(PluginChoice.decodeStoragePluginId(pluginChoice), {
       onNone: () => StorageStatus.NotLoaded(),
       onSome: (storagePluginId) => storageStatus({ storagePluginId, type, plugin, loadFailures }),
     });
@@ -386,7 +391,7 @@ export const useLibraryForm = ({
     form,
     isSaving,
     isLoadingPlugin,
-    canSave: StorageStatus.$is('Ready')(status),
+    canSave: isReady(status),
     canChooseSource: !isSaving && !isLoadingPlugin,
     settingsButton: StorageStatus.$match(status, {
       NotLoaded: () => ({ label: 'Load plugin & edit settings', enabled: canLoadPlugin }),
@@ -399,7 +404,7 @@ export const useLibraryForm = ({
       if (needsLoad(form.state.values)) {
         await pluginLoader.handleSubmit();
       }
-      setIsEditingSettings(StorageStatus.$is('Ready')(statusOf(form.state.values)));
+      setIsEditingSettings(isReady(statusOf(form.state.values)));
     },
     storageNotes: Array.getSomes([
       StorageStatus.$match(status, {
