@@ -2,7 +2,7 @@ import { RegistryContext } from '@effect/atom-react';
 import type { ModalBottomSheet, ModalBottomSheetRef } from '@expo/ui/jetpack-compose';
 import { StoragePluginSettingsForms } from '@govoel/plugins/storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Array, Deferred, Effect, Option, Schema } from 'effect';
+import { Array, Deferred, Effect, Option, Result, Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 import type { Href } from 'expo-router';
@@ -316,7 +316,24 @@ const loadedForm = Effect.fnUntraced(function* ({
   readonly storagePluginId?: typeof StoragePluginId.Encoded;
   readonly forms: typeof StoragePluginSettingsForms.Encoded;
 }) {
-  return { ...library, plugin: yield* loadedPlugin({ storagePluginId, forms }) };
+  const plugin = yield* loadedPlugin({ storagePluginId, forms });
+  return { ...library, storagePluginId: plugin.storagePluginId, plugin: Result.succeed(plugin) };
+});
+const unloadableForm = Effect.fnUntraced(function* ({
+  name,
+  type,
+  storagePluginId,
+}: {
+  readonly name: string;
+  readonly type: typeof Library.json.fields.type.Encoded;
+  readonly storagePluginId: typeof StoragePluginId.Encoded;
+}) {
+  return {
+    name: Library.json.fields.name.make(name),
+    type: Library.json.fields.type.make(type),
+    storagePluginId: yield* Schema.decodeEffect(StoragePluginId)(storagePluginId),
+    plugin: Result.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' })),
+  };
 });
 const localForms = {
   audiobook: roots({ initialValue: [] }),
@@ -714,6 +731,84 @@ describe.each([
       id: Option.some(libraryId),
       storagePluginId: 'npm:voel-storage-s3',
     });
+  });
+
+  it('lets a saved plugin that can’t be loaded be retried or replaced', async () => {
+    api.load.mockReturnValue(
+      unloadableForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
+    );
+    api.loadPlugin.mockReturnValueOnce(
+      Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
+    );
+    const pluginError =
+      'Unable to install or load this plugin. Check the package name and try again.';
+    await renderScreen({ content: <EditLibraryScreen /> });
+    expect(await screen.findByLabelText('Name')).toHaveDisplayValue('Films');
+    expect(screen.getByLabelText('Package')).toHaveDisplayValue('voel-storage-s3');
+    expect(screen.getByText(pluginError)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+
+    await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-other');
+    expect(screen.queryByText(pluginError)).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
+    expect(screen.getByText(pluginError)).toBeOnTheScreen();
+
+    await submit({ label: loadPlugin });
+    await waitFor(() => {
+      expect(api.loadPlugin).toHaveBeenCalledExactlyOnceWith({
+        account,
+        id: Option.some(libraryId),
+        storagePluginId: 'npm:voel-storage-s3',
+      });
+    });
+    expect(await screen.findByText(pluginError)).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Bucket')).toBeNull();
+    await submit({ label: loadPlugin });
+    expect(await screen.findByLabelText('Bucket')).toHaveDisplayValue('saved-bucket');
+    expect(screen.queryByText(pluginError)).toBeNull();
+
+    await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
+    expect(await screen.findByLabelText('Directories 1')).toHaveDisplayValue('');
+    await fireEvent.changeText(screen.getByLabelText('Directories 1'), '/media/films');
+    await submit({ label: 'Save changes' });
+    await waitFor(() => {
+      expect(api.update).toHaveBeenCalledExactlyOnceWith({
+        account,
+        id: libraryId,
+        library: {
+          name: 'Films',
+          type: 'movie',
+          storagePluginId: 'builtin:local',
+          storagePluginSettings: { roots: ['/media/films'] },
+        },
+      });
+    });
+  });
+
+  it('switches a saved plugin that can’t be loaded to local folders', async () => {
+    api.load.mockReturnValue(
+      unloadableForm({ name: 'Films', type: 'movie', storagePluginId: 'npm:voel-storage-s3' })
+    );
+    await renderScreen({ content: <EditLibraryScreen /> });
+    await fireEvent.changeText(await screen.findByLabelText('Provider'), 'builtin:local');
+    await submit({ label: 'Save changes' });
+    await waitFor(() => {
+      expect(api.update).toHaveBeenCalledExactlyOnceWith({
+        account,
+        id: libraryId,
+        library: {
+          name: 'Films',
+          type: 'movie',
+          storagePluginId: 'builtin:local',
+          storagePluginSettings: { roots: [] },
+        },
+      });
+    });
+    expect(
+      screen.queryByText(
+        'Unable to install or load this plugin. Check the package name and try again.'
+      )
+    ).toBeNull();
   });
 
   it('rejects links without a valid library ID', async () => {

@@ -43,7 +43,7 @@ import {
 
 type StoragePluginId = typeof Library.jsonCreate.fields.storagePluginId.Type;
 type SettingsForm = typeof StoragePluginSettingsForm.Encoded;
-type LoadedPlugin = Atom.Success<ReturnType<typeof libraryFormAtom>>['plugin'];
+type LoadedPlugin = Effect.Success<ReturnType<typeof loadStoragePlugin>>;
 
 const savedLibraryId = ({ target }: { readonly target: LibraryFormTarget }) =>
   LibraryFormTarget.$match(target, {
@@ -126,6 +126,26 @@ class SettingsValues extends Schema.Struct({
   list: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 }) {}
 
+const PluginState = Schema.TaggedUnion({
+  NotLoaded: {},
+  Loaded: {
+    storagePluginId: Schema.toType(Library.jsonCreate.fields.storagePluginId),
+    forms: Schema.toEncoded(StoragePluginSettingsForms),
+    settings: Schema.Record(Schema.toEncoded(MediaType), SettingsValues),
+  },
+});
+
+const loadedPlugin = ({
+  storagePluginId,
+  state,
+}: {
+  readonly storagePluginId: typeof Library.jsonCreate.fields.storagePluginId.Encoded;
+  readonly state: typeof PluginState.Type;
+}) =>
+  Option.liftPredicate(state, PluginState.isAnyOf(['Loaded'])).pipe(
+    Option.filter((loaded) => loaded.storagePluginId === storagePluginId)
+  );
+
 const initialSettings = ({ form }: { readonly form: SettingsForm }) => {
   const [text, list] = Array.partition(form, (field) =>
     Match.value(field).pipe(
@@ -168,15 +188,16 @@ const submittedSettings = ({
     )
   );
 
-const pluginValues = ({ plugin }: { readonly plugin: LoadedPlugin }) => ({
-  ...plugin,
-  settings: Record.map(mediaTypeLabels, (_, type) =>
-    Option.match(Option.fromUndefinedOr(plugin.forms[type]), {
-      onNone: () => ({ text: {}, list: {} }),
-      onSome: (form) => initialSettings({ form }),
-    })
-  ),
-});
+const pluginValues = ({ plugin }: { readonly plugin: LoadedPlugin }) =>
+  PluginState.cases.Loaded.make({
+    ...plugin,
+    settings: Record.map(mediaTypeLabels, (_, type) =>
+      Option.match(Option.fromUndefinedOr(plugin.forms[type]), {
+        onNone: () => ({ text: {}, list: {} }),
+        onSome: (form) => initialSettings({ form }),
+      })
+    ),
+  });
 
 const settingsFields = ({
   form,
@@ -210,42 +231,43 @@ class LibraryFormValues extends Schema.Struct({
   ),
   type: Library.jsonCreate.fields.type,
   pluginChoice: PluginChoice.storagePluginId,
-  plugin: Schema.Struct({
-    storagePluginId: Schema.toType(Library.jsonCreate.fields.storagePluginId),
-    forms: StoragePluginSettingsForms,
-    settings: Schema.Record(Schema.toEncoded(MediaType), SettingsValues),
-  }),
-}).check(
-  Schema.makeFilter(
-    ({ pluginChoice, plugin }) =>
-      pluginChoice === plugin.storagePluginId || {
-        path: ['plugin'],
-        issue: 'Load the storage plugin before saving.',
-      }
-  )
-) {
+  plugin: PluginState,
+}) {
   public static readonly library = this.pipe(
     Schema.decodeTo(Library.jsonCreate, {
-      decode: SchemaGetter.transformEffect(({ name, type, plugin }, options) => {
-        const mediaType: typeof MediaType.Encoded = type;
-        return Effect.fromOption(
-          Option.fromUndefinedOr(plugin.forms[mediaType]),
-          () =>
-            new SchemaIssue.Pointer(
-              ['type'],
-              new SchemaIssue.InvalidValue(
-                {
-                  message: unsupportedTypeMessage({
-                    storagePluginId: plugin.storagePluginId,
-                    type,
-                  }),
-                },
-                type,
-                options
+      decode: SchemaGetter.transformEffect(
+        Effect.fnUntraced(function* ({ name, type, pluginChoice, plugin: state }, options) {
+          const mediaType: typeof MediaType.Encoded = type;
+          const plugin = yield* Effect.fromOption(
+            loadedPlugin({ storagePluginId: pluginChoice, state }),
+            () =>
+              new SchemaIssue.Pointer(
+                ['plugin'],
+                new SchemaIssue.InvalidValue(
+                  { message: 'Load the storage plugin before saving.' },
+                  state,
+                  options
+                )
               )
-            )
-        ).pipe(
-          Effect.map((form) => ({
+          );
+          const form = yield* Effect.fromOption(
+            Option.fromUndefinedOr(plugin.forms[mediaType]),
+            () =>
+              new SchemaIssue.Pointer(
+                ['type'],
+                new SchemaIssue.InvalidValue(
+                  {
+                    message: unsupportedTypeMessage({
+                      storagePluginId: plugin.storagePluginId,
+                      type,
+                    }),
+                  },
+                  type,
+                  options
+                )
+              )
+          );
+          return {
             name,
             type,
             storagePluginId: plugin.storagePluginId,
@@ -253,9 +275,9 @@ class LibraryFormValues extends Schema.Struct({
               form,
               values: plugin.settings[mediaType],
             }),
-          }))
-        );
-      }),
+          };
+        })
+      ),
       encode: SchemaGetter.forbiddenEncoding,
     })
   );
@@ -265,25 +287,28 @@ type SettingsStatus = Data.TaggedEnum<{
   // oxlint-disable-next-line typescript/no-generated-empty-object-type -- PluginNotLoaded intentionally has no payload.
   PluginNotLoaded: Record<never, never>;
   TypeUnsupported: { readonly message: string };
-  Ready: { readonly form: SettingsForm };
+  Ready: { readonly form: SettingsForm; readonly storagePluginId: StoragePluginId };
 }>;
 
 const SettingsStatus = Data.taggedEnum<SettingsStatus>();
 
 const settingsStatus = (
   values: Pick<typeof LibraryFormValues.Encoded, 'type' | 'pluginChoice' | 'plugin'>
-) => {
-  if (pluginIdFor(values.pluginChoice) !== values.plugin.storagePluginId) {
-    return SettingsStatus.PluginNotLoaded();
-  }
-  return Option.match(Option.fromUndefinedOr(values.plugin.forms[values.type]), {
-    onNone: () =>
-      SettingsStatus.TypeUnsupported({
-        message: `${unsupportedTypeMessage({ storagePluginId: values.plugin.storagePluginId, type: values.type })} Choose another media type.`,
-      }),
-    onSome: (form) => SettingsStatus.Ready({ form }),
-  });
-};
+) =>
+  Option.match(
+    loadedPlugin({ storagePluginId: pluginIdFor(values.pluginChoice), state: values.plugin }),
+    {
+      onNone: () => SettingsStatus.PluginNotLoaded(),
+      onSome: ({ storagePluginId, forms }) =>
+        Option.match(Option.fromUndefinedOr(forms[values.type]), {
+          onNone: () =>
+            SettingsStatus.TypeUnsupported({
+              message: `${unsupportedTypeMessage({ storagePluginId, type: values.type })} Choose another media type.`,
+            }),
+          onSome: (form) => SettingsStatus.Ready({ form, storagePluginId }),
+        }),
+    }
+  );
 
 const npmPluginWarning =
   'Loading a plugin downloads it and runs its code on your server. Only use plugins you trust.';
@@ -301,8 +326,11 @@ const useLibraryForm = ({
     defaultValues: {
       name: loaded.name,
       type: loaded.type,
-      pluginChoice: pluginChoiceFor(loaded.plugin),
-      plugin: pluginValues(loaded),
+      pluginChoice: pluginChoiceFor(loaded),
+      plugin: Result.match(loaded.plugin, {
+        onSuccess: (plugin) => pluginValues({ plugin }),
+        onFailure: () => PluginState.cases.NotLoaded.make({}),
+      }),
     },
     onSubmit: ({ value: library }) =>
       LibraryFormTarget.$match(target, {
@@ -329,6 +357,14 @@ const useLibraryForm = ({
   const values = useSelector(form.store, (state) => state.values);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const status = settingsStatus(values);
+  const savedPluginError = Result.getFailure(loaded.plugin).pipe(
+    Option.filter(
+      () =>
+        SettingsStatus.$is('PluginNotLoaded')(status) &&
+        pluginIdFor(values.pluginChoice) === loaded.storagePluginId
+    ),
+    Option.map((error) => libraryFailureMessage({ error }))
+  );
 
   return {
     form,
@@ -375,7 +411,13 @@ const useLibraryForm = ({
       });
     },
     storageNotes: Array.getSomes([
-      Option.map(loadError, (message) => ({ tone: 'critical' as const, message })),
+      Option.map(
+        Option.orElse(loadError, () => savedPluginError),
+        (message) => ({
+          tone: 'critical' as const,
+          message,
+        })
+      ),
       SettingsStatus.$match(status, {
         PluginNotLoaded: () => Option.none(),
         TypeUnsupported: ({ message }) => Option.some({ tone: 'critical' as const, message }),
@@ -392,11 +434,11 @@ const useLibraryForm = ({
     editedSettingsFields: SettingsStatus.$match(status, {
       PluginNotLoaded: () => Option.none(),
       TypeUnsupported: () => Option.none(),
-      Ready: ({ form: settingsForm }) =>
+      Ready: ({ form: settingsForm, storagePluginId }) =>
         Option.some(
           settingsFields({
             form: settingsForm,
-            storagePluginId: values.plugin.storagePluginId,
+            storagePluginId,
             type: values.type,
           })
         ).pipe(Option.filter(() => isEditingSettings)),

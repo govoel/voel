@@ -1,6 +1,6 @@
 import { expect, it } from '@effect/vitest';
 import { StoragePluginSettingsInput } from '@govoel/plugins/storage';
-import { Array, Cause, Effect, Layer, Option, Stream } from 'effect';
+import { Array, Cause, Effect, Layer, Option, Result, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { ForbiddenError } from '@repo/spec-api/domains/auth/http.ts';
@@ -104,10 +104,11 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(draft).toEqual({
           name: '',
           type: 'movie',
-          plugin: {
+          storagePluginId: 'builtin:local',
+          plugin: Result.succeed({
             storagePluginId: 'builtin:local',
             forms: { audiobook: [emptyRoots], movie: [emptyRoots], show: [emptyRoots] },
-          },
+          }),
         });
 
         const query = listLibrariesAtom(account.key);
@@ -130,10 +131,11 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
         expect(saved).toEqual({
           name: 'Films',
           type: 'movie',
-          plugin: {
+          storagePluginId: 'builtin:local',
+          plugin: Result.succeed({
             storagePluginId: 'builtin:local',
             forms: { audiobook: [savedRoots], movie: [savedRoots], show: [savedRoots] },
-          },
+          }),
         });
 
         const detail = serverLibraryAtom({ account: account.key, id: created.id });
@@ -145,7 +147,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           library: {
             name: Library.jsonUpdate.fields.name.make('Shows'),
             type: Library.jsonUpdate.fields.type.make('show'),
-            storagePluginId: saved.plugin.storagePluginId,
+            storagePluginId: saved.storagePluginId,
             storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['/media/shows'] }),
           },
         });
@@ -164,7 +166,7 @@ it.layer(TestServerControllerClient.layer)('library management', (iit) => {
           library: {
             name: Library.jsonUpdate.fields.name.make('Shows'),
             type: Library.jsonUpdate.fields.type.make('show'),
-            storagePluginId: saved.plugin.storagePluginId,
+            storagePluginId: saved.storagePluginId,
             storagePluginSettings: StoragePluginSettingsInput.make({ roots: ['relative'] }),
           },
         }).pipe(Effect.flip);

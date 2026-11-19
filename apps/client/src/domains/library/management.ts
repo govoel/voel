@@ -1,5 +1,5 @@
 import type { MediaType } from '@govoel/plugins/library';
-import { Array, Effect, Match, Option, Record, Stream } from 'effect';
+import { Array, Effect, Match, Option, Record, Result, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
@@ -86,8 +86,10 @@ export const libraryFormAtom = Atom.family(
             const { name, type, storagePluginId } = yield* client.library.get({
               params: { id: libraryId },
             });
-            const plugin = yield* loadStoragePlugin({ account, id, storagePluginId });
-            return { name, type, plugin };
+            const plugin = yield* Effect.result(
+              loadStoragePlugin({ account, id, storagePluginId })
+            );
+            return { name, type, storagePluginId, plugin };
           }),
           onNone: Effect.fnUntraced(function* () {
             const plugin = yield* loadStoragePlugin({
@@ -99,7 +101,12 @@ export const libraryFormAtom = Atom.family(
               Record.keys(mediaTypeLabels),
               (type) => plugin.forms[type] !== void 0
             ).pipe(Option.getOrElse(() => 'movie' as const));
-            return { name: '', type: firstSupportedType, plugin };
+            return {
+              name: '',
+              type: firstSupportedType,
+              storagePluginId: plugin.storagePluginId,
+              plugin: Result.succeed(plugin),
+            };
           }),
         });
       })
