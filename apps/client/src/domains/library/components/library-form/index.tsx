@@ -155,17 +155,19 @@ const loadedPlugin = ({
     ),
   });
 
-type StorageStatus =
-  | { readonly _tag: 'NotLoaded' }
-  | { readonly _tag: 'Loading' }
-  | { readonly _tag: 'Failed'; readonly message: string }
-  | { readonly _tag: 'Unsupported'; readonly message: string }
-  | {
-      readonly _tag: 'Ready';
-      readonly storagePluginId: StoragePluginId;
-      readonly form: typeof StoragePluginSettingsForm.Encoded;
-      readonly values: typeof SettingsValues.Type;
-    };
+type StorageStatus = Data.TaggedEnum<{
+  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- NotLoaded intentionally has no payload.
+  NotLoaded: Record<never, never>;
+  // oxlint-disable-next-line typescript/no-generated-empty-object-type -- Loading intentionally has no payload.
+  Loading: Record<never, never>;
+  Failed: { readonly message: string };
+  Unsupported: { readonly message: string };
+  Ready: {
+    readonly storagePluginId: StoragePluginId;
+    readonly form: typeof StoragePluginSettingsForm.Encoded;
+    readonly values: typeof SettingsValues.Type;
+  };
+}>;
 
 const StorageStatus = Data.taggedEnum<StorageStatus>();
 
