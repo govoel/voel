@@ -592,7 +592,7 @@ describe.each([
     expect(await screen.findByLabelText('Directories 1')).toHaveDisplayValue('');
   });
 
-  it('keeps the loaded plugin when another can’t be loaded', async () => {
+  it('keeps the loaded plugin when another can’t be loaded, until the choice changes', async () => {
     api.loadPlugin.mockReturnValue(
       Effect.fail(PluginLoadError.make({ message: 'Failed to install or load plugin' }))
     );
@@ -612,6 +612,13 @@ describe.each([
     await waitFor(() => {
       expect(screen.getByLabelText('Package')).toBeEnabled();
     });
+    await fireEvent.changeText(screen.getByLabelText('Package'), 'another-plugin');
+    await fireEvent.changeText(screen.getByLabelText('Package'), 'not-a-plugin');
+    expect(
+      screen.queryByText(
+        'Unable to install or load this plugin. Check the package name and try again.'
+      )
+    ).toBeNull();
 
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'builtin:local');
     await submit({ label: 'Storage settings' });

@@ -176,16 +176,16 @@ const storageStatus = ({
   storagePluginId,
   type,
   plugin,
-  loadFailures,
+  loadError,
 }: {
   readonly storagePluginId: StoragePluginId;
   readonly type: typeof MediaType.Encoded;
   readonly plugin: typeof PluginLoad.Type;
-  /** Load failure messages by plugin. */
-  readonly loadFailures: Record.ReadonlyRecord<string, string>;
+  /** Why the chosen plugin couldn't be loaded. */
+  readonly loadError: Option.Option<string>;
 }) => {
   const notLoaded = () =>
-    Option.match(Record.get(loadFailures, storagePluginId), {
+    Option.match(loadError, {
       onNone: () => StorageStatus.NotLoaded(),
       onSome: (message) => StorageStatus.Failed({ message }),
     });
@@ -227,7 +227,7 @@ class LibraryFormValues extends Schema.Struct({
     Schema.decodeTo(Library.jsonCreate, {
       decode: SchemaGetter.transformEffect(({ name, type, pluginChoice, plugin }, options) =>
         Match.value(
-          storageStatus({ storagePluginId: pluginChoice, type, plugin, loadFailures: {} })
+          storageStatus({ storagePluginId: pluginChoice, type, plugin, loadError: Option.none() })
         ).pipe(
           Match.tag('NotLoaded', 'Failed', () =>
             Effect.fail(
@@ -303,32 +303,7 @@ export const useLibraryForm = ({
   readonly initial: Atom.Success<ReturnType<typeof libraryFormAtom>>;
 }) => {
   const account = useSelectedAccount();
-  const [loadFailures, setLoadFailures] = useState(
-    Result.match(initial.plugin, {
-      onSuccess: () => Record.empty<string, string>(),
-      onFailure: (error) =>
-        Record.singleton(initial.storagePluginId, libraryFailureMessage({ error })),
-    })
-  );
   const [isEditingSettings, setIsEditingSettings] = useState(false);
-  const statusOf = ({
-    pluginChoice,
-    type,
-    plugin,
-  }: Pick<typeof LibraryFormValues.Encoded, 'pluginChoice' | 'type' | 'plugin'>) =>
-    Option.match(PluginChoice.decodeStoragePluginId(pluginChoice), {
-      onNone: () => StorageStatus.NotLoaded(),
-      onSome: (storagePluginId) => storageStatus({ storagePluginId, type, plugin, loadFailures }),
-    });
-  const needsLoad = (values: Parameters<typeof statusOf>[0]) =>
-    Match.value(statusOf(values)).pipe(
-      Match.tagsExhaustive({
-        NotLoaded: () => true,
-        Failed: () => true,
-        Unsupported: () => false,
-        Ready: () => false,
-      })
-    );
   const form = useAppForm({
     schema: LibraryFormValues.library,
     defaultValues: {
@@ -365,15 +340,42 @@ export const useLibraryForm = ({
     name: 'pluginChoice',
     schema: PluginChoice.storagePluginId,
     onSubmit: ({ value }) => loadStoragePlugin({ account, id, storagePluginId: value }),
-    onFailure: ({ value, error }) => {
-      const message = libraryFailureMessage({ error });
-      setLoadFailures(Record.set(value, message));
-      return message;
-    },
+    onFailure: libraryFailureMessage,
     onSuccess: ({ result }) => {
       form.setFieldValue('plugin', loadedPlugin(result));
     },
   });
+  const pluginLoadError = useAtomValue(pluginLoader.submissionError);
+  // Unlike a failed load, which clears once the choice changes, this is part of the saved library.
+  const savedPluginLoadError = Option.map(Result.getFailure(initial.plugin), (error) =>
+    libraryFailureMessage({ error })
+  );
+  const statusOf = ({
+    pluginChoice,
+    type,
+    plugin,
+  }: Pick<typeof LibraryFormValues.Encoded, 'pluginChoice' | 'type' | 'plugin'>) =>
+    Option.match(PluginChoice.decodeStoragePluginId(pluginChoice), {
+      onNone: () => StorageStatus.NotLoaded(),
+      onSome: (storagePluginId) =>
+        storageStatus({
+          storagePluginId,
+          type,
+          plugin,
+          loadError: Option.orElse(pluginLoadError, () =>
+            Option.filter(savedPluginLoadError, () => storagePluginId === initial.storagePluginId)
+          ),
+        }),
+    });
+  const needsLoad = (values: Parameters<typeof statusOf>[0]) =>
+    Match.value(statusOf(values)).pipe(
+      Match.tagsExhaustive({
+        NotLoaded: () => true,
+        Failed: () => true,
+        Unsupported: () => false,
+        Ready: () => false,
+      })
+    );
   const values = useSelector(form.store, (state) => state.values);
   const isSaving = useSelector(form.store, (state) => state.isSubmitting);
   const isLoadingPlugin = pluginLoader.state.meta.isSubmitting;
