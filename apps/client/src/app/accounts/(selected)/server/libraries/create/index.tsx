@@ -6,9 +6,6 @@ import { useReducer } from 'react';
 import type { Library } from '@repo/spec-api/domains/library/schema.ts';
 
 import { LibraryForm } from '#src/domains/library/components/library-form';
-import { LibraryFormTarget } from '#src/domains/library/components/library-form/target.ts';
-
-const createTarget = LibraryFormTarget.Create();
 
 export default function CreateLibraryScreen() {
   const [createdId, libraryCreated] = useReducer(
@@ -28,7 +25,7 @@ export default function CreateLibraryScreen() {
       <Stack.Screen.Title>Create Library</Stack.Screen.Title>
       <Host style={{ flex: 1 }}>
         <LibraryForm
-          target={createTarget}
+          id={Option.none()}
           submitLabel="Create library"
           onSaved={({ id }) => {
             libraryCreated(id);

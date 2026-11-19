@@ -8,7 +8,7 @@ import {
   SingleChoiceSegmentedButtonRow,
 } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, padding, size } from '@expo/ui/jetpack-compose/modifiers';
-import { Array, Match, Option, Record } from 'effect';
+import { Array, Match, Option } from 'effect';
 import type { ComponentProps } from 'react';
 
 import { FormLayout } from '#src/components/form/layout';
@@ -18,13 +18,16 @@ import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { useMaterialColors } from '#src/constants/material.ts';
 import { Spacing } from '#src/constants/theme.ts';
-import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
-import type { LibraryFormModel } from '#src/domains/library/components/library-form/model.tsx';
+import type {
+  LibraryFormComponent,
+  LibraryFormModel,
+} from '#src/domains/library/components/library-form/index.tsx';
 import {
   LibraryFormLoader,
-  pluginSourceOptions,
-} from '#src/domains/library/components/library-form/model.tsx';
-import { mediaTypeLabels } from '#src/domains/library/management.ts';
+  mediaTypeOptions,
+  sourceOptions,
+  useLibraryForm,
+} from '#src/domains/library/components/library-form/index.tsx';
 
 const SettingsSheetContent = ({
   form,
@@ -32,7 +35,7 @@ const SettingsSheetContent = ({
   onDone,
 }: {
   readonly form: LibraryFormModel['form'];
-  readonly fields: Option.Option.Value<LibraryFormModel['editedSettingsFields']>;
+  readonly fields: Option.Option.Value<LibraryFormModel['settingsSheet']>['fields'];
   readonly onDone: () => void | Promise<void>;
 }) => (
   <FormLayout
@@ -94,13 +97,13 @@ const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
         {(field) => (
           <>
             <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-              {Array.map(pluginSourceOptions, ([source, label]) => (
+              {Array.map(sourceOptions, ({ source, label }) => (
                 <SegmentedButton
                   key={source}
                   selected={field.state.value === source}
-                  enabled={model.canChoosePluginSource}
+                  enabled={model.canChooseSource}
                   onClick={() => {
-                    model.choosePluginSource({ source });
+                    field.handleChange(source);
                   }}>
                   <SegmentedButton.Label>
                     <Text>{label}</Text>
@@ -132,12 +135,12 @@ const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
           <SegmentedListItem
             index={0}
             count={1}
-            enabled={model.canOpenSettings}
+            enabled={model.settingsButton.enabled}
             onClick={() => {
               void model.openSettings();
             }}>
             <SegmentedListItem.HeadlineContent>
-              <Text>{model.settingsButtonLabel}</Text>
+              <Text>{model.settingsButton.label}</Text>
             </SegmentedListItem.HeadlineContent>
             <SegmentedListItem.TrailingContent>
               {model.isLoadingPlugin ? (
@@ -166,12 +169,14 @@ const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
   );
 };
 
-const LibraryFormFields = ({
-  model,
+const LoadedLibraryForm = ({
   title,
   submitLabel,
-}: ComponentProps<LibraryFormComponent> & { readonly model: LibraryFormModel }) => {
-  const { form, closeSettings } = model;
+  ...props
+}: ComponentProps<LibraryFormComponent> &
+  Pick<Parameters<typeof useLibraryForm>[0], 'initial'>) => {
+  const model = useLibraryForm(props);
+  const { form } = model;
   return (
     <form.AppForm>
       <FormLayout
@@ -199,7 +204,7 @@ const LibraryFormFields = ({
             <>
               <Text>Media type</Text>
               <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-                {Array.map(Record.toEntries(mediaTypeLabels), ([type, label]) => (
+                {Array.map(mediaTypeOptions, ({ type, label }) => (
                   <SegmentedButton
                     key={type}
                     selected={field.state.value === type}
@@ -218,10 +223,10 @@ const LibraryFormFields = ({
           )}
         </form.AppField>
       </FormLayout>
-      {Option.match(model.editedSettingsFields, {
+      {Option.match(model.settingsSheet, {
         onNone: () => null,
-        onSome: (fields) => (
-          <Sheet onDismissed={closeSettings}>
+        onSome: ({ fields, close }) => (
+          <Sheet onDismissed={close}>
             {({ dismiss }) => <SettingsSheetContent form={form} fields={fields} onDone={dismiss} />}
           </Sheet>
         ),
@@ -232,6 +237,6 @@ const LibraryFormFields = ({
 
 export const LibraryForm = ((props) => (
   <LibraryFormLoader {...props}>
-    {(model) => <LibraryFormFields {...props} model={model} />}
+    {(initial) => <LoadedLibraryForm {...props} initial={initial} />}
   </LibraryFormLoader>
 )) satisfies LibraryFormComponent;

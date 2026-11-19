@@ -11,7 +11,7 @@ import {
   tag,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
-import { Array, Match, Option, Record } from 'effect';
+import { Array, Match, Option } from 'effect';
 import type { ComponentProps } from 'react';
 
 import { FormLayout } from '#src/components/form/layout';
@@ -19,15 +19,18 @@ import { ListState } from '#src/components/list-state';
 import { Sheet } from '#src/components/sheet';
 import { Text } from '#src/components/text';
 import { Spacing } from '#src/constants/theme.ts';
-import type { LibraryFormComponent } from '#src/domains/library/components/library-form/index.tsx';
-import type { LibraryFormModel } from '#src/domains/library/components/library-form/model.tsx';
+import type {
+  LibraryFormComponent,
+  LibraryFormModel,
+} from '#src/domains/library/components/library-form/index.tsx';
 import {
   LibraryFormLoader,
-  pluginSourceOptions,
-} from '#src/domains/library/components/library-form/model.tsx';
-import { mediaTypeLabels } from '#src/domains/library/management.ts';
+  mediaTypeOptions,
+  sourceOptions,
+  useLibraryForm,
+} from '#src/domains/library/components/library-form/index.tsx';
 
-type SettingsField = Option.Option.Value<LibraryFormModel['editedSettingsFields']>[number];
+type SettingsField = Option.Option.Value<LibraryFormModel['settingsSheet']>['fields'][number];
 
 const SettingsField = ({
   form,
@@ -134,11 +137,9 @@ const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
             <Picker
               label="Provider"
               selection={field.state.value}
-              onSelectionChange={(source) => {
-                model.choosePluginSource({ source });
-              }}
-              modifiers={[pickerStyle('menu'), disabled(!model.canChoosePluginSource)]}>
-              {Array.map(pluginSourceOptions, ([source, label]) => (
+              onSelectionChange={field.handleChange}
+              modifiers={[pickerStyle('menu'), disabled(!model.canChooseSource)]}>
+              {Array.map(sourceOptions, ({ source, label }) => (
                 <Text key={source} modifiers={[tag(source)]}>
                   {label}
                 </Text>
@@ -163,12 +164,12 @@ const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
         )}
       </form.AppField>
       <Button
-        modifiers={[tint('primary'), disabled(!model.canOpenSettings)]}
+        modifiers={[tint('primary'), disabled(!model.settingsButton.enabled)]}
         onPress={() => {
           void model.openSettings();
         }}>
         <HStack>
-          <Text>{model.settingsButtonLabel}</Text>
+          <Text>{model.settingsButton.label}</Text>
           <Spacer />
           {model.isLoadingPlugin ? (
             <ProgressView />
@@ -180,7 +181,7 @@ const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
                 // An explicit style isn't dimmed by `disabled`, so it dims along with the row.
                 foregroundStyle({
                   type: 'hierarchical',
-                  style: model.canOpenSettings ? 'secondary' : 'quaternary',
+                  style: model.settingsButton.enabled ? 'secondary' : 'quaternary',
                 }),
               ]}
             />
@@ -191,12 +192,14 @@ const StorageSection = ({ model }: { readonly model: LibraryFormModel }) => {
   );
 };
 
-const LibraryFormFields = ({
-  model,
+const LoadedLibraryForm = ({
   title,
   submitLabel,
-}: ComponentProps<LibraryFormComponent> & { readonly model: LibraryFormModel }) => {
-  const { form, closeSettings } = model;
+  ...props
+}: ComponentProps<LibraryFormComponent> &
+  Pick<Parameters<typeof useLibraryForm>[0], 'initial'>) => {
+  const model = useLibraryForm(props);
+  const { form } = model;
   return (
     <form.AppForm>
       <FormLayout
@@ -223,7 +226,7 @@ const LibraryFormFields = ({
                 field.handleBlur();
               }}
               modifiers={[pickerStyle('menu'), disabled(model.isSaving)]}>
-              {Array.map(Record.toEntries(mediaTypeLabels), ([type, label]) => (
+              {Array.map(mediaTypeOptions, ({ type, label }) => (
                 <Text key={type} modifiers={[tag(type)]}>
                   {label}
                 </Text>
@@ -232,10 +235,10 @@ const LibraryFormFields = ({
           )}
         </form.AppField>
       </FormLayout>
-      {Option.match(model.editedSettingsFields, {
+      {Option.match(model.settingsSheet, {
         onNone: () => null,
-        onSome: (fields) => (
-          <Sheet onDismissed={closeSettings}>
+        onSome: ({ fields, close }) => (
+          <Sheet onDismissed={close}>
             {({ dismiss }) => <SettingsSheetContent form={form} fields={fields} onDone={dismiss} />}
           </Sheet>
         ),
@@ -246,6 +249,6 @@ const LibraryFormFields = ({
 
 export const LibraryForm = ((props) => (
   <LibraryFormLoader {...props}>
-    {(model) => <LibraryFormFields {...props} model={model} />}
+    {(initial) => <LoadedLibraryForm {...props} initial={initial} />}
   </LibraryFormLoader>
 )) satisfies LibraryFormComponent;

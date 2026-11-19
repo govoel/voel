@@ -1,5 +1,5 @@
 import type { MediaType } from '@govoel/plugins/library';
-import { Array, Effect, Match, Option, Record, Result, Stream } from 'effect';
+import { Array, Effect, Match, Option, Result, Schema, Stream } from 'effect';
 import { Atom, Reactivity } from 'effect/reactivity';
 
 import type { StoragePluginStatus } from '@repo/spec-api/domains/library/schema.ts';
@@ -44,15 +44,19 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
-/** Key order is display order. */
-export const mediaTypeLabels = {
-  movie: 'Movies',
-  show: 'TV shows',
-  audiobook: 'Audiobooks',
-} satisfies Record.ReadonlyRecord<typeof MediaType.Encoded, string>;
+/** Display order. */
+export const mediaTypes = ['movie', 'show', 'audiobook'] as const satisfies ReadonlyArray<
+  typeof MediaType.Encoded
+>;
 
 export const mediaTypeLabel = ({ type }: Pick<typeof Library.json.Encoded, 'type'>) =>
-  mediaTypeLabels[type];
+  Match.value(type).pipe(
+    Match.literalsExhaustive({
+      movie: () => 'Movies',
+      show: () => 'TV shows',
+      audiobook: () => 'Audiobooks',
+    })
+  );
 
 export const loadStoragePlugin = Effect.fnUntraced(function* ({
   account,
@@ -98,7 +102,7 @@ export const libraryFormAtom = Atom.family(
               storagePluginId: Library.jsonCreate.fields.storagePluginId.make('builtin:local'),
             });
             const firstSupportedType = Array.findFirst(
-              Record.keys(mediaTypeLabels),
+              mediaTypes,
               (type) => plugin.forms[type] !== void 0
             ).pipe(Option.getOrElse(() => 'movie' as const));
             return {
@@ -157,19 +161,26 @@ export const deleteLibrary = Effect.fnUntraced(
   Reactivity.mutation(['library'])
 );
 
-export const storageSourceLabels = {
-  'builtin:local': 'Local folders',
-  npm: 'Custom plugin',
-} as const;
+export const StorageSource = Schema.Literals(['builtin:local', 'npm']);
+
+export const storageSourceLabel = ({ source }: { readonly source: typeof StorageSource.Type }) =>
+  Match.value(source).pipe(
+    Match.literalsExhaustive({
+      'builtin:local': () => 'Local folders',
+      npm: () => 'Custom plugin',
+    })
+  );
 
 export const storageProviderLabel = ({
   storagePluginId,
 }: Pick<typeof Library.json.Type, 'storagePluginId'>) =>
-  Match.value(storagePluginId).pipe(
-    Match.when('builtin:local', () => storageSourceLabels['builtin:local']),
-    Match.when(NpmPluginId.is, () => storageSourceLabels.npm),
-    Match.exhaustive
-  );
+  storageSourceLabel({
+    source: Match.value(storagePluginId).pipe(
+      Match.when('builtin:local', () => 'builtin:local' as const),
+      Match.when(NpmPluginId.is, () => 'npm' as const),
+      Match.exhaustive
+    ),
+  });
 
 export const storageStatusLabel = ({
   status,
