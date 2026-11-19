@@ -276,7 +276,7 @@ const libraryFormAtom = Atom.family(
           onNone: () => Effect.succeedNone,
           onSome: (libraryId) =>
             get
-              .resultOnce(serverLibraryAtom({ account, id: libraryId }), {
+              .result(serverLibraryAtom({ account, id: libraryId }), {
                 suspendOnWaiting: true,
               })
               .pipe(Effect.asSome),
@@ -291,7 +291,7 @@ const libraryFormAtom = Atom.family(
             storagePluginId,
           ]),
           (pluginId) =>
-            get.resultOnce(storagePluginFormsAtom({ account, id, storagePluginId: pluginId })).pipe(
+            get.result(storagePluginFormsAtom({ account, id, storagePluginId: pluginId })).pipe(
               Effect.option,
               Effect.map((forms) => ({ storagePluginId: pluginId, forms }))
             ),
@@ -335,9 +335,13 @@ export const useLibraryForm = ({
   const registry = useContext(RegistryContext);
   const formsAtom = (storagePluginId: StoragePluginId) =>
     storagePluginFormsAtom({ account, id, storagePluginId });
-  const [requested, request] = useReducer(
+  const [userRequested, request] = useReducer(
     (current: HashSet.HashSet<StoragePluginId>, storagePluginId: StoragePluginId) =>
       HashSet.add(current, storagePluginId),
+    HashSet.empty<StoragePluginId>()
+  );
+  const requested = HashSet.union(
+    userRequested,
     HashSet.fromIterable(Array.map(initial.plugins, ({ storagePluginId }) => storagePluginId))
   );
   const [isEditingSettings, setIsEditingSettings] = useState(false);

@@ -72,7 +72,7 @@ vi.mock('#src/domains/library/management.ts', async (importOriginal) => {
     ),
     storagePluginFormsAtom: Atom.family(
       (request: Parameters<typeof original.storagePluginFormsAtom>[0]) =>
-        Atom.make(effect.suspend(() => api.loadPlugin(request))).pipe(Atom.setIdleTTL('5 minutes'))
+        Atom.make(effect.suspend(() => api.loadPlugin(request)))
     ),
     createLibrary: api.create,
     updateLibrary: api.update,
@@ -307,6 +307,12 @@ const roots = ({ initialValue }: { readonly initialValue: ReadonlyArray<string> 
   } as const,
 ];
 const decodeForms = StoragePluginSettingsForms.decodeEffect;
+const savedForms = ({ directory }: { readonly directory: string }) =>
+  decodeForms({
+    audiobook: roots({ initialValue: [directory] }),
+    movie: roots({ initialValue: [directory] }),
+    show: roots({ initialValue: [directory] }),
+  });
 const savedLibrary = Effect.fnUntraced(function* ({
   name,
   type,
@@ -526,7 +532,6 @@ describe.each([
     expect(screen.getByRole('button', { name: 'Create library' })).toBeDisabled();
     await fireEvent.changeText(screen.getByLabelText('Package'), 'voel-storage-s3');
     await fireEvent.changeText(screen.getByLabelText('Bucket'), 'films');
-    expect(npmLoads()).toHaveLength(1);
 
     await submit({ label: 'Create library' });
     await waitFor(() => {
@@ -570,7 +575,6 @@ describe.each([
     expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
     await fireEvent.changeText(screen.getByLabelText('Provider'), 'npm');
     expect(screen.getByLabelText('Bucket')).toHaveDisplayValue('films');
-    expect(npmLoads()).toHaveLength(1);
   });
 
   it('shows why a plugin can’t be loaded, and keeps the others usable', async () => {
@@ -652,6 +656,20 @@ describe.each([
         params: { id: libraryId },
       });
     });
+  });
+
+  it('reopens with the latest saved settings', async () => {
+    api.loadPlugin.mockReturnValue(savedForms({ directory: '/media/films' }));
+    const { rerender } = await renderScreen({ content: <EditLibraryScreen /> });
+    await submit({ label: 'Storage settings' });
+    expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/films');
+
+    await rerender(<View />);
+    await act(async () => Effect.runPromise(Effect.yieldNow));
+    api.loadPlugin.mockReturnValue(savedForms({ directory: '/media/movies' }));
+    await rerender(<EditLibraryScreen />);
+    await submit({ label: 'Storage settings' });
+    expect(screen.getByLabelText('Directories 1')).toHaveDisplayValue('/media/movies');
   });
 
   it('flags a saved media type the plugin no longer supports', async () => {

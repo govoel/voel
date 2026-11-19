@@ -74,11 +74,7 @@ export const storagePluginFormsAtom = Atom.family(
           payload: { id, storagePluginId },
         });
       })
-    ).pipe(
-      Atom.withReactivity(['library']),
-      Atom.setIdleTTL('5 minutes'),
-      Atom.withLabel('storagePluginFormsAtom')
-    )
+    ).pipe(Atom.withReactivity(['library']), Atom.withLabel('storagePluginFormsAtom'))
 );
 
 export const createLibrary = Effect.fnUntraced(
