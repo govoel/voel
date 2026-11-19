@@ -40,8 +40,6 @@ import type { Context, ReactNode } from 'react';
 
 const tanStackFormHookContexts = createFormHookContexts();
 
-// TanStack's `form.reset` notifies no listeners, so bumping this signal is what clears every
-// submission error of the form, including the ones of its groups.
 const formResetSignal = Atom.family((_form: AnyFormApi) => Atom.make(0));
 
 const makeSubmissionError = (form: AnyFormApi) =>
@@ -320,8 +318,6 @@ export const createEffectSchemaFormHook = <
     const standardSchema =
       options.schema === void 0 ? void 0 : Schema.toStandardSchemaV1(options.schema);
 
-    // The atom families below key on the form. Effect hashes and compares object keys structurally,
-    // which would walk the whole form, so the form is marked to be keyed by reference instead.
     const form = Equal.byReferenceUnsafe(
       useTanStackAppForm({
         ...props,

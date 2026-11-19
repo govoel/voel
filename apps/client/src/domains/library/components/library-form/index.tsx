@@ -171,7 +171,6 @@ const StorageStatus = Data.taggedEnum<StorageStatus>();
 
 const isReady = StorageStatus.$is('Ready');
 
-/** Whether the chosen plugin's settings for the chosen media type can be edited and saved. */
 const storageStatus = ({
   storagePluginId,
   type,
@@ -181,7 +180,6 @@ const storageStatus = ({
   readonly storagePluginId: StoragePluginId;
   readonly type: typeof MediaType.Encoded;
   readonly plugin: typeof PluginLoad.Type;
-  /** Why the chosen plugin couldn't be loaded. */
   readonly loadError: Option.Option<string>;
 }) => {
   const notLoaded = () =>
@@ -317,7 +315,6 @@ export const useLibraryForm = ({
     },
     listeners: {
       onChange: ({ fieldApi, formApi }) => {
-        // Local folders are built in, so choosing them loads them right away.
         if (
           fieldApi.name === 'pluginChoice.source' &&
           formApi.state.values.pluginChoice.source === 'builtin:local' &&
@@ -346,7 +343,6 @@ export const useLibraryForm = ({
     },
   });
   const pluginLoadError = useAtomValue(pluginLoader.submissionError);
-  // Unlike a failed load, which clears once the choice changes, this is part of the saved library.
   const savedPluginLoadError = Option.map(Result.getFailure(initial.plugin), (error) =>
     libraryFailureMessage({ error })
   );

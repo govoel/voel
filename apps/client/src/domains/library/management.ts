@@ -44,7 +44,6 @@ export const serverLibraryAtom = Atom.family(
     )
 );
 
-/** Display order. */
 export const mediaTypes = ['movie', 'show', 'audiobook'] as const satisfies ReadonlyArray<
   typeof MediaType.Encoded
 >;

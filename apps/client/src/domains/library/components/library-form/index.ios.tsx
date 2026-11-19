@@ -142,7 +142,6 @@ const LoadedLibraryForm = ({
                     name="chevron.right"
                     modifiers={[
                       font({ textStyle: 'footnote', weight: 'semibold' }),
-                      // An explicit style isn't dimmed by `disabled`, so it dims along with the row.
                       foregroundStyle({
                         type: 'hierarchical',
                         style: model.settingsButton.enabled ? 'secondary' : 'quaternary',
