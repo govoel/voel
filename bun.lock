@@ -10,7 +10,7 @@
         "agent-browser": "0.42.0",
         "agent-device": "0.21.36",
         "bun-types": "1.4.4",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
         "eslint-plugin-sql": "3.4.1",
         "eslint-plugin-turbo": "2.11.11",
         "opensrc": "0.7.3",
@@ -26,7 +26,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/expo": "1.7.21",
-        "@effect/atom-react": "4.1.4",
+        "@effect/atom-react": "4.1.5",
         "@expo-google-fonts/google-sans": "0.4.4",
         "@expo/material-symbols": "0.1.1",
         "@expo/ui": "~58.0.28",
@@ -36,7 +36,7 @@
         "@repo/spec-api": "workspace:*",
         "@tanstack/react-form": "1.33.5",
         "better-auth": "1.7.21",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
         "expo": "~58.0.24",
         "expo-build-properties": "~58.0.12",
         "expo-constants": "~58.0.16",
@@ -62,8 +62,8 @@
         "react-native-worklets": "0.13.0",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.1.4",
-        "@effect/vitest": "4.1.4",
+        "@effect/platform-bun": "4.1.5",
+        "@effect/vitest": "4.1.5",
         "@govoel/plugins": "workspace:*",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@repo/effect-atom-devtools-rozenite": "workspace:*",
@@ -85,16 +85,16 @@
       "name": "@repo/server",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/platform-bun": "4.1.4",
+        "@effect/platform-bun": "4.1.5",
         "@govoel/plugins": "workspace:*",
         "@govoel/turso-database": "0.8.3",
         "@repo/auth-api": "workspace:*",
         "@repo/effect-turso": "workspace:*",
         "@repo/spec-api": "workspace:*",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
-        "@effect/vitest": "4.1.4",
+        "@effect/vitest": "4.1.5",
         "@repo/effect-turso-sync-bun": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
@@ -109,7 +109,7 @@
       "dependencies": {
         "@better-auth/expo": "1.7.21",
         "better-auth": "1.7.21",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -121,10 +121,10 @@
       "name": "@repo/effect-atom-devtools-core",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
-        "@effect/vitest": "4.1.4",
+        "@effect/vitest": "4.1.5",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
         "typescript": "7.0.2",
@@ -135,15 +135,15 @@
       "name": "@repo/effect-atom-devtools-rozenite",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/atom-react": "4.1.4",
+        "@effect/atom-react": "4.1.5",
         "@repo/effect-atom-devtools-core": "workspace:*",
         "@rozenite/agent-shared": "2.6.0",
         "@rozenite/plugin-bridge": "2.6.0",
         "@rozenite/ui": "2.6.0",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
-        "@effect/vitest": "4.1.4",
+        "@effect/vitest": "4.1.5",
         "@repo/tsconfig": "workspace:*",
         "@rozenite/vite-plugin": "2.6.0",
         "@types/react": "~19.3.0",
@@ -162,11 +162,11 @@
       "version": "0.0.0",
       "dependencies": {
         "@govoel/turso-database": "0.8.3",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.1.4",
-        "@effect/vitest": "4.1.4",
+        "@effect/platform-bun": "4.1.5",
+        "@effect/vitest": "4.1.5",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
         "typescript": "7.0.2",
@@ -177,7 +177,7 @@
       "name": "@repo/effect-turso-sync",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -192,11 +192,11 @@
         "@repo/effect-turso-sync": "workspace:*",
         "@tursodatabase/database-common": "0.8.3",
         "@tursodatabase/sync": "0.8.3",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.1.4",
-        "@effect/vitest": "4.1.4",
+        "@effect/platform-bun": "4.1.5",
+        "@effect/vitest": "4.1.5",
         "@repo/effect-turso": "workspace:*",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
@@ -210,7 +210,7 @@
       "dependencies": {
         "@repo/effect-turso-sync": "workspace:*",
         "@tursodatabase/sync-react-native": "0.8.3",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -222,15 +222,15 @@
       "name": "@govoel/plugins",
       "version": "0.0.0",
       "devDependencies": {
-        "@effect/vitest": "4.1.4",
+        "@effect/vitest": "4.1.5",
         "@repo/tsconfig": "workspace:*",
         "bun-types": "1.4.4",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
         "typescript": "7.0.2",
         "vitest": "5.1.0",
       },
       "peerDependencies": {
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
     },
     "packages/spec-api": {
@@ -239,7 +239,7 @@
       "dependencies": {
         "@govoel/plugins": "workspace:*",
         "@repo/auth-api": "workspace:*",
-        "effect": "4.1.4",
+        "effect": "4.1.5",
       },
       "devDependencies": {
         "@repo/tsconfig": "workspace:*",
@@ -435,11 +435,11 @@
 
     "@clack/prompts": ["@clack/prompts@0.11.0", "", { "dependencies": { "@clack/core": "0.5.0", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.1.4", "", { "peerDependencies": { "effect": "^4.1.4", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-Xj58DcAzKsysHhzBCPaz2v1QAJq6NvMdGVmG7SV4zkw1RMiTZv8gaOXA1VqIRlpmvdspMwRe/BQ4eayuzRZTpQ=="],
+    "@effect/atom-react": ["@effect/atom-react@4.1.5", "", { "peerDependencies": { "effect": "^4.1.5", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-7bFJUOa4hatIE4LD4EmuOSS7+jNniZxaltX3TRExBCYAFqMd6vjZs9G/Ez3u24oUaJnkschmjfG3EwVzzebgig=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.1.4", "", { "dependencies": { "@effect/platform-node-shared": "4.1.4" }, "peerDependencies": { "effect": "^4.1.4" } }, "sha512-Vdq82GOrD5HVF43aXVwHeX+4uIOrgAnjju9MEyizzFZ3yt3A6x9prtmHej1q/zAOaeNddtkpPr2ExHEvZ13S6Q=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.1.5", "", { "dependencies": { "@effect/platform-node-shared": "4.1.5" }, "peerDependencies": { "effect": "^4.1.5" } }, "sha512-VzUugWhIKQSWp/xtFrYIrCISDcUXWrCFfxSkqg8ul0DZgo23WRqfz+38Y3mJ2NenUv5kUj14FnjLohm2t8ZGCw=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.4", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.22.1" }, "peerDependencies": { "effect": "^4.1.4" } }, "sha512-DWdfphHGOFJNj/mYadgpT3jIm8aRXDcPrQiGXFBH4p2H4XmA7iYMrPsI8NxVgZ7kNX0q1+FGJZJama0tINHRAg=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.5", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.23.0" }, "peerDependencies": { "effect": "^4.1.5" } }, "sha512-JzlrYe4uKaBFTWihBRXo2pDjkUVB39kQpKdGfXdbp7Co5sKT8hbcjOmdB5pg/WOYESdGTddd3fxD4lwlZELbZQ=="],
 
     "@effect/tsgo": ["@effect/tsgo@0.68.1", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.68.1", "@effect/tsgo-darwin-x64": "0.68.1", "@effect/tsgo-linux-arm": "0.68.1", "@effect/tsgo-linux-arm64": "0.68.1", "@effect/tsgo-linux-x64": "0.68.1", "@effect/tsgo-win32-arm64": "0.68.1", "@effect/tsgo-win32-x64": "0.68.1" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-/5zgc4EzB3ca9w8M09C8hNZcKChWVw29lIiBGfeLAz+TYFUETp2XqOSdT+GZIJlQlr0roFpQsdvJCq0RUPvNog=="],
 
@@ -457,7 +457,7 @@
 
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.68.1", "", { "os": "win32", "cpu": "x64" }, "sha512-HjvFHWpyyAIJ1yozzi8PCPo2KOZ4tCjyFCxgWhNOH4hmvbKtLFBl/Iw6t6LtIbeOkdDDkGLD2Q3lxmLRKE7hgw=="],
 
-    "@effect/vitest": ["@effect/vitest@4.1.4", "", { "peerDependencies": { "effect": "^4.1.4", "vitest": ">=5.0.0 <6.0.0" } }, "sha512-AKpZ6zKihCRhY7hDbiQ2yp/krw+afIkxDRjFMwwzMiyhd0iYk0WaHa9J6GGC7TUF/C7HP2dZyMVq5xC0Qm/2/g=="],
+    "@effect/vitest": ["@effect/vitest@4.1.5", "", { "peerDependencies": { "effect": "^4.1.5", "vitest": ">=5.0.0 <6.0.0" } }, "sha512-18u1013wkJtSelk1ZYLc/5aUnluTQyDfi2hAemkJW1GQ9qXw4mtPSiSf0AXZPhesmGCvG1Dk2C4JYD2sz+R72w=="],
 
     "@electron-internal/extract-zip": ["@electron-internal/extract-zip@1.0.8", "", {}, "sha512-8iajeLFbzNwM0m3AsQZSZgYREWglAImyGvvFSWU34FgMW8sHlzdwj9QKvv9dgN7jMP591EFUF/sLOC3Jl9YIjQ=="],
 
@@ -1345,7 +1345,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.1.4", "", {}, "sha512-Tgrv/9FN+TZYyOn8XSli+fVqAfwDrDAkiX5Uu9vztINb675VTQdhD0gWI5Kzvhlh9QqzjZvw72iugqw5pwoghQ=="],
+    "effect": ["effect@4.1.5", "", {}, "sha512-xyR20KhQI0vg2gD8ILUSQRTTESEYJ0JKdP+QD8J37xbwPTqXRxFM/l0+vUVD9fuSvoYruoTqyt33C4FZv1s4TQ=="],
 
     "ejs": ["ejs@3.1.10", "", { "dependencies": { "jake": "^10.8.5" }, "bin": { "ejs": "bin/cli.js" } }, "sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA=="],
 
@@ -2165,7 +2165,7 @@
 
     "@babel/plugin-transform-runtime/semver": ["semver@6.3.2", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-GYrCADwpu6yV5OAvchkQ27Z5wwMxWAEMg5NNWjyHh/5DboFFqbdbvYNIvZouQpxXyeMPoTOh0vdPYKlf0ZswdQ=="],
 
-    "@effect/platform-node-shared/ws": ["ws@8.22.2", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-/rEZ2ejown2N5gxVTHUu9bVVC7ttu0/Tgzf5hbTOixR3Fs7mbbXgn2DbdbcKgJOmpQMtrIUWivtYuVMnp/W/yA=="],
+    "@effect/platform-node-shared/ws": ["ws@8.23.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-wCkmX8QMOrKjgO8HW2WyDbTSGeqkocxgDzS9iR79rEAexty6/2qzilx3Ag8Tqf9ykop3irLKle0MtVn5qjVnoQ=="],
 
     "@eslint-community/eslint-utils/eslint-visitor-keys": ["eslint-visitor-keys@3.4.3", "", {}, "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="],
 
