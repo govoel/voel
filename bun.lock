@@ -190,8 +190,8 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/effect-turso-sync": "workspace:*",
-        "@tursodatabase/database-common": "0.8.3",
-        "@tursodatabase/sync": "0.8.3",
+        "@tursodatabase/database-common": "0.8.4",
+        "@tursodatabase/sync": "0.8.4",
         "effect": "4.1.4",
       },
       "devDependencies": {
@@ -209,7 +209,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/effect-turso-sync": "workspace:*",
-        "@tursodatabase/sync-react-native": "0.8.3",
+        "@tursodatabase/sync-react-native": "0.8.4",
         "effect": "4.1.4",
       },
       "devDependencies": {
@@ -254,7 +254,6 @@
   },
   "patchedDependencies": {
     "eslint-plugin-sql@3.4.1": "patches/eslint-plugin-sql@3.4.1.patch",
-    "@tursodatabase/sync-react-native@0.8.3": "patches/@tursodatabase%2Fsync-react-native@0.8.3.patch",
   },
   "packages": {
     "2g": ["2g@1.0.1", "", { "peerDependencies": { "typescript": ">=5.8.0" }, "optionalPeers": ["typescript"], "bin": { "2g": "bin/cli.js" } }, "sha512-+uViadKOS/wwR4pFu5g8TPn3QHpKqoX19JHCnp8k/3cLpImdcXozwvZA6Q/5PeW3AcU8neL8faaMidBcv7o8CA=="],
@@ -1049,23 +1048,23 @@
 
     "@turbo/windows-arm64": ["@turbo/windows-arm64@2.11.11", "", { "os": "win32", "cpu": "arm64" }, "sha512-LURivfmgv34Osm8NR1gZGx4vdlux9KAgRM+FoooXNG0838ff0+akWZ76iPSke0NS2rsf7Z4Gw+YSaygzNTZuRA=="],
 
-    "@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.3", "", {}, "sha512-T8sMfSnRjgGzKMDVkSg0lh1Jh6dDtTWzjYFK0ZJHtKzr+zs69a7Igo4Z+sxfh+rk9gEqn2njLgRYfpMEghMVMw=="],
+    "@tursodatabase/database-common": ["@tursodatabase/database-common@0.8.4", "", {}, "sha512-7GguqHmnZjnEzflnstsyT9boWOEi3huyeFusBS/xHnQ6OV1kYyA6ONamL9Xqsz9qQlNO9WaMmtxMiYvMiLoqeA=="],
 
     "@tursodatabase/serverless": ["@tursodatabase/serverless@0.2.4", "", {}, "sha512-kqf3FINvTGx8N1iH/4e1Dkbr/om5q9qitshzvljtQXwZFQIsVP/mDE76mGg9U2dg/ElOZKFKtT1VXDgd39Dr1w=="],
 
-    "@tursodatabase/sync": ["@tursodatabase/sync@0.8.3", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.3", "@tursodatabase/sync-common": "^0.8.3" }, "optionalDependencies": { "@tursodatabase/sync-darwin-arm64": "0.8.3", "@tursodatabase/sync-linux-arm64-gnu": "0.8.3", "@tursodatabase/sync-linux-x64-gnu": "0.8.3", "@tursodatabase/sync-win32-x64-msvc": "0.8.3" } }, "sha512-NB7lgKHNBDmeotjdv9jsfZ7OtAdHztHy6/ut5NBxsAKhoA4d8IJsRA8+X/TpDKyZ4xfQPDPaIPPWnSQEm4wChg=="],
+    "@tursodatabase/sync": ["@tursodatabase/sync@0.8.4", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.4", "@tursodatabase/sync-common": "^0.8.4" }, "optionalDependencies": { "@tursodatabase/sync-darwin-arm64": "0.8.4", "@tursodatabase/sync-linux-arm64-gnu": "0.8.4", "@tursodatabase/sync-linux-x64-gnu": "0.8.4", "@tursodatabase/sync-win32-x64-msvc": "0.8.4" } }, "sha512-DffQhICZx4difoRrcnhDubuZ7hZIEoSj+F7YV2EfyTm34j0orD2p8MXgLlENp4Zzg9wuJDGiu6wo4WzdgLIb9A=="],
 
-    "@tursodatabase/sync-common": ["@tursodatabase/sync-common@0.8.3", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.3", "@tursodatabase/serverless": "^0.2.2" } }, "sha512-y8a3f3+AzenDD1uY6+iGNf3hpj8CtdJ/sfXCJXSW+bOJyFgqV68WsRzZZqy6fU3ua7wJ+yRRqNJJr31kfQ8wsw=="],
+    "@tursodatabase/sync-common": ["@tursodatabase/sync-common@0.8.4", "", { "dependencies": { "@tursodatabase/database-common": "^0.8.4", "@tursodatabase/serverless": "^0.2.2" } }, "sha512-7w4E2aCbVxaBvyvc36PepqHupO02QDPRyI2mKttjz0mz/9Mk3mMj3UcXmaWnsIrxxIrtjrGw6NwuCGh1nt2GdA=="],
 
-    "@tursodatabase/sync-darwin-arm64": ["@tursodatabase/sync-darwin-arm64@0.8.3", "", { "os": "darwin", "cpu": "arm64" }, "sha512-G6ZOmF5+K7CYVA4Wn+jlQ22H6tqI5GdRu1DWt1J0q3u3H6ORiEJlyfguKTTI6iaJFh8miLm5Gjp3qy8hKFIN7g=="],
+    "@tursodatabase/sync-darwin-arm64": ["@tursodatabase/sync-darwin-arm64@0.8.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-zynIkHLvnlS7VfvfuMkHKk72NXAFEANK2O1bNFMtkigzI9MDS+EEiqXrGr9RZvB3YQSOVh7Cs7V6gpWP+5EMig=="],
 
-    "@tursodatabase/sync-linux-arm64-gnu": ["@tursodatabase/sync-linux-arm64-gnu@0.8.3", "", { "os": "linux", "cpu": "arm64", "libc": "glibc" }, "sha512-B/8c8ZqJCi9oe5yoghYRVkg8DYEHlIKn1t7Kh02hAWYRqc3FqNR7YxSG+kOV+evfk1QSAO0XVXGnoe6/dO3XEg=="],
+    "@tursodatabase/sync-linux-arm64-gnu": ["@tursodatabase/sync-linux-arm64-gnu@0.8.4", "", { "os": "linux", "cpu": "arm64", "libc": "glibc" }, "sha512-OZ2qUvu8LTxad1gLF/iZlu4tFdgh+7GVU5Swa3G5q7q1MyKwDj2eUrlavcyCdpMFOQhWEwdDVFGQwl/MOOkslQ=="],
 
-    "@tursodatabase/sync-linux-x64-gnu": ["@tursodatabase/sync-linux-x64-gnu@0.8.3", "", { "os": "linux", "cpu": "x64", "libc": "glibc" }, "sha512-WMqSQRuGwNKVjSF4Ktik9Om+D6hpVPSMhzu+/+WfASVCCHKXkYjr9hP4DRx4bmFXHl/VWhOffw+hFLJ4t1DneA=="],
+    "@tursodatabase/sync-linux-x64-gnu": ["@tursodatabase/sync-linux-x64-gnu@0.8.4", "", { "os": "linux", "cpu": "x64", "libc": "glibc" }, "sha512-J9nSB++TRoGfSISSa+wyzdP7c67XyhXH+BJfhwXJBQYXLBBa0aV3ej45vlGWqj2ibXM/anBhtEO7rXELy/2MDQ=="],
 
-    "@tursodatabase/sync-react-native": ["@tursodatabase/sync-react-native@0.8.3", "", { "dependencies": { "@babel/runtime": "^7.25.0" }, "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.76.0" } }, "sha512-JuWqH1jXb5eIsaP6LVhTvJjbJfphsE3F2ZQ1YdA+eL8hDiEab+thh1r1NcfAfHp2J2oyv6o8EtPLnwRv/ELvUA=="],
+    "@tursodatabase/sync-react-native": ["@tursodatabase/sync-react-native@0.8.4", "", { "dependencies": { "@babel/runtime": "^7.25.0" }, "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.76.0" } }, "sha512-zamE6rslVvu4CqsEtyld/slayGc2mh4Fx8yYvw/SGn8X9jE+W0Mijh07c8PaxlPEn/gy3mwIaOGsX7/DR6D6vw=="],
 
-    "@tursodatabase/sync-win32-x64-msvc": ["@tursodatabase/sync-win32-x64-msvc@0.8.3", "", { "os": "win32", "cpu": "x64" }, "sha512-2AJ5uLke0OY1shxtCp7UZebCgNR51aW33J1HvjUwmszd6Z7e1FApwNX9RK1Hj6yEJBlz9j8NdUtGCgGS4s3JNQ=="],
+    "@tursodatabase/sync-win32-x64-msvc": ["@tursodatabase/sync-win32-x64-msvc@0.8.4", "", { "os": "win32", "cpu": "x64" }, "sha512-FSCeABIISKA8usL8JoKi8JvgjP7rVc6Brb9ab29aUKC+ukilFqh90R/HiolRLXDZ5Woi/Yz2ecnXSquL1YkJqQ=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.4", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A=="],
 
