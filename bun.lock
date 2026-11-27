@@ -7,7 +7,7 @@
       "devDependencies": {
         "@effect/tsgo": "0.68.1",
         "@oxlint/plugins": "1.93.0",
-        "agent-browser": "0.42.0",
+        "agent-browser": "0.44.0",
         "agent-device": "0.21.36",
         "bun-types": "1.4.4",
         "effect": "4.1.4",
@@ -258,6 +258,20 @@
   },
   "packages": {
     "2g": ["2g@1.0.1", "", { "peerDependencies": { "typescript": ">=5.8.0" }, "optionalPeers": ["typescript"], "bin": { "2g": "bin/cli.js" } }, "sha512-+uViadKOS/wwR4pFu5g8TPn3QHpKqoX19JHCnp8k/3cLpImdcXozwvZA6Q/5PeW3AcU8neL8faaMidBcv7o8CA=="],
+
+    "@agent-browser/cli-darwin-arm64": ["@agent-browser/cli-darwin-arm64@0.44.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-wI2TZs5jCQsldRougSJiXzafsvXQJuKY6Jb/Q9euT/1CBfr926ev10K1SOAkEDRIIuJW4a894LN5wrhRDk+wlQ=="],
+
+    "@agent-browser/cli-darwin-x64": ["@agent-browser/cli-darwin-x64@0.44.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-Y/oun8VYYGqCjItCrXztwF2AZM4VvjYd8dnGjUl22QKr3+J0jqhWiOVkC+cpWvzyHoV9CypMwjwW8tuCGJzOiw=="],
+
+    "@agent-browser/cli-linux-arm64-gnu": ["@agent-browser/cli-linux-arm64-gnu@0.44.0", "", { "os": "linux", "cpu": "arm64", "libc": "glibc" }, "sha512-/sE4wYAy+UskWTaktVruDT4Xfv9e2beMo2y3TLXtpNsBFmI47JdSUeWBHIS1DkBrP1QhinrNdWxcLz9PWjHt3w=="],
+
+    "@agent-browser/cli-linux-arm64-musl": ["@agent-browser/cli-linux-arm64-musl@0.44.0", "", { "os": "linux", "cpu": "arm64", "libc": "musl" }, "sha512-0+TCqRf1frUrrGHEyWh7tWvNB3O1wUJVju7JSVC7dItLvKAn4h8Vxqp/gXodEGchqiRdw1T2Loa2CKBa+c0Nug=="],
+
+    "@agent-browser/cli-linux-x64-gnu": ["@agent-browser/cli-linux-x64-gnu@0.44.0", "", { "os": "linux", "cpu": "x64", "libc": "glibc" }, "sha512-3CzMurofm16tQ18mEKe/YLOZGVSDpInhILlccDrkd72en/KccQnFYzw4Pid/u2Nq6tL6ufT/5pyaJGzfHhyuwA=="],
+
+    "@agent-browser/cli-linux-x64-musl": ["@agent-browser/cli-linux-x64-musl@0.44.0", "", { "os": "linux", "cpu": "x64", "libc": "musl" }, "sha512-c1/JWPXG+g859WcCXrpgOFCD9Tig1+2a/jwOeEKYSBIFNwnmi1q7inR7oTFd1euWhELoMy0ovO19Ae2p/UAJOw=="],
+
+    "@agent-browser/cli-win32-x64-msvc": ["@agent-browser/cli-win32-x64-msvc@0.44.0", "", { "os": "win32", "cpu": [ "x64", "arm64", ] }, "sha512-S+Vs7mTXpjwLBSdA6ZzESLavQ5saiijaNWQfYN9yoVsQ2aYOKnu5zkZIxsaWjjJ1Too6pylR3g0ijLaTWZYjkQ=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
@@ -1179,7 +1193,7 @@
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
-    "agent-browser": ["agent-browser@0.42.0", "", { "hasInstallScript": true, "bin": { "agent-browser": "./bin/agent-browser.js" } }, "sha512-4njBSXKDH75hu+xSOJE4msKFQPIrwcyREFgr/tfDWQ4+vWiibNvEbxA5cH3cbAFG3vJa9vhGCPV2fLp5Py6NzA=="],
+    "agent-browser": ["agent-browser@0.44.0", "", { "optionalDependencies": { "@agent-browser/cli-darwin-arm64": "0.44.0", "@agent-browser/cli-darwin-x64": "0.44.0", "@agent-browser/cli-linux-arm64-gnu": "0.44.0", "@agent-browser/cli-linux-arm64-musl": "0.44.0", "@agent-browser/cli-linux-x64-gnu": "0.44.0", "@agent-browser/cli-linux-x64-musl": "0.44.0", "@agent-browser/cli-win32-x64-msvc": "0.44.0" }, "hasInstallScript": true, "bin": { "agent-browser": "./bin/agent-browser.js" } }, "sha512-OIrY/BlPwdg8XB9rzEbBuDva0S/lQmQBCW735y+B80kDvZ8CDQsuYV8i6hmUr70qIZeTyjd74aymlUzHKbvO4Q=="],
 
     "agent-cli-detector": ["agent-cli-detector@0.1.7", "", { "bin": { "agent-cli-detector": "dist/cli.js" } }, "sha512-d8OWDVdZMgjhLUT9ZPgSv/BdFFF9pVuscC0JdUSz3bjwE15gcp6u/o0/JooM2yyAWC49KThFhXlgTXRa9B7yng=="],
 

@@ -19,7 +19,7 @@
   "devDependencies": {
     "@effect/tsgo": "0.68.1",
     "@oxlint/plugins": "1.93.0",
-    "agent-browser": "0.42.0",
+    "agent-browser": "0.44.0",
     "agent-device": "0.21.36",
     "bun-types": "1.4.4",
     "effect": "4.1.4",
